@@ -3,13 +3,16 @@ export function createApiFetcher(base, { fetcher = globalThis.fetch?.bind(global
   const api = new URL(base);
   if (api.protocol !== 'https:' || api.username || api.password || api.pathname !== '/' || api.search || api.hash) throw new Error('HTTPS API 원본 주소를 확인해 주세요.');
   if (!fetcher) throw new Error('친구 서버에 연결할 수 없어요.');
-  if (storage === undefined) { try { storage = globalThis.sessionStorage; } catch { storage = null; } }
+  const supplied = storage !== undefined;
+  let persistent, tab;
+  if (!supplied) { try { persistent=globalThis.localStorage;tab=globalThis.sessionStorage;storage=persistent?.getItem('suika-remember-login')==='false'?tab:persistent; } catch { storage = null; } }
   const key = `suika-garden-api-session-v1:${api.origin}`;
   const valid = value => typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value);
   let token = null;
   try { const saved = storage?.getItem(key); if (valid(saved)) token = saved; } catch {}
   function remember(value) {
     token = valid(value) ? value : null;
+    if(!supplied){try{persistent?.removeItem(key);tab?.removeItem(key);storage=persistent?.getItem('suika-remember-login')==='false'?tab:persistent;}catch{}}
     try { if (token) storage?.setItem(key, token); else storage?.removeItem(key); } catch {}
   }
   return async (path, init = {}) => {

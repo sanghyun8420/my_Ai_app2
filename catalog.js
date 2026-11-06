@@ -4,16 +4,26 @@ function catalog(entries) {
 
 export const SKIN_CATALOG = catalog([
   { id: 'classic', name: '과일', price: 0, description: '작은 체리부터 시크릿 과일까지, 귀여운 과일 정원.', icon: '🍉' },
-  { id: 'numbers', name: '숫자', price: 15, description: '입체 타일을 합쳐 2부터 16,384까지!', icon: '🔢' },
+  { id: 'numbers', name: '숫자', price: 15, description: '동그란 숫자 공을 합쳐 2부터 16,384까지!', icon: '🔢' },
   { id: 'candy', name: '캔디', price: 25, description: '반짝이는 포장지 속 소용돌이 사탕.', icon: '🍬' },
   { id: 'pastel', name: '파스텔', price: 20, description: '바느질 무늬가 담긴 포근한 봉제 열매.', icon: '🎨' },
   { id: 'pixel', name: '픽셀', price: 30, description: '작은 네모가 모인 추억 속 픽셀 과일.', icon: '👾' },
   { id: 'cat', name: '고양이', price: 35, description: '보드라운 털과 작은 방울 목걸이의 고양이.', icon: '🐱' },
   { id: 'ice', name: '얼음', price: 35, description: '맑은 얼음 속에서 반짝이는 시원한 열매.', icon: '🧊' },
   { id: 'neon', name: '네온', price: 40, description: '빛나는 회로가 흐르는 아케이드 구슬.', icon: '💡' },
-  { id: 'galaxy', name: '은하수', price: 50, description: '별과 은하를 품은 작은 우주를 합쳐요.', icon: '🌌' },
+  { id: 'galaxy', name: '행성', price: 50, description: '바위 행성부터 고리가 있는 거대한 행성까지.', icon: '🪐' },
   { id: 'gem', name: '크리스탈', price: 60, description: '투명한 면마다 빛이 흐르는 크리스탈 열매.', icon: '💎' },
   { id: 'mystery', name: '???', price: 999, description: '999개의 반짝임 뒤에 숨은 특별한 모습을 만나보세요.', icon: '❔' },
+  { id: 'cars', name: '차고의 전설', price: 100, description: '기아부터 부가티까지, 14가지 자동차 브랜드 배지.', icon: '🏎️' },
+  { id: 'dino', name: '쥬라기 정원', price: 80, description: '뿔, 볏, 발톱이 서로 다른 작은 공룡들.', icon: '🦖' },
+  { id: 'food', name: '야식 정원', price: 75, description: '도넛·초밥·피자·햄버거로 차리는 한 상.', icon: '🍔' },
+  { id: 'royalGem', name: '보석 광산', price: 9999, description: '합칠 때마다 보석 +1. 10단계 이상 보석을 합치면 +10.', icon: '💠' },
+]);
+
+export const HATS = catalog([
+  {id:'none',name:'맨머리',price:0,icon:'🙂'}, {id:'cap',name:'야구 모자',price:20,icon:'🧢'},
+  {id:'flower',name:'꽃 한 송이',price:35,icon:'🌼'}, {id:'wizard',name:'마법사',price:60,icon:'🧙'},
+  {id:'crown',name:'정원 왕관',price:100,icon:'👑'},
 ]);
 
 export const BACKGROUNDS = catalog([

@@ -1,4 +1,4 @@
-const MODES = new Set(['classic', 'apple', 'free', 'water', 'space']);
+const MODES = new Set(['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge']);
 const ROOM_CODE = /^[A-Z0-9]{6,10}$/;
 const USERNAME = /^[A-Za-z0-9_]{3,20}$/;
 
@@ -14,7 +14,7 @@ export class GardenSocial {
   constructor({
     onRoom = () => {}, onUser = () => {}, onError = () => {},
     onBeforeAccountChange = async () => {}, openDialog, getMode = () => 'classic',
-    fetcher, document: doc = globalThis.document, location = globalThis.location,
+    fetcher, getGame=()=> 'suika', document: doc = globalThis.document, location = globalThis.location,
     navigator = globalThis.navigator, clock = () => Date.now(),
   } = {}) {
     this.document = doc;
@@ -27,6 +27,7 @@ export class GardenSocial {
     this.onError = onError;
     this.onBeforeAccountChange = onBeforeAccountChange;
     this.getMode = getMode;
+    this.getGame=getGame;
     this.openDialog = openDialog || (id => { const dialog = this.$(id); if (dialog && !dialog.open) dialog.showModal(); });
     this.user = null;
     this.room = null;
@@ -207,13 +208,14 @@ export class GardenSocial {
     if (!USERNAME.test(username)) throw socialError('아이디는 영문·숫자·밑줄로 3~20자 입력해주세요.', 'INVALID_USERNAME');
     if (password.length < 8 || password.length > 128) throw socialError('비밀번호는 8~128자로 입력해주세요.', 'INVALID_PASSWORD');
     if (this._mode === 'register' && (!displayName || [...displayName].length > 16)) throw socialError('별명은 1~16자로 입력해주세요.', 'INVALID_NAME');
+    if(this._mode==='register'&&(!/[a-zA-Z]/.test(password)||!/[0-9]/.test(password)))throw socialError('비밀번호에 영문과 숫자를 각각 넣어 주세요.','WEAK_PASSWORD');
     this._authBusy = true;
     if (this.$('auth-submit')) this.$('auth-submit').disabled = true;
     this._feedback('auth-feedback', '계정을 확인하고 있어요…');
     try {
       await this.onBeforeAccountChange();
       const payload = await this._request(`/api/auth/${this._mode === 'register' ? 'register' : 'login'}`, {
-        method: 'POST', body: this._mode === 'register' ? { username, password, displayName } : { username, password },
+        method: 'POST', body: this._mode === 'register' ? { username, password, displayName,remember:this._remember() } : { username, password,remember:this._remember() },
       });
       this._acceptUser(payload);
       if (this.$('auth-password')) this.$('auth-password').value = '';
@@ -240,6 +242,8 @@ export class GardenSocial {
       this._feedback('auth-feedback', '로그아웃했어요. 기기에 저장한 보석과 스킨은 그대로예요.');
     } finally { this._authBusy = false; }
   }
+
+  _remember(){try{return globalThis.localStorage?.getItem('suika-remember-login')!=='false';}catch{return false;}}
 
   _requireUser() {
     if (this.user) return true;
@@ -374,6 +378,7 @@ export class GardenSocial {
     }
     return {
       id: String(value.id || ''), code: value.code, seed: value.seed >>> 0,
+      game:['suika','apple','blocks'].includes(value.game)?value.game:'suika',
       mode: MODES.has(value.mode) ? value.mode : 'classic', hostId: String(value.hostId || ''),
       expiresAt: Number(value.expiresAt) || 0,
       players: value.players.filter(player => player && typeof player.id === 'string').slice(0, 4).map(player => ({
@@ -419,7 +424,7 @@ export class GardenSocial {
     this._roomBusy = true;
     if (this.$('room-create')) this.$('room-create').disabled = true;
     try {
-      const payload = await this._request('/api/rooms', { method: 'POST', body: { mode: MODES.has(mode) ? mode : 'classic' } });
+      const payload = await this._request('/api/rooms', { method: 'POST', body: { mode: MODES.has(mode) ? mode : 'classic',game:this.getGame() } });
       const room = this._setRoom(payload.room);
       this._feedback('room-feedback', `방 ${room.code}을 만들었어요. 초대 링크를 친구에게 보내주세요.`);
       this.$('friends-dialog')?.close();
@@ -515,9 +520,9 @@ export class GardenSocial {
     finally { this._updating = false; }
   }
 
-  async saveScore(score, mode = 'classic') {
+  async saveScore(score, mode = 'classic', game='suika') {
     if (!this.user || mode !== 'classic' || !Number.isSafeInteger(score) || score < 0) return null;
-    const payload = await this._request('/api/profile/stats', { method: 'POST', body: { score, mode } });
+    const payload = await this._request('/api/profile/stats', { method: 'POST', body: { score, mode, game } });
     if (payload.user) this._acceptUser(payload);
     return this.user;
   }

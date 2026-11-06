@@ -6,7 +6,7 @@ export class FruitWorld {
     this.height = height;
     this.maxLine = 90;
     this.fruits = fruits;
-    this.mode = ['classic', 'apple', 'free', 'water', 'space'].includes(mode) ? mode : 'classic';
+    this.mode = ['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge'].includes(mode) ? mode : 'classic';
     this.random = typeof random === 'function' ? random : Math.random;
     this.onMerge = onMerge || (() => {});
     this.onDanger = onDanger || (() => {});
@@ -75,7 +75,7 @@ export class FruitWorld {
       const legacy = snapshot.version === 1;
       if (legacy ? snapshot.width !== 520 || snapshot.height !== 650 : snapshot.width !== this.width || snapshot.height !== this.height) return false;
       const mode = legacy ? 'classic' : snapshot.mode;
-      if (!['classic', 'apple', 'free', 'water', 'space'].includes(mode) ||
+      if (!['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge'].includes(mode) ||
           !finite(snapshot.time, 0, 1e9) || !counter(snapshot.score) || !counter(snapshot.combo) || !counter(snapshot.tick) || !counter(snapshot.nextId, 1) ||
           !['playing', 'paused', 'over'].includes(snapshot.state) || !Array.isArray(snapshot.bodies) || snapshot.bodies.length > 300 ||
           !finite(snapshot.shakeRemaining, 0, (legacy ? .75 : 1) + 1e-9) || !finite(snapshot.shakeElapsed, 0, 1.1) ||
@@ -161,18 +161,18 @@ export class FruitWorld {
   }
 
   setMode(id) {
-    if (!['classic', 'apple', 'free', 'water', 'space'].includes(id)) return false;
+    if (!['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge'].includes(id)) return false;
     this.mode = id;
     this.resetOverflow();
     return true;
   }
 
   get isOverflowing() {
-    return !this.overflowProtected && this.bodies.some(body => this.crossesMax(body));
+    return !this.overflowProtected && this.bodies.some(body => body.overflowTime >= 1.35);
   }
 
   crossesMax(body) {
-    return body.landed && body.y - body.r < this.maxLine;
+    return body.landed && body.age > .7 && Math.hypot(body.vx,body.vy) < 85 && this.time-this.lastMerge > .45 && body.y - body.r < this.maxLine - 5;
   }
 
   finishIfOverflowing() {
@@ -336,7 +336,7 @@ export class FruitWorld {
       body.x += body.vx * dt;
       body.y += body.vy * dt;
       body.angle += body.spin * dt;
-      body.spin *= Math.exp(-10 * dt);
+      body.spin *= Math.exp(-(body.landed ? 3 : .6) * dt);
       this.bound(body, dt);
       this.markEntered(body);
     }
@@ -423,7 +423,7 @@ export class FruitWorld {
         const mergedBody = this.makeBody(level, x, y, {
           vx: (a.vx + b.vx) * 0.35,
           vy: Math.min(-35, (a.vy + b.vy) * 0.35),
-          angle: (a.angle + b.angle) * 0.3,
+          angle: (a.angle + b.angle) * 0.5,
           spin: (a.spin + b.spin) * 0.5,
           // Combining a fresh drop with a blocked inbound must not restart its
           // entrance exemption and let repeated drops postpone game over.
@@ -439,16 +439,18 @@ export class FruitWorld {
         this.score += points;
         this.combo = this.time - this.lastMerge < 1.3 ? this.combo + 1 : 1;
         this.lastMerge = this.time;
-        this.onMerge({ level, x: mergedBody.x, y: mergedBody.y, points, combo: this.combo, specialMerged });
+        this.onMerge({ mergeId:mergedBody.id, level, x: mergedBody.x, y: mergedBody.y, points, combo: this.combo, specialMerged });
       }
     }
     for (const body of this.bodies) {
       if (!shaking && Math.abs(body.vx) < 12 && Math.abs(body.vy) < 20) {
         body.spin = 0;
-        body.angle *= Math.exp(-8 * dt);
-        if (Math.abs(body.angle) < 0.002) body.angle = 0;
       } else if (Math.abs(body.spin) < 0.015) body.spin = 0;
     }
+    if(this.blast){const {x,y}=this.blast;this.bodies=this.bodies.filter(b=>Math.hypot(b.x-x,b.y-y)>250+b.r);this.blast=null;this.protect(2,'revive');}
+    for(const body of this.bodies) body.overflowTime = !this.overflowProtected && this.crossesMax(body) ? (body.overflowTime||0)+dt : Math.max(0,(body.overflowTime||0)-dt*3);
+    const warning = Math.max(0,...this.bodies.map(body=>(body.overflowTime||0)/1.35));
+    this.onDanger(Math.min(1,warning));
     this.finishIfOverflowing();
   }
 

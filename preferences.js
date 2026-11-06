@@ -1,10 +1,14 @@
 const PREFERENCES_KEY = 'suika-garden-preferences-v1';
 const THEMES = new Set(['light', 'dark']);
-const MODES = new Set(['classic', 'apple', 'free', 'water', 'space']);
+const MODES = new Set(['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge']);
 const DEFAULTS = Object.freeze({
   theme: 'light',
   sound: true,
   volume: 0.55,
+  music: true,
+  musicVolume: 0.45,
+  effects: true,
+  effectsVolume: 0.8,
   pageColor: null,
   boardColor: null,
   unlockedModes: Object.freeze(['classic']),
@@ -20,6 +24,10 @@ function normalize(value, previous = DEFAULTS) {
     theme: previous.theme,
     sound: previous.sound,
     volume: previous.volume,
+    music: previous.music,
+    musicVolume: previous.musicVolume,
+    effects: previous.effects,
+    effectsVolume: previous.effectsVolume,
     pageColor:previous.pageColor,
     boardColor:previous.boardColor,
     unlockedModes: [...previous.unlockedModes],
@@ -31,6 +39,8 @@ function normalize(value, previous = DEFAULTS) {
     else if(typeof value[field]==='string'&&/^#[0-9a-f]{6}$/i.test(value[field]))next[field]=value[field].toLowerCase();
   }
   if (typeof value.sound === 'boolean') next.sound = value.sound;
+  for (const field of ['music','effects']) if (typeof value[field] === 'boolean') next[field] = value[field];
+  for (const field of ['musicVolume','effectsVolume']) if (typeof value[field] === 'number' && Number.isFinite(value[field])) next[field] = Math.max(0, Math.min(1, value[field]));
   if (typeof value.volume === 'number' && Number.isFinite(value.volume)) {
     next.volume = Math.max(0, Math.min(1, value.volume));
   }

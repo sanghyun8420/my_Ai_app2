@@ -1,7 +1,7 @@
 const SAVE_KEY = 'suika-garden-run-v1';
 const SAVE_VERSION = 2;
 const READ_VERSIONS = new Set([1, 2]);
-const MODES = new Set(['classic', 'apple', 'free', 'water', 'space']);
+const MODES = new Set(['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge']);
 const MAX_BYTES = 512 * 1024;
 const MAX_COUNTER = 10_000_000;
 const MAX_DATE = 8_640_000_000_000_000;

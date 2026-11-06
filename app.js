@@ -1,20 +1,25 @@
 import { createApiFetcher } from './remote-api.js';
 import { FRUITS, drawFruit, APPLE_LEVEL, WATERMELON_LEVEL, SECRET_LEVEL } from './fruits.js';
 import { FruitWorld } from './physics.js';
-import { drawSkinnedFruit, SKINS } from './skins.js';
+import { drawSkinnedFruit, SKINS, skinFruitName } from './skins.js';
 import { GardenProgress, ACHIEVEMENTS } from './profile.js';
 import { GameSave } from './save-state.js';
 import { fitNumericText, observeNumericText } from './number-fit.js';
 import { loadPreferences, savePreferences } from './preferences.js';
 import { GardenSocial } from './social.js';
-import { BACKGROUNDS, BASKETS, ITEMS } from './catalog.js';
+import { BACKGROUNDS, BASKETS, ITEMS, HATS } from './catalog.js';
 import { getCosmeticPalette, drawCosmeticBackdrop, drawBasketFrame } from './cosmetics.js';
+import { GardenAudio } from './audio.js';
+import { createHub, drawBuddy } from './hub.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game-canvas');
 const ctx = canvas.getContext('2d');
 const WIDTH = 600, HEIGHT = 720;
 const MODES = [
+  {id:'watermelon',name:'수박 파티',icon:'🍉',description:'수박부터 시작해 비밀 과일까지!'},
+  {id:'timed',name:'120초 정원',icon:'⏱',description:'120초 동안 가장 높은 점수에 도전해요.'},
+  {id:'challenge',name:'챌린지',icon:'🎯',description:'큰 과일부터 시작해 5,000점을 달성하세요.'},
   { id:'classic', name:'기본 정원', icon:'🍉', description:'통통 튀는 과일을 합쳐 비밀의 과일까지.' },
   { id:'apple', name:'사과 파티', icon:'🍎', description:'떨어지는 과일은 모두 사과! 커다란 합치기의 시작.' },
   { id:'free', name:'자유 흔들기', icon:'✳', description:'횟수 제한 없이, 원하는 만큼 흔들어보세요.' },
@@ -36,6 +41,7 @@ const COLOR_PRESETS=[
 ];
 let preferences = loadPreferences();
 let activeMode = 'classic', totalShakes = 0, eraseMode = false, selectedFruitId = null;
+let hub=null,selectedGame='suika',arcadePlaying=false,wasSuikaPlaying=false;
 let seedState = (Date.now() >>> 0) || 1;
 let logoTaps=0,logoTapStartedAt=0;
 let checkpointDirty = false, checkpointBusy = false, social = null;
@@ -56,7 +62,9 @@ let secretDiscovered = false;
 try { secretDiscovered = localStorage.getItem('suika-garden-secret') === 'yes'; } catch {}
 if(secretDiscovered)discoveredLevels.add(SECRET_LEVEL);
 let particles = [], floaters = [], maxLevel = 0, watermelonMade = false;
-let soundEnabled = preferences.sound, audioContext, toastTimer;
+let soundEnabled = preferences.sound, toastTimer;
+const gameAudio = new GardenAudio();
+gameAudio.configure(preferences);
 let roundCleared = 0, roundCredited = false, starting = false, settlement = null, pausedByDialog = false;
 let currentSkin = 'classic', currentBackground = 'default', currentBasket = 'classic', progressReady = false;
 let shopCategory = 'skins', commerceBusy = false, inventoryBusy = false, erasingBusy = false;
@@ -78,14 +86,18 @@ const world = new FruitWorld({
     updateGemProgress();
     updateScore();
     const { x, y, level, points, combo, specialMerged } = event;
+    if(currentSkin==='royalGem')progressStore.creditGemMerge(event.mergeId,level>=10?10:1).catch(error=>toast(error.message));
+    if(level===FRUITS.length-1){world.blast={x,y};for(let i=0;i<60;i++){const a=i*Math.PI/30;particles.push({x,y,vx:Math.cos(a)*240,vy:Math.sin(a)*240,life:1.5,maxLife:1.5,color:`hsl(${i*6} 75% 62%)`,r:3+i%5});}}
+    hub?.merge(event);
+    if(world.score>=10000&&world.score-points<10000)setTimeout(()=>hub?.share(canvas,'10,000점 돌파!',world.score,level),180);
     recordDiscovery(level);
     unlockAchievement('firstMerge');
     if (world.score >= 1000) unlockAchievement('score1000');
     if (world.score >= 10000) unlockAchievement('score10000');
     if (specialMerged) {
       specialShakeRewards++;
-      toast('✦ 특별 사과! 흔들기 1개를 얻었어요', 3200);
-      floaters.push({ x, y: y - 65, text: '✦ SHAKE +1', life: 1.6 });
+      const reward=progressStore.specialReward(specialShakeRewards);toast(`✦ 특별 사과! ${reward==='shake'?'흔들기':'지우개'} 1개를 얻었어요`,3200);
+      floaters.push({ x, y: y - 65, text: reward==='shake'?'✦ SHAKE +1':'✦ ERASER +1', life: 1.6 });
     }
     if (!reducedMotion) {
       for (let i = 0; i < 12; i++) {
@@ -94,7 +106,7 @@ const world = new FruitWorld({
       }
     }
     floaters.push({ x, y: y - FRUITS[level].radius, text: combo > 1 ? `+${points} · ${combo} COMBO` : `+${points}`, life: 1 });
-    playSound('merge', level);
+    playSound(specialMerged ? 'special' : 'merge', level);
     if (level > maxLevel) {
       maxLevel = level;
       renderEvolution();
@@ -125,6 +137,7 @@ const world = new FruitWorld({
     if (value >= .1) $('danger-message').textContent = '과일이 MAX 선을 넘었어요';
   },
   onGameOver() {
+    gameAudio.setPlaying(false);
     eraseMode = false; selectedFruitId = null;
     showGameOver();
     playSound('over');
@@ -144,7 +157,7 @@ function fruitIcon(level, size = 64, special = false) {
   context.scale(2, 2);
   drawSkinnedFruit(context, level, size / 2, size / 2 + 2, size * .43, 0, 1, special, .7, currentSkin);
   icon.setAttribute('role', 'img');
-  icon.setAttribute('aria-label', special ? '반짝이는 사과' : FRUITS[level].name);
+  icon.setAttribute('aria-label', special ? '반짝이는 사과' : skinFruitName(level,currentSkin));
   if (special) animatedIcons.add({ icon, size, level });
   return icon;
 }
@@ -152,19 +165,18 @@ function fruitIcon(level, size = 64, special = false) {
 function renderEvolution() {
   $('evolution-grid').replaceChildren();
   FRUITS.forEach((fruit, level) => {
-  if(!discoveredLevels.has(level))return;
+  const locked=level>=10&&!discoveredLevels.has(level);
   const cell = document.createElement('div');
   cell.className = 'evo-fruit';
   if (level === maxLevel && maxLevel > 0) cell.classList.add('active');
-  cell.title = `${level + 1}단계 · ${fruit.name}`;
-  cell.append(fruitIcon(level, 32));
+  cell.title = `${level + 1}단계 · ${locked?'???':skinFruitName(level,currentSkin)}`;
+  if(locked){const mark=document.createElement('b');mark.textContent='?';cell.append(mark);}else cell.append(fruitIcon(level, 32));
   const label = document.createElement('span');
-  label.className='evo-name';label.textContent = fruit.name;
+  label.className='evo-name';label.textContent = locked?'???':skinFruitName(level,currentSkin);
   const number = document.createElement('small');number.className='evo-level';number.textContent = String(level + 1).padStart(2,'0');
   cell.append(number,label);
   $('evolution-grid').append(cell);
   });
-  if(!discoveredLevels.size){const empty=document.createElement('p');empty.className='evolution-empty';empty.textContent='과일을 만들면 이곳에 모여요';$('evolution-grid').append(empty);}
   $('goal-label').textContent = secretDiscovered ? '용과 너머 태양의 열매까지' : '수박 다음엔 어떤 과일이?';
 }
 
@@ -198,12 +210,14 @@ drawWelcome();
 function updateNext() {
   $('next-fruit').replaceChildren(fruitIcon(nextLevel, 64, nextSpecial));
   $('next-fruit').classList.toggle('special-preview', nextSpecial);
-  $('next-name').textContent = nextSpecial ? '✦ 반짝이는 사과' : FRUITS[nextLevel].name;
+  $('next-name').textContent = nextSpecial ? '✦ 반짝이는 사과' : skinFruitName(nextLevel,currentSkin);
 }
 updateNext();
 
 function randomFruit() {
   if (activeMode === 'apple') return APPLE_LEVEL;
+  if(activeMode==='watermelon')return WATERMELON_LEVEL;
+  if(activeMode==='challenge')return 2+Math.floor(mergeRandom()*4);
   const pool = [0, 0, 0, 1, 1, 2, 2, 3];
   return pool[Math.floor(gameRandom() * pool.length)];
 }
@@ -238,6 +252,7 @@ function updateScore() {
 
 async function startGame(options = {}) {
   if (starting || erasingBusy || inventoryBusy || reviveBusy) return;
+  ensureAudio();
   starting = true;
   if (started && world.state === 'playing') world.state = 'paused';
   try {
@@ -252,7 +267,7 @@ async function startGame(options = {}) {
   started = true;
   world.reset();
   world.setMode(activeMode);
-  activeLevel = activeMode === 'apple' ? APPLE_LEVEL : 0; nextLevel = activeLevel; aimX = WIDTH / 2;
+  activeLevel = activeMode === 'apple' ? APPLE_LEVEL : activeMode==='watermelon'?WATERMELON_LEVEL:activeMode==='challenge'?3:0; nextLevel = activeLevel; aimX = WIDTH / 2;
   specialShakeRewards=0;shakeReadyAt = 0; maxLevel = 0; watermelonMade = false;
   toolReadyAt = Object.fromEntries(Object.keys(TOOL_COOLDOWNS).map(id => [id, 0]));
   activeSpecial = false; nextSpecial = false; dropCount = 0; itemCount = 0;
@@ -269,7 +284,6 @@ async function startGame(options = {}) {
   updateNext(); updateScore(); updateShake(); updateItem();
   canvas.focus({ preventScroll: true });
   playSound('drop');
-    ensureAudio();
     applyTheme(); updateModeLabel();
     updateGemProgress();
     saveGame();
@@ -288,7 +302,7 @@ function drop() {
     dropCount++;
     activeLevel = nextLevel;
     activeSpecial = nextSpecial;
-    nextSpecial = (dropCount + 2) % 20 === 0;
+    nextSpecial = activeMode!=='watermelon'&&(dropCount + 2) % 20 === 0;
     nextLevel = nextSpecial ? APPLE_LEVEL : randomFruit();
     const radius = FRUITS[activeLevel].radius;
     aimX = Math.max(radius + 8, Math.min(WIDTH - radius - 8, aimX));
@@ -391,7 +405,7 @@ async function eraseSelected() {
       particles.push({ x:body.x, y:body.y, vx:Math.cos(a)*85, vy:Math.sin(a)*85-40, life:.8, maxLife:.8, color:'#dfb456', r:3 });
     }
   }
-  playSound('merge', 8);
+  playSound('eraser');
   pulseTool('eraser');
   toast('✦ 선택한 과일 하나를 지웠어요!');
   $('game-status').textContent = '같은 과일끼리 만나게 해주세요';
@@ -429,7 +443,7 @@ function showGameOver() {
 
 function updateRevive() {
   const gems=progressStore.profile.gems;
-  const available=started&&world.state==='over'&&!roundCredited&&!reviveBusy&&!starting&&world.bodies.length>=3&&gems>=10;
+  const available=started&&world.state==='over'&&!(activeMode==='timed'&&world.time>=120)&&!roundCredited&&!reviveBusy&&!starting&&world.bodies.length>=3&&gems>=10;
   $('revive-button').disabled=!available;
   $('revive-button').textContent=reviveBusy?'준비 중…':'💎 10 · 이어하기';
   $('revive-note').textContent=reviveBusy?'이어갈 정원을 안전하게 저장하고 있어요':world.bodies.length<3?'이어가려면 과일이 3개 이상 필요해요':gems<10?`보석 ${10-gems}개가 더 필요해요 · 보유 ${gems.toLocaleString('ko-KR')}개`:'점수는 그대로 · 이어서 3초 동안 안전해요';
@@ -437,7 +451,7 @@ function updateRevive() {
 }
 
 async function reviveGame() {
-  if(reviveBusy||inventoryBusy||erasingBusy||starting||!started||roundCredited||world.state!=='over'||world.bodies.length<3||progressStore.profile.gems<10)return;
+  if(reviveBusy||inventoryBusy||erasingBusy||starting||!started||roundCredited||world.state!=='over'||(activeMode==='timed'&&world.time>=120)||world.bodies.length<3||progressStore.profile.gems<10)return;
   reviveBusy=true;updateRevive();
   try {
     const candidate=new FruitWorld({width:WIDTH,height:HEIGHT,fruits:FRUITS});
@@ -456,7 +470,7 @@ async function reviveGame() {
     $('game-status').textContent='다시 열린 정원 · 3초 안전 보호';
     if(gameSave.write(recovery.snapshot))await progressStore.acknowledgeRevival(recovery.requestId);
     toast('작은 과일 3개를 정리했어요. 이어서 가꿔보세요!');
-    playSound('merge',6);updateGemProgress();updateScore();canvas.focus({preventScroll:true});
+    playSound('revive');updateGemProgress();updateScore();canvas.focus({preventScroll:true});
   }catch(error){toast(error.message||'이어가기를 준비하지 못했어요.');}
   finally{reviveBusy=false;updateRevive();updateInventory();}
 }
@@ -516,7 +530,7 @@ function renderShop(force = false) {
     skins:{ catalog:SKINS, owned:profile.ownedSkins, equipped:profile.equippedSkin, description:'같은 과일도 새로운 모습으로! 구매한 스킨은 계속 사용할 수 있어요.' },
     backgrounds:{ catalog:BACKGROUNDS, owned:profile.ownedBackgrounds, equipped:profile.equippedBackground, description:'노을·숲·바다·별밤 중 오늘의 정원 분위기를 골라보세요.' },
     baskets:{ catalog:BASKETS, owned:profile.ownedBaskets, equipped:profile.equippedBasket, description:'바구니에 새 테두리를 입혀주세요. 구매한 꾸미기는 계속 보관돼요.' },
-    items:{ catalog:ITEMS, description:'구매한 아이템은 가방에 보관돼요. 필요한 순간에 하나씩 꺼내 쓰세요.' },
+    items:{catalog:HATS,owned:profile.ownedHats,equipped:profile.equippedHat,description:'점수판 위 쫄라맨을 꾸며 주세요. 도구는 바구니 옆에서 바로 구매해요.'},
   };
   const section = info[shopCategory];
   $('shop-description').textContent = section.description;
@@ -528,7 +542,7 @@ function renderShop(force = false) {
   $('skin-grid').replaceChildren();
   section.catalog.forEach(item => {
     const card = document.createElement('article'); card.className='shop-card skin-card';
-    const isItem = shopCategory === 'items';
+    const isHat=shopCategory==='items',isItem=false;
     const owned = !isItem && section.owned.includes(item.id), equipped = !isItem && section.equipped === item.id;
     if (equipped) card.classList.add('skin-selected');
     if (isItem) {
@@ -541,13 +555,13 @@ function renderShop(force = false) {
       const basket=shopCategory==='baskets'?item.id:currentBasket;
       drawCosmeticBackdrop(c,background,200,115,0,preferences.theme);
       const skin=shopCategory==='skins'?item.id:currentSkin;
-      drawSkinnedFruit(c,1,48,77,24,-.1,1,false,0,skin);
+      if(isHat){drawBuddy(c,item.id,100,53,1.7);}else if(item.id==='mystery'&&!owned){c.font='bold 46px sans-serif';c.fillStyle='#6d6254';c.fillText('???',65,80);}else{drawSkinnedFruit(c,1,48,77,24,-.1,1,false,0,skin);
       drawSkinnedFruit(c,4,107,66,34,0,1,false,0,skin);
-      drawSkinnedFruit(c,2,158,78,24,.1,1,false,0,skin);
+      drawSkinnedFruit(c,2,158,78,24,.1,1,false,0,skin);}
       drawBasketFrame(c,basket,200,115,0);card.append(art);
     }
-    const title=document.createElement('h3');title.textContent=item.name;
-    const description=document.createElement('p');description.textContent=item.description;
+    const title=document.createElement('h3');title.textContent=item.id==='mystery'&&owned?'문드러진 열매':item.name;
+    const description=document.createElement('p');description.textContent=item.description||'점수판 위 쫄라맨에게 씌워요.';
     const price=document.createElement('span');price.className='skin-price';price.textContent=item.price?`◆ ${item.price}`:'기본 제공';
     card.append(title,description,price);
     if (isItem) {
@@ -584,8 +598,8 @@ async function purchaseShopItem(category, item) {
       preferences=savePreferences({...preferences,boardColor:null});applyTheme();
     }
     else if (category==='baskets') { await progressStore.buyBasket(item.id);await progressStore.equipBasket(item.id); }
-    else { await progressStore.buyItem(item.id); }
-    toast(category==='items'?`${item.name} 1개를 가방에 넣었어요!`:`${item.name} 꾸미기를 적용했어요!`);
+    else { await progressStore.buyHat(item.id); }
+    toast(category==='items'?`${item.name} 모자를 적용했어요!`:`${item.name} 꾸미기를 적용했어요!`);
   } catch(error) { toast(error.message); }
   finally { commerceBusy=false;renderShop();updateInventory();saveGame(); }
 }
@@ -736,6 +750,7 @@ function renderAchievements() {
     const state = document.createElement('small'); state.textContent = unlocked ? '달성 완료 ✓' : `달성 보상 ◆ ${item.reward}`;
     card.append(icon, title, description, state); $('achievements-list').append(card);
   });
+  hub?.renderTiers($('achievements-list'));
 }
 
 function updateModeLabel() {
@@ -748,7 +763,7 @@ function updateModeLabel() {
 function renderModes() {
   $('mode-grid').replaceChildren();
   MODES.forEach(mode => {
-    const unlocked = preferences.unlockedModes.includes(mode.id);
+    const unlocked = ['watermelon','timed','challenge'].includes(mode.id)||preferences.unlockedModes.includes(mode.id);
     const button = document.createElement('button'); button.type = 'button'; button.className = 'mode-card';
     button.classList.toggle('mode-selected', activeMode === mode.id); button.disabled = !unlocked;
     const icon = document.createElement('span'); icon.textContent = mode.icon;
@@ -839,21 +854,29 @@ function renderColorPresets(){
 function updateSoundControls() {
   $('sound-toggle').checked = soundEnabled;
   $('volume-slider').value = String(Math.round(preferences.volume * 100));
+  $('music-toggle').checked = preferences.music;
+  $('effects-toggle').checked = preferences.effects;
+  $('music-volume').value = String(Math.round(preferences.musicVolume * 100));
+  $('effects-volume').value = String(Math.round(preferences.effectsVolume * 100));
   $('sound-button').setAttribute('aria-label', soundEnabled ? '소리 끄기' : '소리 켜기');
   $('sound-button').setAttribute('aria-pressed', String(soundEnabled));
   $('sound-button').querySelector('use')?.setAttribute('href', soundEnabled ? '#i-sound' : '#i-mute');
 }
 
 async function ensureAudio() {
-  if (!soundEnabled) return;
-  const Audio = window.AudioContext || window.webkitAudioContext;
-  if (!Audio) return;
-  try { audioContext ||= new Audio(); await audioContext.resume(); } catch {}
+  await gameAudio.unlock();
+  syncAudio();
+}
+
+function syncAudio() {
+  gameAudio.setPlaying((selectedGame!=='suika'?arcadePlaying:started && world.state !== 'over') && !document.hidden,
+    (selectedGame==='suika'&&world.state === 'paused') || !!document.querySelector('dialog[open]'));
 }
 
 function setSound(enabled) {
   soundEnabled = !!enabled;
   preferences = savePreferences({ ...preferences, sound:soundEnabled });
+  gameAudio.configure(preferences);
   updateSoundControls(); if (soundEnabled) ensureAudio();
 }
 
@@ -965,7 +988,7 @@ shopCategories.forEach((category,index)=>{
     shopCategory=shopCategories[next];renderShop(true);$(`shop-tab-${shopCategory}`).focus();
   });
 });
-$('inventory-shake').addEventListener('click',()=>openShop('items'));
+$('inventory-shake').addEventListener('click',()=>progressStore.buyItem('shake').catch(error=>toast(error.message)));
 $('inventory-calm').addEventListener('click',()=>useInventoryItem('calm'));
 function resetToWelcome() {
   started=false;world.reset();roundCleared=0;roundCredited=false;settlement=null;
@@ -984,26 +1007,30 @@ renderColorPresets();
 applyTheme(); updateModeLabel(); updateSoundControls(); renderModes();
 
 function playSound(type, level = 0) {
-  if (!soundEnabled || !audioContext || preferences.volume <= 0) return;
-  if (audioContext.state === 'suspended') audioContext.resume();
-  const now = audioContext.currentTime;
-  const oscillator = audioContext.createOscillator();
-  const gain = audioContext.createGain();
-  oscillator.connect(gain); gain.connect(audioContext.destination);
-  oscillator.type = 'sine';
-  const toolPitch={calm:620};
-  const base = type === 'merge' ? 420 + level * 52 : type === 'drop' ? 260 : type === 'shake' ? 170 : toolPitch[type] || 240;
-  oscillator.frequency.setValueAtTime(base, now);
-  oscillator.frequency.exponentialRampToValueAtTime(type === 'over' ? 95 : base * (type === 'merge' ? 1.5 : .65), now + .16);
-  gain.gain.setValueAtTime(.0001, now);
-  gain.gain.exponentialRampToValueAtTime(Math.max(.0002, .09 * preferences.volume), now + .01);
-  gain.gain.exponentialRampToValueAtTime(.0001, now + .22);
-  oscillator.start(now); oscillator.stop(now + .23);
+  gameAudio.effect(type, level);
 }
 
 $('sound-button').addEventListener('click', () => setSound(!soundEnabled));
 $('sound-toggle').addEventListener('change', event => setSound(event.target.checked));
-$('volume-slider').addEventListener('input', event => { preferences = savePreferences({ ...preferences, volume:Number(event.target.value) / 100 }); });
+$('volume-slider').addEventListener('input', event => {
+  preferences = savePreferences({ ...preferences, volume:Number(event.target.value) / 100 });
+  gameAudio.configure(preferences);
+});
+for (const [id, field] of [['music-toggle','music'], ['effects-toggle','effects']]) {
+  $(id).addEventListener('change', event => {
+    preferences = savePreferences({ ...preferences, [field]:event.target.checked });
+    gameAudio.configure(preferences); ensureAudio();
+    if (field === 'effects' && preferences.effects) playSound('drop');
+  });
+}
+for (const [id, field] of [['music-volume','musicVolume'], ['effects-volume','effectsVolume']]) {
+  $(id).addEventListener('input', event => {
+    preferences = savePreferences({ ...preferences, [field]:Number(event.target.value) / 100 });
+    gameAudio.configure(preferences);
+  });
+}
+document.addEventListener('pointerdown', () => ensureAudio(), { capture:true });
+document.addEventListener('keydown', event => { if (!event.repeat) ensureAudio(); }, { capture:true });
 ['light','dark'].forEach(theme => $(`theme-${theme}`).addEventListener('click', () => { preferences=savePreferences({ ...preferences, theme });applyTheme(); }));
 $('menu-open').addEventListener('click', () => openDialog('menu-dialog'));
 $('appearance-open').addEventListener('click',()=>openDialog('appearance-dialog'));
@@ -1113,9 +1140,10 @@ document.addEventListener('keydown', event => {
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) saveGame();
+  if (document.hidden) gameAudio.silence(); else syncAudio();
   lastFrame = 0;
 });
-globalThis.addEventListener?.('pagehide', () => saveGame());
+globalThis.addEventListener?.('pagehide', () => { saveGame(); gameAudio.silence(); });
 
 function render(dt) {
   ctx.setTransform(2, 0, 0, 2, 0, 0);
@@ -1202,8 +1230,11 @@ function frame(time) {
   const dt = lastFrame ? Math.min((time - lastFrame) / 1000, .05) : 1 / 60;
   lastFrame = time;
   if (!reducedMotion && !document.hidden) animationTime += dt;
-  if (!document.hidden && started && !inventoryBusy && !reviveBusy && !document.querySelector('dialog[open]')) world.update(dt);
-  render(world.state === 'paused' ? 0 : dt);
+  if (selectedGame==='suika'&&!document.hidden && started && !inventoryBusy && !reviveBusy && !document.querySelector('dialog[open]')) world.update(dt);
+  if(selectedGame==='suika')render(world.state === 'paused' ? 0 : dt);
+  if(selectedGame==='suika'&&world.state==='playing'&&((activeMode==='timed'&&world.time>=120)||(activeMode==='challenge'&&world.score>=5000))){world.state='over';world.onGameOver();if(activeMode==='challenge')hub?.share(canvas,'챌린지 달성!',world.score,maxLevel);}
+  if(activeMode==='timed'&&selectedGame==='suika')$('mode-label').textContent=`⏱ ${Math.max(0,Math.ceil(120-world.time))}초`;
+  syncAudio();
   updateShake();
   updateItem();
   updateInventory();
@@ -1211,7 +1242,7 @@ function frame(time) {
   checkpointRound();
   if (started && world.state === 'playing' && !document.hidden) saveElapsed += dt;
   if (saveDirty || saveElapsed >= 1) saveGame();
-  if (!document.hidden && social?.room) {
+  if (selectedGame==='suika'&&!document.hidden && social?.room&&social.room.game==='suika') {
     roomElapsed+=dt;
     if(roomElapsed>=2){roomElapsed=0;social.updateGame({score:world.score,fruitCount:world.bodies.length,playing:started&&world.state==='playing'});}
   }
@@ -1229,19 +1260,26 @@ function frame(time) {
 }
 social = new GardenSocial({
   fetcher: createApiFetcher('https://suika-shake-garden-n5k7.hbhbhs02.chatgpt.site/'),
+  getGame:()=>selectedGame,
   openDialog,
-  getMode:()=>activeMode,
+  getMode:()=>selectedGame==='suika'?activeMode:hub?.arcade.mode()||'classic',
   onError:error=>toast(error.message || '친구 기능에 연결하지 못했어요.'),
   onBeforeAccountChange:async()=>{saveGame();},
-  onUser:user=>{ $('account-open').textContent=user?`☺ ${user.displayName}`:'회원가입'; },
+  onUser:user=>{ $('account-open').textContent=user?`☺ ${user.displayName}`:'회원가입';globalThis.dispatchEvent(new CustomEvent('garden-user',{detail:user})); },
   onRoom:async({room,joinedNew})=>{
-    if (room && joinedNew) await startGame({mode:room.mode,seed:room.seed});
-    if (room?.mode==='classic'&&room.players.length>1) unlockAchievement('friendGame');
+    if (room && joinedNew) {if(room.game&&room.game!=='suika')globalThis.dispatchEvent(new CustomEvent('garden-room',{detail:room}));else{hub?.select('suika');await startGame({mode:room.mode,seed:room.seed});}}
+    if (room?.game==='suika'&&selectedGame==='suika'&&room?.mode==='classic'&&room.players.length>1) unlockAchievement('friendGame');
   },
 });
 $('friends-open').addEventListener('click',()=>social.openFriends());
 $('account-open').addEventListener('click',()=>social.openAccount(social.user?'login':'register'));
 $('friends-menu').addEventListener('click',()=>{social.openFriends();$('menu-dialog').close();});
 $('account-menu').addEventListener('click',()=>{social.openAccount(social.user?'login':'register');$('menu-dialog').close();});
+hub=createHub({
+  state:()=>({world,mode:selectedGame==='suika'?activeMode:hub?.arcade.mode()||'classic',skin:currentSkin,game:selectedGame,canvas}),store:()=>progressStore,social:()=>social,
+  toast,open:openDialog,effect:playSound,achievements:renderAchievements,arcadeActive:value=>{arcadePlaying=value;},
+  resume:()=>{if(selectedGame==='suika'&&started&&world.state==='paused'&&pausedByDialog&&!document.querySelector('dialog[open]')){world.state='playing';pausedByDialog=false;}},
+  switchGame:game=>{if(game===selectedGame)return;saveGame();if(game!=='suika'){if(selectedGame==='suika'){wasSuikaPlaying=started&&world.state==='playing';if(wasSuikaPlaying)world.state='paused';}arcadePlaying=true;}else if(wasSuikaPlaying&&world.state==='paused')world.state='playing';selectedGame=game;syncAudio();},
+});
 social.init().catch(error=>toast(error.message));
 requestAnimationFrame(frame);

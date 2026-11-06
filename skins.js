@@ -15,7 +15,7 @@ function blend(a, b, amount) {
 }
 
 const PALETTES = FRUITS.map((fruit, level) => ({
-  pastel: blend(fruit.color, '#fff9e9', .63),
+  pastel: blend(fruit.color, '#d9c4b4', .32),
   pastelShade: blend(fruit.color, '#d3b4ad', .22),
   cat: blend(fruit.color, '#fff5dc', .34),
   catStripe: blend(fruit.color, '#687455', .48),
@@ -400,9 +400,54 @@ function mysteryBall(ctx, level, color, time = 0) {
   ctx.restore();
 }
 
+const CAR_NAMES=['KIA','HYUNDAI','GENESIS','TESLA','LAND ROVER','BENZ','BMW','AUDI','PORSCHE','FERRARI','LAMBORGHINI','KOENIGSEGG','PAGANI','BUGATTI'];
+export function skinFruitName(level,skin='classic'){return skin==='cars'?['기아','현대','제네시스','테슬라','랜드로버','벤츠','BMW','아우디','포르셰','페라리','람보르기니','코닉세그','파가니','부가티'][level]:FRUITS[level].name;}
+function carBadge(ctx,level){
+  const colors=['#141b22','#173962','#23343c','#c6202e','#174b31','#242628','#114580','#30343a','#c69a3a','#efd33a','#20201d','#bdb8aa','#81939b','#a82226'];
+  ctx.save();
+  if([8,9,10,11].includes(level))polygon(ctx,[[-33,-40],[33,-40],[29,18],[0,44],[-29,18]],colors[level],'#b99b56',3);
+  else{ctx.beginPath();ctx.ellipse(0,0,46,level===7?29:39,0,0,TAU);ctx.fillStyle=colors[level];ctx.fill();ctx.strokeStyle='#bec8c9';ctx.lineWidth=3;ctx.stroke();}
+  ctx.strokeStyle='#edf3f2';ctx.fillStyle=[8,9].includes(level)?'#302718':'#f6f0d8';ctx.lineWidth=2.5;
+  if(level===5){for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.sin(i*TAU/3)*28,-Math.cos(i*TAU/3)*28);ctx.stroke();}circle(ctx,29);ctx.stroke();}
+  else if(level===7){for(let i=0;i<4;i++){ctx.beginPath();ctx.arc((i-1.5)*16,0,13,0,TAU);ctx.stroke();}}
+  else if(level===6){for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,24,i*Math.PI/2,(i+1)*Math.PI/2);ctx.fillStyle=i%2?'#fff':'#2480b0';ctx.fill();}ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText('BMW',0,-27);}
+  else if(level===2){for(const sign of [-1,1])for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(sign*9,-12+i*6);ctx.lineTo(sign*(42-i*7),-19+i*5);ctx.stroke();}ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText('GENESIS',0,16);}
+  else{ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`italic 800 ${level===0?27:level===3?34:level===9||level===10?24:12}px sans-serif`;ctx.fillText(level===3?'T':level===9?'♞':level===10?'♉':CAR_NAMES[level],0,0,77);if(level>=8){ctx.font='bold 7px sans-serif';ctx.fillText(CAR_NAMES[level],0,-26,57);}}
+  ctx.restore();
+}
+function dinoBall(ctx,level){
+  ctx.save();const color=['#427254','#84733f','#4d6b7e'][level%3];
+  polygon(ctx,[[-30,10],[-50,24],[-33,-12]],color,INK,2);
+  for(let i=0;i<5;i++)polygon(ctx,[[-25+i*10,-27],[-20+i*10,-46-i%2*5],[-12+i*10,-27]],'#cba65d',INK,1);
+  ctx.beginPath();ctx.ellipse(0,3,36,36,0,0,TAU);ctx.fillStyle=color;ctx.fill();ctx.strokeStyle=INK;ctx.lineWidth=2;ctx.stroke();
+  ctx.fillStyle='#bac69c';ctx.beginPath();ctx.ellipse(5,19,23,17,0,0,TAU);ctx.fill();
+  if(level%3===1)for(const x of [-19,19])polygon(ctx,[[x-7,-22],[x,-47],[x+6,-22]],'#ddd8ba',INK,1);
+  ctx.fillStyle='#16291d';for(const x of [-11,12]){ctx.beginPath();ctx.arc(x,-7,3,0,TAU);ctx.fill();}ctx.beginPath();ctx.arc(5,5,11,0,Math.PI);ctx.stroke();ctx.restore();
+}
+function foodBall(ctx,level){
+  ctx.save();
+  if(level%4===0){ball(ctx,'#b76d3f');ctx.fillStyle='#e8a3af';circle(ctx,33);ctx.fill();ctx.fillStyle='#473b30';circle(ctx,12);ctx.fill();for(let i=0;i<10;i++){ctx.save();ctx.rotate(i*TAU/10);ctx.fillStyle=i%2?'#e2c760':'#6c4e43';ctx.fillRect(21,-2,7,3);ctx.restore();}}
+  else if(level%4===1){ctx.fillStyle='#26392f';ctx.fillRect(-39,-28,78,56);ctx.fillStyle='#eee9d5';ctx.fillRect(-34,-24,68,48);ctx.fillStyle='#c46c59';ctx.fillRect(-27,-18,54,36);ctx.strokeStyle='#f4d3aa';for(let i=-20;i<30;i+=13){ctx.beginPath();ctx.moveTo(i,-17);ctx.lineTo(i+12,17);ctx.stroke();}}
+  else if(level%4===2){polygon(ctx,[[-39,-30],[40,-30],[0,43]],'#e0b54f','#744b31',3);ctx.strokeStyle='#9d5f32';ctx.lineWidth=10;ctx.beginPath();ctx.moveTo(-38,-30);ctx.lineTo(39,-30);ctx.stroke();for(const [x,y]of[[-15,-12],[16,-10],[0,16]]){ctx.fillStyle='#a34034';ctx.beginPath();ctx.arc(x,y,7,0,TAU);ctx.fill();}}
+  else{for(const [y,color,h]of[[-29,'#c3904e',20],[-8,'#547b39',8],[0,'#ddae3f',7],[9,'#603d2e',13],[25,'#be8b49',12]]){ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(0,y,41,h,0,0,TAU);ctx.fill();}ctx.fillStyle='#e8d9a6';for(let i=-25;i<=25;i+=10)ctx.fillRect(i,-35+i%3,3,2);}
+  ctx.restore();
+}
+function rottenBall(ctx,level){
+  drawFruit(ctx,level,0,0,44,0,1,false,0);ctx.save();
+  for(let i=0;i<9;i++){ctx.fillStyle=i%2?'#505336cc':'#5b3929bb';ctx.beginPath();ctx.ellipse(Math.sin(i*4.1)*29,Math.cos(i*2.8)*28,6+i%4,5+i%3,i,0,TAU);ctx.fill();}
+  ctx.strokeStyle='#b5bc86';ctx.lineWidth=1;for(let i=0;i<12;i++){ctx.beginPath();ctx.moveTo(18,11);ctx.lineTo(18+Math.cos(i)*12,11+Math.sin(i)*12);ctx.stroke();}ctx.restore();
+}
+function royalBall(ctx,level){gemBall(ctx,level);ctx.save();ctx.strokeStyle='#f5da7c';ctx.lineWidth=3;polygon(ctx,[[-20,-32],[-27,-43],[-8,-37],[0,-49],[9,-37],[27,-43],[20,-32]],'#bf963f','#f2dfa3',1);ctx.restore();}
+function planetBall(ctx,level){
+ ctx.save();const shades=['#8a8176','#b38c5e','#376e83','#9e5541','#a18b6b','#a29b74','#4d8893','#4f609b'];const color=shades[level%8];
+ ball(ctx,color);ctx.save();circle(ctx,43);ctx.clip();if(level%3===0){ctx.fillStyle='#263e3d66';for(let i=0;i<8;i++){ctx.beginPath();ctx.arc(Math.sin(i*3.4)*30,Math.cos(i*2.2)*32,4+i%5,0,TAU);ctx.fill();}}
+ else{for(let i=-4;i<5;i++){ctx.strokeStyle=i%2?'#e2c99b88':'#404a4366';ctx.lineWidth=5;ctx.beginPath();ctx.ellipse(0,i*10,49,5,.25,0,TAU);ctx.stroke();}}ctx.restore();if(level%3===2){ctx.strokeStyle='#cfbd8ea6';ctx.lineWidth=6;ctx.beginPath();ctx.ellipse(0,4,58,15,-.35,0,TAU);ctx.stroke();}ctx.restore();
+}
+
 const RENDERERS = {
   numbers:numberBall, candy:candyBall, pastel:pastelBall, pixel:pixelBall,
-  cat:catBall, ice:iceBall, neon:neonBall, galaxy:galaxyBall, gem:gemBall, mystery:mysteryBall,
+  cat:catBall, ice:iceBall, neon:neonBall, galaxy:planetBall, gem:gemBall, mystery:rottenBall,
+  cars:carBadge,dino:dinoBall,food:foodBall,royalGem:royalBall,
 };
 
 /** Draw any skin with the same coordinates and optional lucky-apple state. */

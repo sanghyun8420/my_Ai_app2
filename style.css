@@ -346,6 +346,8 @@ html[data-theme=dark] body[data-mode=space] { --board-bg:#29263f; --board-dots:#
 .menu-social .menu-action{font-size:10px;padding:10px}
 .menu-social .menu-action svg{width:15px;height:15px}
 .sound-controls{display:flex;align-items:center;gap:12px}
+.audio-channel-controls{display:flex;align-items:center;gap:9px;flex:0 1 65%;min-width:0;max-width:220px}
+.setting-row .audio-channel-controls input[type=range]{flex:1;min-width:0;width:100%;max-width:none}
 .sound-controls .icon-button{width:29px;min-height:29px;border-radius:9px}
 .secret-code-box{border-top:1px solid var(--line);padding-top:18px}
 .secret-code-box>label{font-size:10px;font-weight:650;color:var(--muted)}

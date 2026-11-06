@@ -1,4 +1,4 @@
-import { SKIN_CATALOG, BACKGROUNDS, BASKETS, ITEMS } from './catalog.js';
+import { SKIN_CATALOG, BACKGROUNDS, BASKETS, ITEMS, HATS } from './catalog.js';
 import { normalizeGameRecord } from './save-state.js';
 
 const STORAGE_KEY = 'suika-garden-profile-v3';
@@ -8,8 +8,8 @@ const ITEM_LIMIT = 999;
 const GEM_EVERY = 20;
 const RECEIPT_LIMIT = 32;
 const REVIVAL_COST = 10;
-const RUN_MODES = new Set(['classic','apple','free','water','space']);
-const SPECIAL_MODES = ['apple','free','water','space'];
+const RUN_MODES = new Set(['classic','apple','free','water','space','watermelon','timed','challenge']);
+const SPECIAL_MODES = ['apple','free','water','space','watermelon','timed','challenge'];
 const REMOVED_TOOL_PRICES = { magnet: 10, swap: 6, freeze: 8 };
 
 export const ACHIEVEMENTS = Object.freeze([
@@ -55,6 +55,9 @@ function cleanProgress(value) {
     modeBestScores:Object.fromEntries(SPECIAL_MODES.map(mode=>[mode,whole(value?.modeBestScores?.[mode])])),
     classicMergedFruits:whole(value?.classicMergedFruits === undefined ? value?.mergedFruits : value.classicMergedFruits),
     gems: whole(value?.gems),
+    hubStats:{seconds:whole(value?.hubStats?.seconds),watermelons:whole(value?.hubStats?.watermelons),claims:Array.isArray(value?.hubStats?.claims)?value.hubStats.claims.filter(x=>typeof x==='string').slice(0,100):[]},
+    ownedHats:cleanOwned(value?.ownedHats,HATS,'none'),
+    equippedHat:HATS.some(x=>x.id===value?.equippedHat)?value.equippedHat:'none',
     mergedFruits: whole(value?.mergedFruits),
     ownedSkins,
     equippedSkin: ownedSkins.includes(value?.equippedSkin) ? value.equippedSkin : 'classic',
@@ -110,7 +113,7 @@ function cleanActiveRun(value) {
     }
     const lastRevivalTick = value.lastRevivalTick === undefined ? -1 : value.lastRevivalTick;
     if (!Number.isSafeInteger(lastRevivalTick) || lastRevivalTick < -1) return null;
-    return { id: value.id, mode:RUN_MODES.has(value.mode)?value.mode:'classic', finished: false, result: null, creditedFruits: value.creditedFruits ?? 0, earnedGems: value.earnedGems ?? 0, score: value.score ?? 0, lastRevivalTick, creditedSpecialShakes: value.creditedSpecialShakes ?? 0 };
+    return { id: value.id, mode:RUN_MODES.has(value.mode)?value.mode:'classic', finished: false, result: null, creditedFruits: value.creditedFruits ?? 0, earnedGems: value.earnedGems ?? 0, score: value.score ?? 0, lastRevivalTick, creditedSpecialShakes: value.creditedSpecialShakes ?? 0, gemMergeId:whole(value.gemMergeId) };
   }
   const receipt = cleanReceipt({ ...value.result, id: value.id });
   return receipt ? completedRun(receipt) : null;
@@ -305,7 +308,9 @@ export class GardenProgress {
     run.earnedGems = Math.min(Number.MAX_SAFE_INTEGER, run.earnedGems + earnedGems);
     run.score = Math.max(run.score, score);
     const specialShakes = Math.max(run.creditedSpecialShakes, specialShakeRewards);
-    this._profile.inventory.shake += Math.min(ITEM_LIMIT - this._profile.inventory.shake, specialShakes - run.creditedSpecialShakes);
+    for(let i=run.creditedSpecialShakes+1;i<=Math.min(specialShakes,run.creditedSpecialShakes+1998);i++){
+      const item=this.specialReward(i);this._profile.inventory[item]=Math.min(ITEM_LIMIT,this._profile.inventory[item]+1);
+    }
     run.creditedSpecialShakes = specialShakes;
     this._profile.discoveredLevels = cleanDiscoveredLevels([...this._profile.discoveredLevels, ...discoveredLevels]);
     return earnedGems;
@@ -499,6 +504,44 @@ export class GardenProgress {
       return this.profile;
     });
   }
+
+  specialReward(index) {
+    const id=this.pendingRun?.id||'garden';
+    let hash=2166136261;for(const c of `${id}:${index}`)hash=Math.imul(hash^c.charCodeAt(0),16777619);
+    return (hash>>>0)%2?'shake':'eraser';
+  }
+
+  async creditGemMerge(id, amount) {
+    return this._mutate(()=>{
+      const run=this.pendingRun;
+      if(!run||run.finished||this._profile.equippedSkin!=='royalGem'||!Number.isSafeInteger(id)||id<1||![1,10].includes(amount)||id<=(run.gemMergeId||0))return false;
+      const before=run.gemMergeId||0,beforeEarned=run.earnedGems;
+      try{this._commitCommerce(()=>{run.gemMergeId=id;this._profile.gems=Math.min(Number.MAX_SAFE_INTEGER,this._profile.gems+amount);run.earnedGems+=amount;});}
+      catch(error){run.gemMergeId=before;run.earnedGems=beforeEarned;throw error;}
+      this._emit();return true;
+    });
+  }
+
+  async recordHub(seconds=0, watermelons=0) {
+    return this._mutate(()=>{this._commitCommerce(()=>{
+      this._profile.hubStats.seconds+=Math.max(0,Math.min(60,Math.floor(seconds)));
+      this._profile.hubStats.watermelons+=watermelons===1?1:0;
+    });this._emit();});
+  }
+
+  async claimTier(metric, tier) {
+    return this._mutate(()=>{
+      const goals={seconds:[300,3600,36000],merges:[100,1000,10000],score:[1000,10000,100000],watermelons:[1,10,100]};
+      if(!goals[metric]||![0,1,2].includes(tier))throw progressError('업적을 확인해 주세요.','INVALID_ACHIEVEMENT');
+      const values={seconds:this._profile.hubStats.seconds,merges:this._profile.classicMergedFruits,score:this._profile.bestScore,watermelons:this._profile.hubStats.watermelons};
+      const key=`${metric}:${tier}`;
+      if(values[metric]<goals[metric][tier]||this._profile.hubStats.claims.includes(key))return false;
+      this._commitCommerce(()=>{this._profile.hubStats.claims.push(key);this._profile.gems+=[10,30,100][tier];this._profile.inventory.shake=Math.min(999,this._profile.inventory.shake+tier+1);if(tier===2&&!this._profile.ownedHats.includes('crown'))this._profile.ownedHats.push('crown');});
+      this._emit();return true;
+    });
+  }
+
+  async buyHat(id) {await this._buyPermanent(id,HATS,'ownedHats','INVALID_HAT');return this._equipPermanent(id,HATS,'ownedHats','equippedHat','INVALID_HAT','HAT_NOT_OWNED');}
 
   async consumeItem(id) {
     return this._mutate(() => {
