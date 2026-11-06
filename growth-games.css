@@ -66,3 +66,35 @@ html[data-theme=dark] .growth-wallet .growth-coins{background:#4b4631;border-col
  #growth-root[data-growth=quest] .growth-stage-bar small{font-size:9px;line-height:1.5;white-space:normal}
  .growth-section-title>span{font-size:9px}
 }
+
+/* The expedition gets the full stage width; orchard keeps its compact care layout. */
+#growth-root[data-growth=quest]{max-width:1280px}
+#growth-root[data-growth=quest] .growth-play{grid-template-columns:minmax(0,1fr) 280px;gap:22px}
+#growth-root[data-growth=quest] .growth-scene{width:100%;min-width:0;max-width:none;border-color:#d4dfb4;background:#9acbb0}
+#growth-root[data-growth=quest] .growth-controls{padding-top:42px}
+#growth-root[data-growth=quest] .growth-primary .start-button{min-height:46px;font-size:14px;background:#638d52}
+html[data-theme=dark] #growth-root[data-growth=quest] .growth-scene{border-color:#607554}
+@media(max-width:1000px){
+ #growth-root[data-growth=quest]{max-width:820px}
+ #growth-root[data-growth=quest] .growth-play{grid-template-columns:minmax(0,1fr);gap:12px}
+ #growth-root[data-growth=quest] .growth-controls{padding-top:0}
+ #growth-root[data-growth=quest] .growth-upgrade-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:640px){
+ #growth-root[data-growth=quest] .growth-scene{border-width:3px;border-bottom-width:5px;border-radius:17px}
+ #growth-root[data-growth=quest] .growth-primary .start-button{min-height:42px;font-size:12px}
+ #growth-root[data-growth=quest] .growth-stage-bar{top:12px;left:13px;right:13px}
+ #growth-root[data-growth=quest] .growth-stage-bar>div{padding:7px 9px;background:#fff5dfed;border-color:#abc08f}
+ #growth-root[data-growth=quest] .growth-stage-bar strong{font-size:12px}
+ #growth-root[data-growth=quest] .growth-stage-bar small{font-size:10px}
+ #growth-root[data-growth=quest] .growth-stage-bar>button{min-height:33px;font-size:11px}
+ #growth-root[data-growth=quest] .growth-outcome{top:30%;padding:16px 12px}
+ #growth-root[data-growth=quest] .growth-outcome>strong{font-size:20px}
+ #growth-root[data-growth=quest] .growth-outcome p{font-size:11px;line-height:1.7;margin:8px 0 12px}
+ #growth-root[data-growth=quest] .growth-outcome button{min-height:36px;font-size:11px;padding:8px 10px}
+}
+@media(max-height:540px) and (orientation:landscape){
+ #growth-root[data-growth=quest]{max-width:100%}
+ #growth-root[data-growth=quest] .growth-play{grid-template-columns:minmax(0,1.6fr) minmax(215px,1fr);gap:13px}
+ #growth-root[data-growth=quest] .growth-upgrade-grid{grid-template-columns:1fr}
+}
