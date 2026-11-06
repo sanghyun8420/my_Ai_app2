@@ -1,7 +1,17 @@
 import { mountArcade } from './arcade.js';
 import { drawSkinnedFruit } from './skins.js';
 export function drawBuddy(c,hat='none',x=30,y=30,scale=1,time=0){
- c.save();c.translate(x,y);c.scale(scale,scale);c.strokeStyle='#293a35';c.lineWidth=2.2;c.lineCap='round';c.beginPath();c.arc(0,-16,8,0,Math.PI*2);c.moveTo(0,-8);c.lineTo(0,12);c.lineTo(-12,12+Math.sin(time*2)*3);c.lineTo(-12,23);c.moveTo(0,12);c.lineTo(13,15);c.lineTo(16,25);c.moveTo(0,-2);c.lineTo(-12,5);c.moveTo(0,-2);c.lineTo(13,2);c.stroke();c.fillStyle='#293a35';c.fillRect(-4,-18,2,2);c.fillRect(3,-18,2,2);const hats={cap:'🧢',flower:'🌼',wizard:'🧙',crown:'👑'};if(hats[hat]){c.font='23px sans-serif';c.textAlign='center';c.fillText(hats[hat],0,-23);}c.restore();
+ const swing=Math.sin(time*2.6)*2.6,other=Math.sin(time*2.6+.8)*1.8;
+ c.save();c.translate(x,y);c.scale(scale,scale);c.strokeStyle='#293a35';c.lineWidth=2.2;c.lineCap='round';c.lineJoin='round';
+ c.beginPath();c.arc(-5,-17,8,0,Math.PI*2);c.moveTo(-5,-9);c.lineTo(-3,1);c.lineTo(0,10);
+ // A fixed hip and horizontal thighs sit on the score-card edge; only the
+ // hanging shins and feet swing, so the character never appears to stand.
+ c.moveTo(0,10);c.lineTo(14,13);c.lineTo(13-other,28);c.lineTo(20-other,29);
+ c.moveTo(0,10);c.lineTo(21,10);c.lineTo(21+swing,29);c.lineTo(29+swing,30);
+ c.moveTo(-4,-3);c.lineTo(-12,8);c.lineTo(-12,10);c.moveTo(-16,11);c.lineTo(-9,11);
+ c.moveTo(-3,-3);c.lineTo(7,6);c.lineTo(14,9);c.stroke();
+ c.fillStyle='#293a35';c.fillRect(-7,-19,1.8,2);c.fillRect(-1,-19,1.8,2);c.beginPath();c.moveTo(-5,-13);c.quadraticCurveTo(-2,-11,1,-14);c.stroke();
+ const hats={cap:'🧢',flower:'🌼',wizard:'🧙',crown:'👑'};if(hats[hat]){c.font='18px sans-serif';c.textAlign='center';c.fillText(hats[hat],-5,-25);}c.restore();
 }
 export function createHub(api){
  const $=id=>document.getElementById(id);
@@ -26,7 +36,7 @@ export function createHub(api){
  ranking.querySelector('.rank-games').onclick=e=>{if(e.target.dataset.rank)rank(e.target.dataset.rank);};
  const rankButton=document.createElement('button');rankButton.className='menu-action';rankButton.textContent='🏆 리더보드';rankButton.onclick=()=>rank();$('menu-dialog').querySelector('.menu-list').append(rankButton);
  const support=document.createElement('a');support.className='menu-action support-link';support.href='mailto:hamsangadsl8420@gmail.com?subject='+encodeURIComponent('[수박정원 문의]');support.textContent='✉ 고객센터 · 이메일 문의';$('menu-dialog').append(support);
- const buddy=document.createElement('button');buddy.id='garden-buddy';buddy.setAttribute('aria-label','쫄라맨 건드리기');buddy.innerHTML='<canvas width="140" height="130"></canvas><span class="buddy-bubble" hidden></span>';document.querySelector('.score-band').append(buddy);const bc=buddy.querySelector('canvas').getContext('2d'),bubble=buddy.querySelector('span');let speechUntil=0,lastSpeech=0;
+ const buddy=document.createElement('button');buddy.id='garden-buddy';buddy.setAttribute('aria-label','점수판에 앉은 쫄라맨 건드리기');buddy.innerHTML='<canvas width="140" height="160"></canvas><span class="buddy-bubble" hidden></span>';document.querySelector('.score-band').append(buddy);const bc=buddy.querySelector('canvas').getContext('2d'),bubble=buddy.querySelector('span'),buddyMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');let speechUntil=0,lastSpeech=0;
  const lines=['방금 좀 멋있을 뻔했어.','과일은 죄가 없어. 나는 봤어.','계획은 있었지? 나도 있었어.','같은 실수도 꾸준하면 기술이야.','이건 실수가 아니라 빌드업이지?','오, 그 합치기는 좀 인정.','조용히 보고만 있으려 했는데…'];
  function say(text){if(get('garden-buddy-comments')==='off')return;bubble.textContent=text;bubble.hidden=false;speechUntil=performance.now()+3800;}
  buddy.onclick=()=>{buddy.classList.remove('buddy-fall');void buddy.offsetWidth;buddy.classList.add('buddy-fall');say(['야! 여기 내 자리야.','잠깐, 나는 과일이 아니거든?','내가 떨어진 건 네 손 때문이야.'][Math.floor(Math.random()*3)]);api.effect('drop');};
@@ -60,6 +70,6 @@ export function createHub(api){
  let last=0,seconds=0,beat=0;
  function frame(now){const dt=last?Math.min(.1,(now-last)/1000):0;last=now;const s=api.state();if(s.game==='suika'&&s.world.state==='playing'&&s.mode==='classic'&&!document.hidden&&!document.querySelector('dialog[open]'))seconds+=dt;
    if(seconds>=15){const n=Math.floor(seconds);seconds-=n;safe(()=>api.store().recordHub(n));}
-   if(!document.hidden){bc.clearRect(0,0,140,130);drawBuddy(bc,api.store().profile.equippedHat,70,63,1.7,now/1000);if(now>speechUntil)bubble.hidden=true;beat+=dt;if(beat>2&&friends.open&&chatTab==='chat'){beat=0;if(now-chatAt>2200){chatAt=now;messages();}}}requestAnimationFrame(frame);}
+   if(!document.hidden){bc.clearRect(0,0,140,160);drawBuddy(bc,api.store().profile.equippedHat,70,85,1.7,buddyMotion?.matches?0:now/1000);if(now>speechUntil)bubble.hidden=true;beat+=dt;if(beat>2&&friends.open&&chatTab==='chat'){beat=0;if(now-chatAt>2200){chatAt=now;messages();}}}requestAnimationFrame(frame);}
  requestAnimationFrame(frame);return {merge,rank,share,renderTiers,arcade,select,say};
 }

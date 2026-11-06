@@ -7,7 +7,7 @@ body{background-image:radial-gradient(#5d73520d .8px,transparent .8px);backgroun
 main{max-width:1350px;padding:0 20px}main .game-layout{width:min(100%,1100px)!important;margin:auto}main .play-column{grid-template-columns:minmax(0,1fr) 180px!important;gap:12px 16px!important}main .score-band{position:relative;margin-top:60px!important;margin-bottom:10px}.score-cell{box-shadow:0 3px 0 #253d3412;border-radius:9px}.score-cell.current-score{background:#294e3a}
 .basket-layout{grid-template-columns:minmax(0,1fr) 64px}.basket-layout>.evolution-rail{width:64px}.board-shell{border-width:3px;border-radius:15px 15px 30px 30px;box-shadow:0 8px 0 #d0d8be,0 18px 45px #263f3010}.next-bar.next-card{background:transparent;border:0;padding-left:0!important}.board-top{padding-top:0!important}
 .shop-dialog{width:min(1100px,97vw);max-width:1100px;min-height:85dvh;max-height:94dvh;border-radius:16px}.shop-header{padding:26px 30px 20px}.shop-tabs{gap:10px}.shop-tabs button{min-height:46px}.shop-dialog .skin-grid{grid-template-columns:repeat(4,minmax(0,1fr));margin:22px 28px;gap:15px}.shop-card,.shop-dialog .skin-card{border-radius:9px;padding:14px;background:var(--card);box-shadow:0 3px 0 #304a2f0c}.shop-card h3{font-size:14px!important}.shop-card p{font-size:11px!important;line-height:1.65}.skin-buy{min-height:40px!important}.tool-foot{flex-wrap:wrap}.tool-foot .refill-ticket{font-size:10px;min-height:28px}.toolbelt-heading{font-size:12px}.tool-effects-status:empty{display:none}
-#garden-buddy{position:absolute;right:17%;bottom:calc(100% - 8px);width:70px;height:65px;z-index:7;border:0;padding:0;background:none;transform-origin:center bottom}#garden-buddy canvas{width:70px;height:65px;pointer-events:none}.buddy-bubble{position:absolute;bottom:57px;right:-45px;width:205px;padding:9px 12px;border:1px solid #b5bca3;border-radius:12px 12px 3px 12px;background:#fffced;color:#344a3c;box-shadow:0 4px 0 #243c3410;font-size:11px;line-height:1.65;text-align:left}.buddy-fall{animation:buddy-fall 2.4s ease-in-out}@keyframes buddy-fall{0%{transform:rotate(0)}20%{transform:translate(10px,48px) rotate(100deg)}55%{transform:translate(16px,57px) rotate(100deg)}80%{transform:translate(0,-7px) rotate(-5deg)}100%{transform:none}}
+#garden-buddy{position:absolute;right:17%;bottom:calc(100% - 29px);width:70px;height:80px;z-index:7;border:0;padding:0;background:none;transform-origin:center bottom}#garden-buddy canvas{width:70px;height:80px;pointer-events:none}.buddy-bubble{position:absolute;bottom:80px;pointer-events:none;right:-45px;width:205px;padding:9px 12px;border:1px solid #b5bca3;border-radius:12px 12px 3px 12px;background:#fffced;color:#344a3c;box-shadow:0 4px 0 #243c3410;font-size:11px;line-height:1.65;text-align:left}.buddy-fall{animation:buddy-fall 2.4s ease-in-out}@keyframes buddy-fall{0%{transform:rotate(0)}20%{transform:translate(10px,48px) rotate(100deg)}55%{transform:translate(16px,57px) rotate(100deg)}80%{transform:translate(0,-7px) rotate(-5deg)}100%{transform:none}}
 .rainbow-burst{position:absolute;inset:0;z-index:12;display:grid;place-items:center;font-size:130px;background:radial-gradient(circle,#fff8d8d9,transparent 70%);pointer-events:none;animation:rainbow-pop 2.6s ease-out forwards}@keyframes rainbow-pop{0%{transform:scale(.2);filter:brightness(4)}25%{transform:scale(1.3);filter:brightness(1.4)}100%{transform:scale(1.8);opacity:0}}
 .hub-dialog{width:min(750px,95vw);max-width:750px;max-height:92dvh;padding:30px;overflow:auto;border-radius:15px}.hub-dialog h2{margin:8px 0 22px}#celebration-dialog{width:min(600px,94vw);text-align:center}#celebration-canvas{display:block;width:min(100%,420px);height:auto;margin:10px auto 18px;border-radius:14px}#celebration-share{width:100%;font-size:13px}.rank-games,.social-tabs{display:flex;gap:8px;margin:18px 0}.rank-games button,.social-tabs button{flex:1;min-height:42px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink)}.social-tabs .active{background:var(--green);color:#fff}#ranking-list{padding:0;list-style:none}#ranking-list li{display:flex;justify-content:space-between;padding:15px 12px;border-bottom:1px solid var(--line)}#ranking-list li:first-child{background:var(--card-soft);border-radius:9px}.tier-card{display:block;width:100%;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:13px;text-align:left;line-height:1.7;font-size:11px;color:var(--ink);margin:7px 0}.tier-card:disabled{opacity:.7}.support-link{text-decoration:none;display:block;padding:16px 0;color:var(--green)}
 .friends-dialog{width:min(850px,96vw);max-width:850px;min-height:70dvh}#garden-chat label{display:flex;align-items:center;gap:12px;font-size:13px}#chat-friend{flex:1;padding:12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink)}#chat-messages{height:300px;overflow:auto;margin:15px 0;padding:12px;background:var(--paper);border:1px solid var(--line);border-radius:12px}.chat-bubble{width:85%;margin:9px 0;padding:9px 12px;border-radius:12px;background:var(--card-soft);overflow-wrap:anywhere}.chat-bubble.mine{margin-left:auto;background:#d9e2c2}.chat-bubble p{margin:0!important;color:var(--ink)!important;font-size:13px!important}.chat-bubble small{font-size:8px;color:var(--muted)}.chat-bubble button{display:block;margin-top:8px;padding:6px 10px;border:0;border-radius:7px;color:white;background:var(--green)}#chat-form{display:flex;gap:8px;margin-bottom:12px}#chat-input{min-width:0;flex:1;border:1px solid var(--line);border-radius:9px;padding:10px;background:var(--paper);color:var(--ink)}.password-hint{font-size:10px;color:var(--muted);line-height:1.7}.remember-login{display:flex;gap:7px;align-items:center;font-size:12px;margin-top:15px}.account-dialog .guest-entry{position:static;width:auto;height:auto;display:block;margin:0 0 18px auto;padding:7px 12px;border:1px solid var(--line);font-size:11px;color:var(--green)}
@@ -22,9 +22,9 @@ html[data-theme=dark] .chat-bubble.mine{background:#394d35}html[data-theme=dark]
 /* Keep the three game actions together at the original top-right position. */
 body .site-header{flex-wrap:nowrap;gap:16px;padding-top:7px;padding-bottom:9px}
 body .site-header .header-right{flex:0 0 auto;flex-basis:auto;width:auto;justify-content:flex-end;gap:8px}
-body .site-header .header-right .header-game-action{display:inline-flex;--header-action-size:40px}
-body .site-header .friends-button svg{display:block;width:22px;height:22px;min-width:22px}
-body .site-header .menu-button{width:40px;height:40px;min-height:40px}
+body .site-header .header-right .header-game-action{display:inline-flex;--header-action-size:46px}
+body .site-header .header-right .header-game-action svg{display:block;width:27px;height:27px;min-width:27px}
+body .site-header .menu-button{width:46px;height:46px;min-height:46px}
 body .site-header .header-game-action:focus-visible,body .site-header .brand:focus-visible{outline:3px solid var(--green);outline-offset:3px}
 html[data-theme=dark] .watermelon-art{background:#344f3d}
 html[data-theme=dark] .apple-art{background:#64463b}
@@ -35,10 +35,10 @@ html[data-theme=dark] .block-art{background:#354d58}
  body .site-header .brand img{width:30px;height:30px}
  body .site-header .brand-chevron{font-size:14px}
  body .site-header .header-right{gap:5px}
- body .site-header .header-right .header-game-action{--header-action-size:34px}
- body .site-header .friends-button svg{width:20px;height:20px;min-width:20px}
+ body .site-header .header-right .header-game-action{--header-action-size:40px}
+ body .site-header .header-right .header-game-action svg{width:25px;height:25px;min-width:25px}
  body .site-header .account-button{display:none}
- body .site-header .menu-button{width:34px;height:34px;min-height:34px}
+ body .site-header .menu-button{width:40px;height:40px;min-height:40px}
  .brand-wrap{padding-bottom:18px}
  .brand-hint{left:19px;font-size:9px;gap:0}
  .brand-hint svg{width:20px;height:16px}
@@ -59,8 +59,9 @@ html[data-theme=dark] .block-art{background:#354d58}
  body .site-header .brand{font-size:17px;gap:3px}
  body .site-header .brand img{width:26px;height:26px}
  body .site-header .header-right{gap:4px}
- body .site-header .header-right .header-game-action{--header-action-size:32px}
- body .site-header .menu-button{width:32px;height:32px;min-height:32px}
+ body .site-header .header-right .header-game-action{--header-action-size:36px}
+ body .site-header .menu-button{width:36px;height:36px;min-height:36px}
+ body .site-header .header-right .header-game-action svg{width:23px;height:23px;min-width:23px}
  .game-picker-dialog{padding-left:14px;padding-right:14px}
  .game-picker-dialog .game-switcher>button{column-gap:9px}
 }
