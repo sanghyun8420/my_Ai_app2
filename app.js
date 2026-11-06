@@ -714,6 +714,7 @@ function showFromMenu(id) {
 
 function openModes() {
   if (erasingBusy || inventoryBusy || reviveBusy) return;
+  if(selectedGame!=='suika'){hub?.arcade.focusMode();if($('menu-dialog').open)$('menu-dialog').close();return;}
   renderModes();
   showFromMenu('modes-dialog');
 }
@@ -975,7 +976,7 @@ function resumeGame() {
   updateShake(); updateItem(); saveGame();
 }
 
-$('shop-open').addEventListener('click', () => openShop('skins'));
+$('shop-open').addEventListener('click', () => {if(selectedGame==='suika')openShop('skins');else hub?.arcade.openLocker();});
 $('tools-shop-open').addEventListener('click', () => openShop('items'));
 const shopCategories=['skins','backgrounds','baskets','items'];
 shopCategories.forEach((category,index)=>{
@@ -1046,8 +1047,8 @@ for(const [id,field]of [['page-color','pageColor'],['board-color','boardColor']]
 }
 $('appearance-reset').addEventListener('click',()=>{preferences=savePreferences({...preferences,pageColor:null,boardColor:null});applyTheme();});
 $('resume-menu').addEventListener('click', () => $('menu-dialog').close());
-$('restart-menu').addEventListener('click', () => { openDialog('restart-dialog');$('menu-dialog').close(); });
-$('achievements-open').addEventListener('click', () => { renderAchievements();showFromMenu('achievements-dialog'); });
+$('restart-menu').addEventListener('click', () => {if(selectedGame==='suika')openDialog('restart-dialog');else document.getElementById('arcade-restart').click();$('menu-dialog').close(); });
+$('achievements-open').addEventListener('click', () => {if(selectedGame==='suika'){renderAchievements();showFromMenu('achievements-dialog');}else{hub?.arcade.openLocker();$('menu-dialog').close();} });
 $('modes-open').addEventListener('click', openModes);
 function unlockFromCode(){
   const code=$('secret-code').value.trim().toLowerCase();
