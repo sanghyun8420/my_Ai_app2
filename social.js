@@ -420,6 +420,7 @@ export class GardenSocial {
   }
 
   async createRoom(mode = 'classic') {
+    if (!['suika','apple','blocks'].includes(this.getGame())) throw socialError('대전은 수박정원·사과모아·블록정원에서 즐길 수 있어요. 게임을 선택해 주세요.', 'SINGLE_PLAYER_GAME');
     if (!this._requireUser() || this._roomBusy) return null;
     this._roomBusy = true;
     if (this.$('room-create')) this.$('room-create').disabled = true;

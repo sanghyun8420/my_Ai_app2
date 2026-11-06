@@ -715,7 +715,7 @@ function showFromMenu(id) {
 
 function openModes() {
   if (erasingBusy || inventoryBusy || reviveBusy) return;
-  if(selectedGame!=='suika'){hub?.arcade.focusMode();if($('menu-dialog').open)$('menu-dialog').close();return;}
+  if(selectedGame!=='suika'){hub?.controller().focusMode();if($('menu-dialog').open)$('menu-dialog').close();return;}
   renderModes();
   showFromMenu('modes-dialog');
 }
@@ -977,7 +977,7 @@ function resumeGame() {
   updateShake(); updateItem(); saveGame();
 }
 
-$('shop-open').addEventListener('click', () => {if(selectedGame==='suika')openShop('skins');else hub?.arcade.openLocker();});
+$('shop-open').addEventListener('click', () => {if(selectedGame==='suika')openShop('skins');else hub?.controller().openLocker();});
 $('tools-shop-open').addEventListener('click', () => openShop('items'));
 const shopCategories=['skins','backgrounds','baskets','items'];
 shopCategories.forEach((category,index)=>{
@@ -1042,8 +1042,8 @@ for(const [id,field]of [['page-color','pageColor'],['board-color','boardColor']]
 }
 $('appearance-reset').addEventListener('click',()=>{preferences=savePreferences({...preferences,pageColor:null,boardColor:null});applyTheme();});
 $('resume-menu').addEventListener('click', () => $('menu-dialog').close());
-$('restart-menu').addEventListener('click', () => {if(selectedGame==='suika')openDialog('restart-dialog');else document.getElementById('arcade-restart').click();$('menu-dialog').close(); });
-$('achievements-open').addEventListener('click', () => {if(selectedGame==='suika'){renderAchievements();showFromMenu('achievements-dialog');}else{hub?.arcade.openLocker();$('menu-dialog').close();} });
+$('restart-menu').addEventListener('click', () => {if(selectedGame==='suika')openDialog('restart-dialog');else hub?.controller().restart();$('menu-dialog').close(); });
+$('achievements-open').addEventListener('click', () => {if(selectedGame==='suika'){renderAchievements();showFromMenu('achievements-dialog');}else{const game=hub?.controller();if(game?.openRecords)game.openRecords();else game?.openLocker();$('menu-dialog').close();} });
 $('modes-open').addEventListener('click', openModes);
 function unlockFromCode(){
   const code=$('secret-code').value.trim().toLowerCase();
@@ -1258,7 +1258,7 @@ social = new GardenSocial({
   fetcher: createApiFetcher('https://suika-shake-garden-n5k7.hbhbhs02.chatgpt.site/'),
   getGame:()=>selectedGame,
   openDialog,
-  getMode:()=>selectedGame==='suika'?activeMode:hub?.arcade.mode()||'classic',
+  getMode:()=>selectedGame==='suika'?activeMode:hub?.controller().mode()||'classic',
   onError:error=>toast(error.message || '친구 기능에 연결하지 못했어요.'),
   onBeforeAccountChange:async()=>{saveGame();},
   onUser:user=>{ $('account-open').textContent=user?`☺ ${user.displayName}`:'회원가입';globalThis.dispatchEvent(new CustomEvent('garden-user',{detail:user})); },
@@ -1272,7 +1272,7 @@ $('account-open').addEventListener('click',()=>social.openAccount(social.user?'l
 $('friends-menu').addEventListener('click',()=>{social.openFriends();$('menu-dialog').close();});
 $('account-menu').addEventListener('click',()=>{social.openAccount(social.user?'login':'register');$('menu-dialog').close();});
 hub=createHub({
-  state:()=>({world,mode:selectedGame==='suika'?activeMode:hub?.arcade.mode()||'classic',skin:currentSkin,game:selectedGame,canvas}),store:()=>progressStore,social:()=>social,
+  state:()=>({world,mode:selectedGame==='suika'?activeMode:hub?.controller().mode()||'classic',skin:currentSkin,game:selectedGame,canvas}),store:()=>progressStore,social:()=>social,
   toast,open:openDialog,effect:playSound,achievements:renderAchievements,arcadeActive:value=>{arcadePlaying=value;},
   resume:()=>{if(selectedGame==='suika'&&started&&world.state==='paused'&&pausedByDialog&&!document.querySelector('dialog[open]')){world.state='playing';pausedByDialog=false;}},
   switchGame:game=>{if(game===selectedGame)return;saveGame();if(game!=='suika'){if(selectedGame==='suika'){wasSuikaPlaying=started&&(world.state==='playing'||world.state==='paused'&&pausedByDialog);if(wasSuikaPlaying)world.state='paused';pausedByDialog=false;}arcadePlaying=true;}else if(wasSuikaPlaying&&world.state==='paused')world.state='playing';selectedGame=game;syncAudio();},
