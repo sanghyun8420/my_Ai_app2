@@ -53,14 +53,14 @@ function forest(c,time){
  for(let i=0;i<5;i++)leaf(c,((time*8+i*127)%650)-25,80+i*49,.28,Math.sin(time+i), '#d1d6ae99');
 }
 const heroPlaces=[[90,294],[165,349],[71,402]];
-export function drawExpeditionScene(c,model,time=0,effects=[]){
+export function drawExpeditionScene(c,model,time=0,effects=[],drawHUD=true){
  c.save();forest(c,time);const boss=model.enemies.find(e=>e.boss),attacking=['waves','boss'].includes(model.phase);
  for(let i=0;i<3;i++){const [x,y]=heroPlaces[i];drawHero(c,i,x,y,.8,time,model.data.equipped[i].weapon,attacking&&model.attackClock<.2,model.data.equipped[i].charm);}
  for(const enemy of [...model.enemies].sort((a,b)=>a.y-b.y)){rotten(c,enemy.kind,enemy.x,enemy.y,enemy.boss?70:28,time,enemy.hit>0,enemy.boss);if(!enemy.boss){round(c,enemy.x-25,enemy.y-39,50,5,2,'#355a4659');round(c,enemy.x-25,enemy.y-39,50*Math.max(0,enemy.hp/enemy.maxHp),5,2,'#dcc990');}}
  if(!model.enemies.length&&['camp','victory','defeat'].includes(model.phase)){round(c,280,203,265,70,18,'#f7f0d5e6','#b1b99e');label(c,model.phase==='camp'?'숲길 너머, 무슨 일이?':model.phase==='victory'?'정원이 조금 더 안전해졌어요':'숨을 고르고 다시 출발해요',412,229,14);label(c,'모아 · 포리 · 루미',412,255,11,'#7a896d');}
- const hp=model.stats().maxHp;round(c,19,461,195,29,12,'#f9f1d8','#6e8872');round(c,25,467,183*Math.max(0,model.hp/hp),17,7,'#7f9f76');label(c,`체력 ${Math.ceil(Math.max(0,model.hp))} / ${Math.round(hp)}`,117,477,11,'#334d3f');
- if(boss){round(c,274,47,300,36,14,'#fcf1d6','#8e765c');round(c,280,53,288*Math.max(0,boss.hp/boss.maxHp),24,10,'#bd7772');label(c,`${boss.name} · ${Math.ceil(model.bossLeft)}초`,424,65,12,'#533f3e');}
- else{round(c,270,52,296,32,13,'#f3ecd6cc');label(c,`${DIFFICULTIES[model.data.tier]} ${stageName(model.index)} · ${model.data.waveKills}/10`,418,68,12,'#405b4c');}
+ const hp=model.stats().maxHp;round(c,19,461,195,29,12,'#f9f1d8','#6e8872');round(c,25,467,183*Math.max(0,model.hp/hp),17,7,'#7f9f76');if(drawHUD)label(c,`체력 ${Math.ceil(Math.max(0,model.hp))} / ${Math.round(hp)}`,117,477,11,'#334d3f');
+ if(drawHUD){if(boss){round(c,274,47,300,36,14,'#fcf1d6','#8e765c');round(c,280,53,288*Math.max(0,boss.hp/boss.maxHp),24,10,'#bd7772');label(c,`${boss.name} · ${Math.ceil(model.bossLeft)}초`,424,65,12,'#533f3e');}
+ else{round(c,270,52,296,32,13,'#f3ecd6cc');label(c,`${DIFFICULTIES[model.data.tier]} ${stageName(model.index)} · ${model.data.waveKills}/10`,418,68,12,'#405b4c');}}
  for(const fx of effects){const t=fx.age/fx.life;c.save();c.globalAlpha=Math.max(0,1-t);if(fx.type==='shot'){const p=heroPlaces[fx.hero];const x=p[0]+35+(fx.x-p[0]-35)*Math.min(1,t*1.8),y=p[1]-25+(fx.y-p[1]+25)*Math.min(1,t*1.8)-Math.sin(t*Math.PI)*35;oval(c,x,y,5,5,['#f3d291','#c4a3c9','#c2e2dd'][fx.hero]);sparkle(c,x,y,7,'#fff1bf');}else if(fx.type==='hit'||fx.type==='hurt')label(c,String(fx.amount),fx.x,fx.y-32-t*29,fx.type==='hurt'?14:17,fx.type==='hurt'?'#9a3e45':'#fff9df');else if(fx.type==='coin')label(c,'+'+fx.amount,fx.x,fx.y-20-t*45,16,'#f8dd91');else if(fx.type==='victory'){for(let i=0;i<15;i++)sparkle(c,(i*97)%600,70+(i*43)%300+t*50,5,'#f4e2a4');}c.restore();}
  c.restore();
 }

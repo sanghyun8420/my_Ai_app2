@@ -57,3 +57,12 @@ html[data-theme=dark] .growth-wallet .growth-coins{background:#4b4631;border-col
 }
 
 #growth-root[data-growth=quest] #growth-extra-action[data-farm=true]{display:inline-flex}
+
+.growth-boss-progress{display:block;width:100%;height:5px;border:0;border-radius:5px;overflow:hidden;appearance:none;-webkit-appearance:none;background:#ded3ba;margin:5px 0 0}.growth-boss-progress::-webkit-progress-bar{background:#ded3ba}.growth-boss-progress::-webkit-progress-value{background:#b96e68}.growth-boss-progress::-moz-progress-bar{background:#b96e68}
+@media(max-width:640px){
+ #growth-root[data-growth=quest] .growth-stage-bar{right:12px;align-items:start;gap:7px}
+ #growth-root[data-growth=quest] .growth-stage-bar>div{display:block;flex:1;min-width:0;padding:6px 8px;border:1px solid #bdc5a7;border-radius:8px;background:#f9f0dadd}
+ #growth-root[data-growth=quest] .growth-stage-bar strong{font-size:11px;line-height:1.4}
+ #growth-root[data-growth=quest] .growth-stage-bar small{font-size:9px;line-height:1.5;white-space:normal}
+ .growth-section-title>span{font-size:9px}
+}
