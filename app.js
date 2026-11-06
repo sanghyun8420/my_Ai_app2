@@ -43,7 +43,7 @@ let preferences = loadPreferences();
 let activeMode = 'classic', totalShakes = 0, eraseMode = false, selectedFruitId = null;
 let hub=null,selectedGame='suika',arcadePlaying=false,wasSuikaPlaying=false;
 let seedState = (Date.now() >>> 0) || 1;
-let logoTaps=0,logoTapStartedAt=0;
+
 let checkpointDirty = false, checkpointBusy = false, social = null;
 let roomElapsed = 0;
 let palette = { background:'#fffdf3', dots:'#dce3cc', line:'#b9c3a3', text:'#8f9e7c' };
@@ -1034,14 +1034,8 @@ document.addEventListener('pointerdown', () => ensureAudio(), { capture:true });
 document.addEventListener('keydown', event => { if (!event.repeat) ensureAudio(); }, { capture:true });
 ['light','dark'].forEach(theme => $(`theme-${theme}`).addEventListener('click', () => { preferences=savePreferences({ ...preferences, theme });applyTheme(); }));
 $('menu-open').addEventListener('click', () => openDialog('menu-dialog'));
-$('appearance-open').addEventListener('click',()=>openDialog('appearance-dialog'));
+$('appearance-open').addEventListener('click',()=>showFromMenu('appearance-dialog'));
 $('modes-header-open').addEventListener('click', openModes);
-$('brand-easter').addEventListener('click',()=>{
-  const now=Date.now();
-  if(!logoTaps||now-logoTapStartedAt>2500){logoTaps=0;logoTapStartedAt=now;}
-  logoTaps++;
-  if(logoTaps>=7){logoTaps=0;openModes();if($('modes-dialog').open)$('secret-code').focus();}
-});
 for(const [id,field]of [['page-color','pageColor'],['board-color','boardColor']]){
   $(id).addEventListener('input',event=>{preferences=savePreferences({...preferences,[field]:event.target.value});applyTheme();});
 }
@@ -1093,7 +1087,7 @@ document.querySelectorAll('dialog').forEach(dialog => {
   });
   dialog.addEventListener('close', () => {
     if (!document.querySelector('dialog[open]') && pausedByDialog && !starting && !resumeAvailable && !eraseMode) {
-      if (started && world.state === 'paused') world.state = 'playing';
+      if (selectedGame === 'suika' && started && world.state === 'paused') world.state = 'playing';
       pausedByDialog = false;
     }
   });
@@ -1280,7 +1274,7 @@ hub=createHub({
   state:()=>({world,mode:selectedGame==='suika'?activeMode:hub?.arcade.mode()||'classic',skin:currentSkin,game:selectedGame,canvas}),store:()=>progressStore,social:()=>social,
   toast,open:openDialog,effect:playSound,achievements:renderAchievements,arcadeActive:value=>{arcadePlaying=value;},
   resume:()=>{if(selectedGame==='suika'&&started&&world.state==='paused'&&pausedByDialog&&!document.querySelector('dialog[open]')){world.state='playing';pausedByDialog=false;}},
-  switchGame:game=>{if(game===selectedGame)return;saveGame();if(game!=='suika'){if(selectedGame==='suika'){wasSuikaPlaying=started&&world.state==='playing';if(wasSuikaPlaying)world.state='paused';}arcadePlaying=true;}else if(wasSuikaPlaying&&world.state==='paused')world.state='playing';selectedGame=game;syncAudio();},
+  switchGame:game=>{if(game===selectedGame)return;saveGame();if(game!=='suika'){if(selectedGame==='suika'){wasSuikaPlaying=started&&(world.state==='playing'||world.state==='paused'&&pausedByDialog);if(wasSuikaPlaying)world.state='paused';pausedByDialog=false;}arcadePlaying=true;}else if(wasSuikaPlaying&&world.state==='paused')world.state='playing';selectedGame=game;syncAudio();},
 });
 social.init().catch(error=>toast(error.message));
 requestAnimationFrame(frame);
