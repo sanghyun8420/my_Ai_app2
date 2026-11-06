@@ -79,3 +79,31 @@ html[data-theme=dark] .block-art{background:#354d58}
  .game-picker-dialog .game-switcher small{font-size:9px}
 }
 @media(prefers-reduced-motion:reduce){.game-switcher>button{transition:none}}
+
+/* Keep the friend label visible next to its icon, including narrow phones. */
+body .site-header .header-right .friends-button{flex:0 0 auto;width:auto;min-width:86px;max-width:none;gap:7px;padding:0 11px;font-size:13px;font-weight:700;white-space:nowrap}
+body .site-header .header-right .friends-button span{display:inline;line-height:1}
+body .site-header .header-right .shop-button svg{flex-shrink:0;overflow:visible;color:var(--ink);fill:none}
+body .site-header .header-right .friends-button svg{fill:none}
+@media(max-width:640px){
+ body .site-header .header-right .friends-button{min-width:72px;gap:5px;padding:0 7px;font-size:11px}
+}
+@media(max-width:420px){
+ body .site-header{padding-left:10px;padding-right:10px;gap:4px}
+ body .site-header .brand{font-size:17px;gap:3px}
+ body .site-header .brand img{width:26px;height:26px}
+ body .site-header .brand-chevron{font-size:12px}
+ body .site-header .header-right{gap:4px}
+ body .site-header .header-right .header-game-action{--header-action-size:38px}
+ body .site-header .header-right .header-game-action svg{width:23px;height:23px;min-width:23px}
+ body .site-header .header-right .friends-button{min-width:68px;padding:0 6px}
+ body .site-header .menu-button{width:36px;height:36px;min-height:36px}
+}
+@media(max-width:355px){
+ body .site-header{padding-left:8px;padding-right:8px}
+ body .site-header .brand{font-size:16px}
+ body .site-header .brand img{width:24px;height:24px}
+ body .site-header .header-right .header-game-action{--header-action-size:36px}
+ body .site-header .header-right .friends-button{min-width:64px;font-size:10px;gap:4px}
+ body .site-header .menu-button{width:34px;height:34px;min-height:34px}
+}
