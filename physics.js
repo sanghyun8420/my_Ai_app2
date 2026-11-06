@@ -1,4 +1,6 @@
 /** Small, deterministic circle solver used by the orchard game. */
+export const OVERFLOW_SECONDS = .7;
+
 export class FruitWorld {
   constructor({ width = 600, height = 720, fruits, onMerge, onDanger, onGameOver, random = Math.random, mode = 'classic' } = {}) {
     if (!fruits?.length) throw new TypeError('FruitWorld needs fruit definitions.');
@@ -168,11 +170,13 @@ export class FruitWorld {
   }
 
   get isOverflowing() {
-    return !this.overflowProtected && this.bodies.some(body => body.overflowTime >= 1.35);
+    return !this.overflowProtected && this.bodies.some(body => body.overflowTime >= OVERFLOW_SECONDS);
   }
 
   crossesMax(body) {
-    return body.landed && body.age > .7 && Math.hypot(body.vx,body.vy) < 85 && this.time-this.lastMerge > .45 && body.y - body.r < this.maxLine - 5;
+    // Only a fresh, untouched drop is exempt. Rolling and unrelated merges
+    // must not keep a fruit already resting above MAX alive indefinitely.
+    return body.landed && body.age > .45 && body.y - body.r < this.maxLine - 2;
   }
 
   finishIfOverflowing() {
@@ -428,6 +432,7 @@ export class FruitWorld {
           // Combining a fresh drop with a blocked inbound must not restart its
           // entrance exemption and let repeated drops postpone game over.
           age: incoming ? Math.max(a.age, b.age) : Math.max(0.6, Math.min(a.age, b.age)),
+          overflowTime: Math.max(a.overflowTime || 0, b.overflowTime || 0),
           entered, incoming,
           landed:a.landed||b.landed,
           mergedTick: this.tick,
@@ -448,8 +453,8 @@ export class FruitWorld {
       } else if (Math.abs(body.spin) < 0.015) body.spin = 0;
     }
     if(this.blast){const {x,y}=this.blast;this.bodies=this.bodies.filter(b=>Math.hypot(b.x-x,b.y-y)>250+b.r);this.blast=null;this.protect(2,'revive');}
-    for(const body of this.bodies) body.overflowTime = !this.overflowProtected && this.crossesMax(body) ? (body.overflowTime||0)+dt : Math.max(0,(body.overflowTime||0)-dt*3);
-    const warning = Math.max(0,...this.bodies.map(body=>(body.overflowTime||0)/1.35));
+    for(const body of this.bodies) body.overflowTime = !this.overflowProtected && this.crossesMax(body) ? (body.overflowTime||0)+dt : 0;
+    const warning = Math.max(0,...this.bodies.map(body=>(body.overflowTime||0)/OVERFLOW_SECONDS));
     this.onDanger(Math.min(1,warning));
     this.finishIfOverflowing();
   }
