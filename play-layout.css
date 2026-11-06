@@ -1,0 +1,77 @@
+/* The game, its shop entry, and all three tools share one viewport. */
+body .site-header{min-height:64px;padding-top:4px;padding-bottom:4px}
+body .brand-wrap{padding-top:3px;padding-bottom:17px}
+body main{padding-top:0;padding-bottom:10px}
+body main .game-layout{--play-width: min(100%,680px);--board-width: min(58dvh,calc(100vw - 64px));--rail-width:38px;--tools-width:180px;display:block;width:var(--play-width)!important;max-width:100%;margin:0 auto}
+body main .game-layout .play-column{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-areas:'score' 'status' 'next' 'room' 'basket' 'tools';gap:4px 0!important;padding-top:46px;padding-bottom:0;align-items:start}
+body main .game-layout .score-band{grid-area:score;margin:0!important;gap:6px}
+body main .game-layout .score-cell{position:relative;height:48px;min-height:48px;max-height:48px;padding:5px 8px;gap:1px}
+body main .game-layout .score-cell-label{font-size:8px;line-height:1.3}
+body main .game-layout .score-number,body main .game-layout .best-number,body main .game-layout .gem-number{--number-max-size:23px;line-height:1.15}
+body main .game-layout .board-top{grid-area:status;min-height:18px;margin:0;padding:0 2px;gap:5px}
+body main .game-layout .next-bar.next-card{grid-area:next;height:34px;min-height:34px;margin:0;padding:1px 0!important;gap:7px}
+body main .game-layout .next-label{min-width:26px}
+body main .game-layout .next-label h2{margin:0;font-size:10px}
+body main .game-layout .next-fruit-wrap{width:30px;height:30px;flex:0 0 30px}
+body main .game-layout .next-fruit{width:28px;height:28px}
+body main .game-layout .next-fruit canvas{max-width:27px;max-height:27px}
+body main .game-layout .next-caption>span:first-child{font-size:10px}
+body main .game-layout .next-bar .restart-button{min-height:28px;padding:4px 7px;font-size:9px}
+body main .game-layout .next-bar .restart-button svg{width:14px;height:14px}
+body main .game-layout .room-panel{grid-area:room;margin:0}
+body main .game-layout .basket-layout{grid-area:basket;width:calc(var(--board-width) + var(--rail-width) + 5px);grid-template-columns:var(--board-width) var(--rail-width)!important;gap:5px!important;margin:0}
+body main .game-layout .board-shell{width:var(--board-width);aspect-ratio:5/6;border-radius:13px 13px 23px 23px;box-shadow:0 4px 0 #d0d8be}
+body main .game-layout .basket-layout>.evolution-rail{width:var(--rail-width)!important;min-height:0;padding:5px 2px}
+body main .game-layout .evolution-rail>.section-heading{min-height:20px;padding:0 0 3px}
+body main .game-layout .evolution-rail>.section-heading h2{font-size:7px}
+body main .game-layout .toolbelt{grid-area:tools;margin:2px 0 0;padding:0}
+body main .game-layout .toolbelt-heading{min-height:20px;margin:0 1px 3px;font-size:10px}
+body main .game-layout .tool-shortcuts #help-button{width:20px;height:20px;min-height:20px;font-size:10px}
+body main .game-layout .toolbelt-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px}
+body main .game-layout .tool-slot{min-height:70px;border-radius:9px}
+body main .game-layout .tool-slot .tool-action{min-height:42px;padding:4px 6px 2px;gap:2px 4px;border-radius:8px 8px 0 0}
+body main .game-layout .tool-icon{width:22px;height:22px;border-radius:6px}
+body main .game-layout .tool-icon svg{width:19px;height:19px}
+body main .game-layout .tool-action .tool-count{min-width:19px;min-height:18px;padding:1px 4px;font-size:10px;border-radius:5px}
+body main .game-layout .tool-name{font-size:9px;line-height:1.2}
+body main .game-layout .tool-name kbd{display:none}
+body main .game-layout .tool-foot{min-height:27px;margin:0;padding:1px 4px 4px;justify-content:center;gap:3px;flex-wrap:wrap}
+body main .game-layout .tool-status{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+body main .game-layout .tool-foot .refill-ticket{min-height:23px;min-width:0;max-width:100%;padding:3px 5px;font-size:9px;white-space:nowrap}
+body main .game-layout .tool-foot .refill-ticket>span:first-child:not(:last-child){display:none}
+body main .game-layout .toolbelt #erase-cancel{min-height:23px;padding:2px 3px;font-size:8px}
+body main .game-layout .tool-effects-status:not(:empty){min-height:0;margin:3px 0 0;padding:3px 5px;font-size:9px;line-height:1.4}
+body main .current-score #garden-buddy{right:2px;left:auto;bottom:calc(100% - 29px);width:70px;height:80px}
+body main .current-score .buddy-bubble{right:-75px;bottom:74px;max-width:210px}
+
+body main .game-layout[data-arrangement=wide] .play-column{grid-template-columns:minmax(0,1fr) var(--tools-width)!important;grid-template-areas:'score tools' 'status tools' 'next tools' 'room tools' 'basket tools';column-gap:12px!important}
+body main .game-layout[data-arrangement=wide] .toolbelt{margin-top:0}
+body main .game-layout[data-arrangement=wide] .toolbelt-grid{grid-template-columns:1fr!important;gap:8px}
+body main .game-layout[data-arrangement=wide] .tool-slot{min-height:102px}
+body main .game-layout[data-arrangement=wide] .tool-slot .tool-action{min-height:65px;padding:8px 10px 5px;gap:4px 6px}
+body main .game-layout[data-arrangement=wide] .tool-icon{width:30px;height:30px}
+body main .game-layout[data-arrangement=wide] .tool-icon svg{width:24px;height:24px}
+body main .game-layout[data-arrangement=wide] .tool-name{font-size:11px}
+body main .game-layout[data-arrangement=wide] .tool-foot{min-height:32px;padding:3px 8px 6px}
+body main .game-layout[data-arrangement=wide] .tool-foot .refill-ticket{font-size:10px;min-height:26px}
+
+body main .game-layout[data-arrangement=landscape] .play-column{padding-top:0;grid-template-columns:minmax(0,1fr) var(--tools-width)!important;grid-template-areas:'basket score' 'basket status' 'basket next' 'basket room' 'basket tools';column-gap:12px!important}
+body main .game-layout[data-arrangement=landscape] .score-band{margin-top:46px!important}
+body main .game-layout[data-arrangement=landscape] .toolbelt{margin-top:0}
+body main .game-layout[data-arrangement=landscape] .tool-foot .refill-ticket{font-size:8px;padding:3px}
+body main .game-layout[data-arrangement=landscape] .current-score .buddy-bubble{right:-135px;max-width:190px}
+@media(max-height:540px) and (orientation:landscape){body .site-header{min-height:54px;padding-top:1px;padding-bottom:1px}}
+@media(max-height:360px) and (orientation:landscape){
+ body main .game-layout[data-arrangement=landscape] .score-band{margin-top:38px!important}
+ body main .game-layout[data-arrangement=landscape] .score-cell{height:42px;min-height:42px;max-height:42px}
+ body main .game-layout[data-arrangement=landscape] .next-bar.next-card{height:28px;min-height:28px}
+ body main .game-layout[data-arrangement=landscape] .toolbelt-heading{min-height:17px}
+ body main .game-layout[data-arrangement=landscape] .tool-slot{min-height:63px}
+ body main .game-layout[data-arrangement=landscape] .tool-slot .tool-action{min-height:36px;padding-top:2px;gap:1px 4px}
+ body main .game-layout[data-arrangement=landscape] .tool-icon{height:18px;width:18px}
+ body main .game-layout[data-arrangement=landscape] .tool-icon svg{height:16px;width:16px}
+ body main .game-layout[data-arrangement=landscape] .tool-name{font-size:8px}
+ body main .game-layout[data-arrangement=landscape] .tool-foot{padding-bottom:3px}
+ body main .game-layout[data-arrangement=landscape] #garden-buddy{width:60px;height:69px}
+ body main .game-layout[data-arrangement=landscape] #garden-buddy canvas{width:60px;height:69px}
+}

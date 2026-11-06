@@ -11,6 +11,7 @@ import { BACKGROUNDS, BASKETS, ITEMS, HATS } from './catalog.js';
 import { getCosmeticPalette, drawCosmeticBackdrop, drawBasketFrame } from './cosmetics.js';
 import { GardenAudio } from './audio.js';
 import { createHub, drawBuddy } from './hub.js';
+import { mountPlayLayout } from './play-layout.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game-canvas');
@@ -1276,5 +1277,6 @@ hub=createHub({
   resume:()=>{if(selectedGame==='suika'&&started&&world.state==='paused'&&pausedByDialog&&!document.querySelector('dialog[open]')){world.state='playing';pausedByDialog=false;}},
   switchGame:game=>{if(game===selectedGame)return;saveGame();if(game!=='suika'){if(selectedGame==='suika'){wasSuikaPlaying=started&&(world.state==='playing'||world.state==='paused'&&pausedByDialog);if(wasSuikaPlaying)world.state='paused';pausedByDialog=false;}arcadePlaying=true;}else if(wasSuikaPlaying&&world.state==='paused')world.state='playing';selectedGame=game;syncAudio();},
 });
+mountPlayLayout();
 social.init().catch(error=>toast(error.message));
 requestAnimationFrame(frame);
