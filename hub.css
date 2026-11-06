@@ -107,3 +107,27 @@ body .site-header .header-right .friends-button svg{fill:none}
  body .site-header .header-right .friends-button{min-width:64px;font-size:10px;gap:4px}
  body .site-header .menu-button{width:34px;height:34px;min-height:34px}
 }
+
+/* Text sits beside both social and shop symbols without clipping the header. */
+body .site-header .header-right :is(.shop-button,.friends-button){flex:0 0 auto;width:auto;min-width:86px;max-width:none;gap:7px;padding:0 11px;font-size:13px;font-weight:700;white-space:nowrap}
+body .site-header .header-right :is(.shop-button,.friends-button) span{display:inline;line-height:1}
+@media(max-width:800px){body .site-header .account-button{display:none}}
+@media(max-width:640px){body .site-header .header-right :is(.shop-button,.friends-button){min-width:72px;gap:5px;padding:0 7px;font-size:11px}}
+@media(max-width:420px){
+ body .site-header{padding-left:8px;padding-right:8px}
+ body .site-header .header-right .header-game-action{--header-action-size:36px}
+ body .site-header .header-right :is(.shop-button,.friends-button){min-width:64px;padding:0 5px;font-size:10px;gap:4px}
+ body .site-header .header-right .header-game-action svg{width:22px;height:22px;min-width:22px}
+ body .site-header .menu-button{width:34px;height:34px;min-height:34px}
+}
+@media(max-width:355px){
+ body .site-header{padding-left:6px;padding-right:6px}
+ body .site-header .brand{font-size:15px;gap:2px}
+ body .site-header .brand img{width:22px;height:22px}
+ body .site-header .brand-chevron{font-size:10px}
+ body .site-header .header-right{gap:3px}
+ body .site-header .header-right .header-game-action{--header-action-size:34px}
+ body .site-header .header-right :is(.shop-button,.friends-button){min-width:60px;gap:3px}
+ body .site-header .header-right .header-game-action svg{width:21px;height:21px;min-width:21px}
+ body .site-header .menu-button{width:32px;height:32px;min-height:32px}
+}

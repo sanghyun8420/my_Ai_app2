@@ -11,11 +11,11 @@ export const SKIN_CATALOG = catalog([
   { id: 'cat', name: '고양이', price: 35, description: '보드라운 털과 작은 방울 목걸이의 고양이.', icon: '🐱' },
   { id: 'ice', name: '얼음', price: 35, description: '맑은 얼음 속에서 반짝이는 시원한 열매.', icon: '🧊' },
   { id: 'neon', name: '네온', price: 40, description: '빛나는 회로가 흐르는 아케이드 구슬.', icon: '💡' },
-  { id: 'galaxy', name: '행성', price: 50, description: '바위 행성부터 고리가 있는 거대한 행성까지.', icon: '🪐' },
+  { id: 'galaxy', name: '행성', price: 50, description: '수성·지구·목성·토성부터 태양까지, 작은 태양계.', icon: '🪐' },
   { id: 'gem', name: '크리스탈', price: 60, description: '투명한 면마다 빛이 흐르는 크리스탈 열매.', icon: '💎' },
   { id: 'mystery', name: '???', price: 999, description: '999개의 반짝임 뒤에 숨은 특별한 모습을 만나보세요.', icon: '❔' },
   { id: 'cars', name: '차고의 전설', price: 100, description: '기아부터 부가티까지, 14가지 자동차 브랜드 배지.', icon: '🏎️' },
-  { id: 'dino', name: '쥬라기 정원', price: 80, description: '뿔, 볏, 발톱이 서로 다른 작은 공룡들.', icon: '🦖' },
+  { id: 'fruit3d', name: '3D 과일', price: 80, description: '빛과 그림자, 껍질의 질감이 살아 있는 입체 과일.', icon: '🍒' },
   { id: 'food', name: '야식 정원', price: 75, description: '도넛·초밥·피자·햄버거로 차리는 한 상.', icon: '🍔' },
   { id: 'royalGem', name: '보석 광산', price: 9999, description: '합칠 때마다 보석 +1. 10단계 이상 보석을 합치면 +10.', icon: '💠' },
 ]);

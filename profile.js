@@ -47,7 +47,8 @@ function runExtras(value) {
 }
 
 function cleanProgress(value) {
-  const ownedSkins = [...new Set(['classic', ...(Array.isArray(value?.ownedSkins) ? value.ownedSkins.filter(id => typeof id === 'string' && Object.hasOwn(PRICES, id)) : [])])];
+  const ownedSkins = [...new Set(['classic', ...(Array.isArray(value?.ownedSkins) ? value.ownedSkins.map(id => id === 'dino' ? 'fruit3d' : id).filter(id => typeof id === 'string' && Object.hasOwn(PRICES, id)) : [])])];
+  const equippedSkin = value?.equippedSkin === 'dino' ? 'fruit3d' : value?.equippedSkin;
   const ownedBackgrounds = cleanOwned(value?.ownedBackgrounds, BACKGROUNDS, 'default');
   const ownedBaskets = cleanOwned(value?.ownedBaskets, BASKETS, 'classic');
   return {
@@ -60,7 +61,7 @@ function cleanProgress(value) {
     equippedHat:HATS.some(x=>x.id===value?.equippedHat)?value.equippedHat:'none',
     mergedFruits: whole(value?.mergedFruits),
     ownedSkins,
-    equippedSkin: ownedSkins.includes(value?.equippedSkin) ? value.equippedSkin : 'classic',
+    equippedSkin: ownedSkins.includes(equippedSkin) ? equippedSkin : 'classic',
     ownedBackgrounds,
     equippedBackground: ownedBackgrounds.includes(value?.equippedBackground) ? value.equippedBackground : 'default',
     ownedBaskets,
