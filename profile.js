@@ -1,3 +1,4 @@
+import { GameEconomy } from './economy.js';
 import { SKIN_CATALOG, BACKGROUNDS, BASKETS, ITEMS, HATS } from './catalog.js';
 import { normalizeGameRecord } from './save-state.js';
 
@@ -5,7 +6,6 @@ const STORAGE_KEY = 'suika-garden-profile-v3';
 const BEST_KEY = 'suika-garden-best';
 const PRICES = Object.freeze(Object.fromEntries(SKIN_CATALOG.map(item => [item.id, item.price])));
 const ITEM_LIMIT = 999;
-const GEM_EVERY = 20;
 const RECEIPT_LIMIT = 32;
 const REVIVAL_COST = 10;
 const RUN_MODES = new Set(['classic','apple','free','water','space','watermelon','timed','challenge']);
@@ -56,6 +56,7 @@ function cleanProgress(value) {
     modeBestScores:Object.fromEntries(SPECIAL_MODES.map(mode=>[mode,whole(value?.modeBestScores?.[mode])])),
     classicMergedFruits:whole(value?.classicMergedFruits === undefined ? value?.mergedFruits : value.classicMergedFruits),
     gems: whole(value?.gems),
+    coins: whole(value?.coins,20),
     hubStats:{seconds:whole(value?.hubStats?.seconds),watermelons:whole(value?.hubStats?.watermelons),claims:Array.isArray(value?.hubStats?.claims)?value.hubStats.claims.filter(x=>typeof x==='string').slice(0,100):[]},
     ownedHats:cleanOwned(value?.ownedHats,HATS,'none'),
     equippedHat:HATS.some(x=>x.id===value?.equippedHat)?value.equippedHat:'none',
@@ -97,13 +98,14 @@ function cleanReceipt(value) {
   const creditedSpecialShakes = value.creditedSpecialShakes === undefined ? 0 : value.creditedSpecialShakes;
   if (!Number.isSafeInteger(creditedSpecialShakes) || creditedSpecialShakes < 0) return null;
   receipt.creditedSpecialShakes = creditedSpecialShakes;
+  receipt.earnedCoins=whole(value.earnedCoins);
   receipt.mode=RUN_MODES.has(value.mode)?value.mode:'classic';
   return receipt;
 }
 
 function completedRun(receipt) {
   const { id, ...result } = receipt;
-  return { id, mode:receipt.mode, finished: true, result, creditedFruits: receipt.mergedFruits, earnedGems: receipt.earnedGems, score: receipt.score, lastRevivalTick: -1, creditedSpecialShakes: receipt.creditedSpecialShakes };
+  return { id, mode:receipt.mode, finished: true, result, creditedFruits: receipt.mergedFruits, earnedGems: receipt.earnedGems, earnedCoins:receipt.earnedCoins||0, score: receipt.score, lastRevivalTick: -1, creditedSpecialShakes: receipt.creditedSpecialShakes };
 }
 
 function cleanActiveRun(value) {
@@ -114,7 +116,7 @@ function cleanActiveRun(value) {
     }
     const lastRevivalTick = value.lastRevivalTick === undefined ? -1 : value.lastRevivalTick;
     if (!Number.isSafeInteger(lastRevivalTick) || lastRevivalTick < -1) return null;
-    return { id: value.id, mode:RUN_MODES.has(value.mode)?value.mode:'classic', finished: false, result: null, creditedFruits: value.creditedFruits ?? 0, earnedGems: value.earnedGems ?? 0, score: value.score ?? 0, lastRevivalTick, creditedSpecialShakes: value.creditedSpecialShakes ?? 0, gemMergeId:whole(value.gemMergeId) };
+    return { id: value.id, mode:RUN_MODES.has(value.mode)?value.mode:'classic', finished: false, result: null, creditedFruits: value.creditedFruits ?? 0, earnedGems: value.earnedGems ?? 0, earnedCoins:whole(value.earnedCoins), score: value.score ?? 0, lastRevivalTick, creditedSpecialShakes: value.creditedSpecialShakes ?? 0, gemMergeId:whole(value.gemMergeId) };
   }
   const receipt = cleanReceipt({ ...value.result, id: value.id });
   return receipt ? completedRun(receipt) : null;
@@ -145,8 +147,9 @@ export class GardenProgress {
     this.onChange = typeof onChange === 'function' ? onChange : () => {};
     this.onError = typeof onError === 'function' ? onError : () => {};
     try { this.storage = storage === undefined ? globalThis.localStorage : storage; } catch { this.storage = null; }
+    this.economy=new GameEconomy(this.storage,STORAGE_KEY);this.storage=this.economy.storage;
     const loaded = this._load();
-    this._profile = loaded.profile;
+    this._profile = this.economy.bind(loaded.profile);
     this.pendingRun = loaded.activeRun;
     this._settledRuns = loaded.settledRuns;
     this._migrations = loaded.migrations;
@@ -278,7 +281,7 @@ export class GardenProgress {
       let id;
       do { id = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}-${++this._nextRun}`; }
       while (this.canResumeRun(id));
-      this.pendingRun = { id, mode, finished: false, result: null, creditedFruits: 0, earnedGems: 0, score: 0, lastRevivalTick: -1, creditedSpecialShakes: 0 };
+      this.pendingRun = { id, mode, finished: false, result: null, creditedFruits: 0, earnedGems: 0, earnedCoins:0, score: 0, lastRevivalTick: -1, creditedSpecialShakes: 0 };
       this._save();
       return { runId: id };
     });
@@ -295,10 +298,10 @@ export class GardenProgress {
     const consumed = Math.max(run.creditedFruits, mergedFruits);
     const before = this._profile.mergedFruits;
     const after = Math.min(Number.MAX_SAFE_INTEGER, before + (consumed - run.creditedFruits));
-    const availableGems = Math.floor(after / GEM_EVERY) - Math.floor(before / GEM_EVERY);
-    const earnedGems = Math.min(availableGems, Number.MAX_SAFE_INTEGER - this._profile.gems);
+    const availableCoins = consumed - run.creditedFruits;
+    const earnedCoins = Math.min(availableCoins, Number.MAX_SAFE_INTEGER - this._profile.coins);
     this._profile.mergedFruits = after;
-    this._profile.gems += earnedGems;
+    this._profile.coins += earnedCoins;
     if(run.mode==='classic'){
       this._profile.bestScore=Math.max(this._profile.bestScore,score);
       this._profile.classicMergedFruits=Math.min(Number.MAX_SAFE_INTEGER,this._profile.classicMergedFruits+(consumed-run.creditedFruits));
@@ -306,7 +309,7 @@ export class GardenProgress {
       this._profile.modeBestScores[run.mode]=Math.max(this._profile.modeBestScores[run.mode],score);
     }
     run.creditedFruits = consumed;
-    run.earnedGems = Math.min(Number.MAX_SAFE_INTEGER, run.earnedGems + earnedGems);
+    run.earnedCoins = Math.min(Number.MAX_SAFE_INTEGER, (run.earnedCoins||0) + earnedCoins);
     run.score = Math.max(run.score, score);
     const specialShakes = Math.max(run.creditedSpecialShakes, specialShakeRewards);
     for(let i=run.creditedSpecialShakes+1;i<=Math.min(specialShakes,run.creditedSpecialShakes+1998);i++){
@@ -314,7 +317,7 @@ export class GardenProgress {
     }
     run.creditedSpecialShakes = specialShakes;
     this._profile.discoveredLevels = cleanDiscoveredLevels([...this._profile.discoveredLevels, ...discoveredLevels]);
-    return earnedGems;
+    return earnedCoins;
   }
 
   async checkpointRun(score, mergedFruits, extras = {}) {
@@ -323,13 +326,13 @@ export class GardenProgress {
       const receipt = run && this._settledRuns.find(item => item.id === run.id);
       if (!run || run.finished || receipt) {
         if (receipt) this.pendingRun = completedRun(receipt);
-        return { earnedGems: 0, earnedShakes: 0, runEarnedGems: this.pendingRun?.earnedGems ?? 0, creditedFruits: this.pendingRun?.creditedFruits ?? 0, creditedSpecialShakes: this.pendingRun?.creditedSpecialShakes ?? 0, profile: this.profile, alreadyFinished: true };
+        return { earnedCoins:0,runEarnedCoins:this.pendingRun?.earnedCoins??0,earnedGems: 0, earnedShakes: 0, runEarnedGems: this.pendingRun?.earnedGems ?? 0, creditedFruits: this.pendingRun?.creditedFruits ?? 0, creditedSpecialShakes: this.pendingRun?.creditedSpecialShakes ?? 0, profile: this.profile, alreadyFinished: true };
       }
       const beforeShakes = this._profile.inventory.shake;
-      const earnedGems = this._awardRun(score, mergedFruits, extras);
+      const earnedCoins = this._awardRun(score, mergedFruits, extras);
       this._save();
       this._emit();
-      return { earnedGems, earnedShakes: this._profile.inventory.shake - beforeShakes, runEarnedGems: run.earnedGems, creditedFruits: run.creditedFruits, creditedSpecialShakes: run.creditedSpecialShakes, profile: this.profile, alreadyFinished: false };
+      return { earnedCoins,runEarnedCoins:run.earnedCoins,earnedGems:0, earnedShakes: this._profile.inventory.shake - beforeShakes, runEarnedGems: run.earnedGems, creditedFruits: run.creditedFruits, creditedSpecialShakes: run.creditedSpecialShakes, profile: this.profile, alreadyFinished: false };
     });
   }
 
@@ -340,17 +343,17 @@ export class GardenProgress {
       const existingReceipt = run && this._settledRuns.find(receipt => receipt.id === run.id);
       if (!run || run.finished || existingReceipt) {
         if (existingReceipt) this.pendingRun = completedRun(existingReceipt);
-        return { earnedGems: 0, earnedShakes: 0, runEarnedGems: this.pendingRun?.earnedGems ?? 0, creditedSpecialShakes: this.pendingRun?.creditedSpecialShakes ?? 0, profile: this.profile, alreadyFinished: true };
+        return { earnedCoins:0,runEarnedCoins:this.pendingRun?.earnedCoins??0,earnedGems: 0, earnedShakes: 0, runEarnedGems: this.pendingRun?.earnedGems ?? 0, creditedSpecialShakes: this.pendingRun?.creditedSpecialShakes ?? 0, profile: this.profile, alreadyFinished: true };
       }
       const beforeShakes = this._profile.inventory.shake;
-      const earnedGems = this._awardRun(score, mergedFruits, extras);
+      const earnedCoins = this._awardRun(score, mergedFruits, extras);
       run.finished = true;
-      run.result = { mode:run.mode, score: run.score, mergedFruits: run.creditedFruits, earnedGems: run.earnedGems, completedAt: Date.now(), creditedSpecialShakes: run.creditedSpecialShakes };
+      run.result = { mode:run.mode, score: run.score, mergedFruits: run.creditedFruits, earnedGems: run.earnedGems, earnedCoins:run.earnedCoins||0, completedAt: Date.now(), creditedSpecialShakes: run.creditedSpecialShakes };
       this._settledRuns.unshift({ id: run.id, ...run.result });
       this._settledRuns.length = Math.min(this._settledRuns.length, RECEIPT_LIMIT);
       this._save();
       this._emit();
-      return { earnedGems, earnedShakes: this._profile.inventory.shake - beforeShakes, runEarnedGems: run.earnedGems, creditedSpecialShakes: run.creditedSpecialShakes, profile: this.profile, alreadyFinished: false };
+      return { earnedCoins,runEarnedCoins:run.earnedCoins,earnedGems:0, earnedShakes: this._profile.inventory.shake - beforeShakes, runEarnedGems: run.earnedGems, creditedSpecialShakes: run.creditedSpecialShakes, profile: this.profile, alreadyFinished: false };
     });
   }
 
@@ -361,9 +364,7 @@ export class GardenProgress {
       if(mode!=='classic'||(this.pendingRun&&this.pendingRun.mode!=='classic')||(runId&&this.pendingRun?.id!==runId))return {unlocked:false,earnedGems:0,profile:this.profile};
       if (this._profile.unlockedAchievements.includes(id)) return { unlocked: false, earnedGems: 0, profile: this.profile };
       const earnedGems = Math.min(achievement.reward, Number.MAX_SAFE_INTEGER - this._profile.gems);
-      this._profile.unlockedAchievements.push(id);
-      this._profile.gems += earnedGems;
-      this._save();
+      this._commitCommerce(()=>{this._profile.unlockedAchievements.push(id);this._profile.gems += earnedGems;});
       this._emit();
       return { unlocked: true, earnedGems, profile: this.profile };
     });
@@ -389,19 +390,20 @@ export class GardenProgress {
       const board = normalizeGameRecord(snapshot);
       if (board.runId !== runId || board.mode!==this.pendingRun.mode || !['playing', 'paused'].includes(board.world.state) || board.world.score !== score || board.roundCleared !== mergedFruits || !Number.isSafeInteger(board.world.tick) || board.world.tick < 0) throw progressError('부활할 게임판 정보를 확인해 주세요.', 'INVALID_REVIVAL');
       if (board.world.tick <= this.pendingRun.lastRevivalTick) throw progressError('이미 처리한 게임판에서는 다시 결제하지 않아요.', 'REVIVAL_STALE');
+      const walletDelta=this.economy.delta;
       const previous = JSON.parse(JSON.stringify({ profile: this._profile, run: this.pendingRun, receipts: this._revivalReceipts, recovery: this._pendingRevival }));
       try {
         this._awardRun(score, mergedFruits, { specialShakeRewards: board.specialShakeRewards, discoveredLevels: board.discoveredLevels });
-        if (this._profile.gems < REVIVAL_COST) throw progressError('부활하려면 보석 10개가 필요해요.', 'INSUFFICIENT_GEMS');
-        this._profile.gems -= REVIVAL_COST;
+        if (this._profile.coins < REVIVAL_COST) throw progressError('부활하려면 수박 동전 10개가 필요해요.', 'INSUFFICIENT_GEMS');
+        this._profile.coins -= REVIVAL_COST;
         this.pendingRun.lastRevivalTick = board.world.tick;
         const payment = { requestId, runId, cost: REVIVAL_COST, paidAt: Date.now() };
         this._pendingRevival = { ...payment, snapshot: board };
         this._revivalReceipts.unshift(payment);
         this._revivalReceipts.length = Math.min(this._revivalReceipts.length, RECEIPT_LIMIT);
-        if (!this._save()) throw progressError('부활 결제를 저장하지 못했어요. 보석은 차감하지 않았어요.', 'STORAGE_UNAVAILABLE');
+        if (!this._save()) throw progressError('부활 결제를 저장하지 못했어요. 동전은 차감하지 않았어요.', 'STORAGE_UNAVAILABLE');
       } catch (error) {
-        this._profile = previous.profile; this.pendingRun = previous.run;
+        this._profile = this.economy.restore(previous.profile,walletDelta); this.pendingRun = previous.run;
         this._revivalReceipts = previous.receipts; this._pendingRevival = previous.recovery;
         throw error;
       }
@@ -453,12 +455,12 @@ export class GardenProgress {
   }
 
   _commitCommerce(change) {
-    const previous = JSON.parse(JSON.stringify(this._profile));
-    change();
+    const previous = JSON.parse(JSON.stringify(this._profile)),walletDelta=this.economy.delta;
+    try{change();}catch(error){this._profile=this.economy.restore(previous,walletDelta);throw error;}
     // A purchase and its balance are one durable wallet entry. If that write
     // fails, leave both sides unchanged and let the caller show a retry message.
     if (!this._save()) {
-      this._profile = previous;
+      this._profile = this.economy.restore(previous,walletDelta);
       throw progressError('구매 내역을 저장하지 못했어요. 저장 공간을 확인하고 다시 시도해 주세요.', 'STORAGE_UNAVAILABLE');
     }
   }
@@ -468,7 +470,7 @@ export class GardenProgress {
       const item = catalog.find(item => item.id === id);
       if (!item) throw progressError('이 상품을 찾을 수 없어요.', invalidCode);
       if (!this._profile[ownedField].includes(id)) {
-        if (this._profile.gems < item.price) throw progressError('보석이 부족해요. 과일을 더 합쳐 보세요!', 'INSUFFICIENT_GEMS');
+        if (this._profile.gems < item.price) throw progressError('공용 보석이 부족해요. 업적과 도전 보상으로 모아보세요!', 'INSUFFICIENT_GEMS');
         this._commitCommerce(() => {
           this._profile.gems -= item.price;
           this._profile[ownedField].push(id);
@@ -496,9 +498,9 @@ export class GardenProgress {
       if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 99) throw progressError('아이템은 한 번에 1~99개 구매할 수 있어요.', 'INVALID_QUANTITY');
       if (this._profile.inventory[id] + quantity > ITEM_LIMIT) throw progressError('아이템은 종류별로 999개까지 보관할 수 있어요.', 'STOCK_LIMIT');
       const cost = item.price * quantity;
-      if (this._profile.gems < cost) throw progressError('보석이 부족해요. 과일을 더 합쳐 보세요!', 'INSUFFICIENT_GEMS');
+      if (this._profile.coins < cost) throw progressError('수박 동전이 부족해요. 과일을 더 합쳐 보세요!', 'INSUFFICIENT_GEMS');
       this._commitCommerce(() => {
-        this._profile.gems -= cost;
+        this._profile.coins -= cost;
         this._profile.inventory[id] += quantity;
       });
       this._emit();
@@ -516,9 +518,9 @@ export class GardenProgress {
     return this._mutate(()=>{
       const run=this.pendingRun;
       if(!run||run.finished||this._profile.equippedSkin!=='royalGem'||!Number.isSafeInteger(id)||id<1||![1,10].includes(amount)||id<=(run.gemMergeId||0))return false;
-      const before=run.gemMergeId||0,beforeEarned=run.earnedGems;
-      try{this._commitCommerce(()=>{run.gemMergeId=id;this._profile.gems=Math.min(Number.MAX_SAFE_INTEGER,this._profile.gems+amount);run.earnedGems+=amount;});}
-      catch(error){run.gemMergeId=before;run.earnedGems=beforeEarned;throw error;}
+      const before=run.gemMergeId||0,beforeEarned=run.earnedCoins||0;
+      try{this._commitCommerce(()=>{run.gemMergeId=id;this._profile.coins=Math.min(Number.MAX_SAFE_INTEGER,this._profile.coins+amount);run.earnedCoins=(run.earnedCoins||0)+amount;});}
+      catch(error){run.gemMergeId=before;run.earnedCoins=beforeEarned;throw error;}
       this._emit();return true;
     });
   }

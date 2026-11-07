@@ -1,3 +1,4 @@
+import { GameEconomy } from './economy.js';
 const copy=value=>JSON.parse(JSON.stringify(value));
 const whole=(n,fallback=0,max=Number.MAX_SAFE_INTEGER)=>Number.isFinite(Number(n))?Math.max(0,Math.min(max,Math.floor(Number(n)))):fallback;
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
@@ -33,15 +34,15 @@ export const VARIETIES=[
  {id:'red',name:'홍옥',color:'#df6e64',duration:100,value:32,cost:0,currency:'coins',description:'빨갛게 익는 첫 사과'},
  {id:'green',name:'초록사과',color:'#a8bd67',duration:135,value:58,cost:120,currency:'coins',description:'아삭한 잎빛 사과'},
  {id:'gold',name:'황금사과',color:'#e3b65a',duration:185,value:105,cost:420,currency:'coins',description:'햇살을 닮은 달콤함'},
- {id:'rose',name:'장미사과',color:'#ca80a7',duration:210,value:145,cost:40,currency:'gems',description:'분홍빛 꽃향기가 은은해요'},
- {id:'star',name:'별빛사과',color:'#879fc9',duration:260,value:220,cost:100,currency:'gems',description:'밤하늘 조각을 품은 사과'},
+ {id:'rose',name:'장미사과',color:'#ca80a7',duration:210,value:145,cost:600,currency:'coins',description:'분홍빛 꽃향기가 은은해요'},
+ {id:'star',name:'별빛사과',color:'#879fc9',duration:260,value:220,cost:1400,currency:'coins',description:'밤하늘 조각을 품은 사과'},
 ];
 
 class Ledger {
- constructor(key,storage){this.key=key;try{this.storage=storage===undefined?globalThis.localStorage:storage;}catch{this.storage=null;}}
+ constructor(key,storage){this.key=key;let rawStorage;try{rawStorage=storage===undefined?globalThis.localStorage:storage;}catch{rawStorage=null;}this.economy=new GameEconomy(rawStorage,key);this.storage=this.economy.storage;}
  read(){try{const p=JSON.parse(this.storage?.getItem(this.key)||'{}');return p&&typeof p==='object'&&!Array.isArray(p)?p:{};}catch{return {};}}
  save(){if(!this.storage?.setItem)throw Error('저장 공간을 사용할 수 없어요.');this.storage.setItem(this.key,JSON.stringify(this.data));}
- transaction(fn){const before=copy(this.data);try{const result=fn(this.data);this.save();return result;}catch(error){this.data=before;throw error;}}
+ transaction(fn){const before=copy(this.data),delta=this.economy.delta;try{const result=fn(this.data);this.save();return result;}catch(error){this.data=this.economy.restore(before,delta);throw error;}}
  random(){let n=this.data.rng>>>0;n=(Math.imul(n,1664525)+1013904223)>>>0;this.data.rng=n;return n/4294967296;}
 }
 
@@ -49,7 +50,8 @@ export function stageName(index){return `${Math.floor(index/5)+1}-${index%5+1}`;
 export class FruitExpedition extends Ledger {
  constructor({storage,seed=Date.now()}={}){
   super('garden-expedition-v1',storage);const p=this.read();
-  this.data={coins:whole(p.coins,40),gems:whole(p.gems,30),rng:whole(p.rng,seed>>>0,4294967295),tier:whole(p.tier,0,4),unlocked:whole(p.unlocked,0,4),progress:Array.from({length:5},(_,i)=>whole(p.progress?.[i],0,15)),upgrades:{attack:whole(p.upgrades?.attack,0,180),health:whole(p.upgrades?.health,0,180),recovery:whole(p.upgrades?.recovery,0,100)},gear:Object.fromEntries(GEAR.map(g=>[g.id,whole(p.gear?.[g.id],g.id==='fork'?1:0)])),equipped:Array.from({length:3},(_,i)=>({weapon:typeof p.equipped?.[i]?.weapon==='string'?p.equipped[i].weapon:p.equipped?.[i]?.weapon===null?null:i===0?'fork':null,charm:typeof p.equipped?.[i]?.charm==='string'?p.equipped[i].charm:null})),pity:whole(p.pity,0,29),pulls:whole(p.pulls),waveKills:whole(p.waveKills,0,10),stats:{kills:whole(p.stats?.kills),bosses:whole(p.stats?.bosses),seconds:whole(p.stats?.seconds)},claims:Array.isArray(p.claims)?p.claims.filter(x=>typeof x==='string').slice(0,40):[]};
+  this.data={coins:whole(p.coins,60),gems:whole(p.gems),rng:whole(p.rng,seed>>>0,4294967295),tier:whole(p.tier,0,4),unlocked:whole(p.unlocked,0,4),progress:Array.from({length:5},(_,i)=>whole(p.progress?.[i],0,15)),upgrades:{attack:whole(p.upgrades?.attack,0,180),health:whole(p.upgrades?.health,0,180),recovery:whole(p.upgrades?.recovery,0,100)},gear:Object.fromEntries(GEAR.map(g=>[g.id,whole(p.gear?.[g.id],g.id==='fork'?1:0)])),equipped:Array.from({length:3},(_,i)=>({weapon:typeof p.equipped?.[i]?.weapon==='string'?p.equipped[i].weapon:p.equipped?.[i]?.weapon===null?null:i===0?'fork':null,charm:typeof p.equipped?.[i]?.charm==='string'?p.equipped[i].charm:null})),pity:whole(p.pity,0,29),pulls:whole(p.pulls),waveKills:whole(p.waveKills,0,10),stats:{kills:whole(p.stats?.kills),bosses:whole(p.stats?.bosses),seconds:whole(p.stats?.seconds)},claims:Array.isArray(p.claims)?p.claims.filter(x=>typeof x==='string').slice(0,40):[]};
+  this.data=this.economy.bind(this.data);
   this.data.tier=Math.min(this.data.tier,this.data.unlocked);const used=new Set();for(const hero of this.data.equipped)for(const slot of ['weapon','charm']){const g=GEAR.find(x=>x.id===hero[slot]&&x.slot===slot);if(!g||!this.data.gear[g.id]||used.has(g.id))hero[slot]=null;else used.add(g.id);}
   this.phase='camp';this.enemies=[];this.events=[];this.time=0;this.clock=0;this.attackClock=0;this.spawnClock=0;this.secondClock=0;this.tapReady=0;this.hp=this.stats().maxHp;this.bossLeft=35;this.result=null;
  }
@@ -80,7 +82,7 @@ export class FruitExpedition extends Ledger {
   this.attackClock+=dt;if(this.attackClock>=.9){this.attackClock=0;for(let i=0;i<3;i++){const enemy=this.enemies.find(e=>e.hp>0);if(enemy){this.hurtEnemy(enemy,stats.damage*(i===1?.95:1),i);this.events.push({type:'shot',hero:i,enemyId:enemy.id,x:enemy.x,y:enemy.y});}}}
   this.collectDefeated();return this.events;
  }
- draw(count=1){if(![1,10].includes(count))throw Error('1회 또는 10회를 골라주세요.');return this.transaction(p=>{if(p.gems<count*10)throw Error('원정대 보석이 부족해요. 보스와 목표 보상으로 모을 수 있어요.');p.gems-=count*10;const results=[];for(let i=0;i<count;i++){const roll=this.random();let rarity=roll<.6?0:roll<.88?1:roll<.98?2:3;if(p.pity>=29)rarity=Math.max(2,rarity);const pool=GEAR.filter(g=>g.rarity===rarity),gear=pool[Math.floor(this.random()*pool.length)];p.gear[gear.id]++;p.pulls++;p.pity=rarity>=2?0:p.pity+1;results.push({id:gear.id,rarity,level:this.gearLevel(gear.id)});}return results;});}
+ draw(count=1){if(![1,10].includes(count))throw Error('1회 또는 10회를 골라주세요.');return this.transaction(p=>{if(p.coins<count*60)throw Error('원정 동전이 부족해요. 썩은 과일을 물리쳐 모아주세요.');p.coins-=count*60;const results=[];for(let i=0;i<count;i++){const roll=this.random();let rarity=roll<.6?0:roll<.88?1:roll<.98?2:3;if(p.pity>=29)rarity=Math.max(2,rarity);const pool=GEAR.filter(g=>g.rarity===rarity),gear=pool[Math.floor(this.random()*pool.length)];p.gear[gear.id]++;p.pulls++;p.pity=rarity>=2?0:p.pity+1;results.push({id:gear.id,rarity,level:this.gearLevel(gear.id)});}return results;});}
  equip(heroIndex,id){if(!Number.isInteger(heroIndex)||heroIndex<0||heroIndex>=3)throw Error('동료를 먼저 선택해 주세요.');const gear=GEAR.find(g=>g.id===id);if(!gear||!this.data.gear[id])throw Error('아직 얻지 못한 도구예요.');this.transaction(p=>{for(const hero of p.equipped)if(hero[gear.slot]===id)hero[gear.slot]=null;p.equipped[heroIndex][gear.slot]=id;});this.hp=Math.min(this.hp,this.stats().maxHp);}
  claim(id){const goals={kills100:['kills',100,15],kills1000:['kills',1000,50],boss1:['bosses',1,15],boss10:['bosses',10,45],seconds600:['seconds',600,20]};const goal=goals[id];if(!goal)throw Error('목표를 확인해 주세요.');return this.transaction(p=>{if(p.claims.includes(id)||p.stats[goal[0]]<goal[1])return false;p.claims.push(id);p.gems+=goal[2];return true;});}
 }
@@ -88,8 +90,8 @@ export class FruitExpedition extends Ledger {
 export class AppleOrchard extends Ledger {
  constructor({storage,now=()=>Date.now()}={}){
   super('garden-orchard-v1',storage);this.now=now;const p=this.read();const owned=['red',...(Array.isArray(p.owned)?p.owned.filter(id=>VARIETIES.some(v=>v.id===id)):[])];
-  this.data={coins:whole(p.coins,35),gems:whole(p.gems,10),owned:[...new Set(owned)],variety:owned.includes(p.variety)?p.variety:'red',growth:clamp(Number(p.growth)||0,0,100),water:clamp(p.water===undefined?70:Number(p.water)||0,0,100),nutrition:clamp(p.nutrition===undefined?65:Number(p.nutrition)||0,0,100),care:Math.max(0,Number(p.care)||0),growing:Math.max(0,Number(p.growing)||0),sunUntil:whole(p.sunUntil),nextWater:whole(p.nextWater),nextFeed:whole(p.nextFeed),nextSun:whole(p.nextSun),nextPat:whole(p.nextPat),lastAt:whole(p.lastAt,now()),bug:!!p.bug,upgrades:{soil:whole(p.upgrades?.soil,0,30),can:whole(p.upgrades?.can,0,30),basket:whole(p.upgrades?.basket,0,30)},stats:{harvests:whole(p.stats?.harvests),apples:whole(p.stats?.apples),waterings:whole(p.stats?.waterings),bugs:whole(p.stats?.bugs),seconds:whole(p.stats?.seconds)},claims:Array.isArray(p.claims)?p.claims.filter(x=>typeof x==='string').slice(0,40):[]};
-  this.bugClock=0;this.catchUp();
+  this.data={coins:whole(p.coins,35),gems:whole(p.gems),owned:[...new Set(owned)],variety:owned.includes(p.variety)?p.variety:'red',growth:clamp(Number(p.growth)||0,0,100),water:clamp(p.water===undefined?70:Number(p.water)||0,0,100),nutrition:clamp(p.nutrition===undefined?65:Number(p.nutrition)||0,0,100),care:Math.max(0,Number(p.care)||0),growing:Math.max(0,Number(p.growing)||0),sunUntil:whole(p.sunUntil),nextWater:whole(p.nextWater),nextFeed:whole(p.nextFeed),nextSun:whole(p.nextSun),nextPat:whole(p.nextPat),lastAt:whole(p.lastAt,now()),bug:!!p.bug,upgrades:{soil:whole(p.upgrades?.soil,0,30),can:whole(p.upgrades?.can,0,30),basket:whole(p.upgrades?.basket,0,30)},stats:{harvests:whole(p.stats?.harvests),apples:whole(p.stats?.apples),waterings:whole(p.stats?.waterings),bugs:whole(p.stats?.bugs),seconds:whole(p.stats?.seconds)},claims:Array.isArray(p.claims)?p.claims.filter(x=>typeof x==='string').slice(0,40):[]};
+  this.data=this.economy.bind(this.data);this.bugClock=0;this.catchUp();
  }
  get variety(){return VARIETIES.find(v=>v.id===this.data.variety)||VARIETIES[0];}
  get stage(){return this.data.growth>=100?5:Math.min(4,Math.floor(this.data.growth/20));}
@@ -101,7 +103,7 @@ export class AppleOrchard extends Ledger {
  feed(){if(this.now()<this.data.nextFeed)throw Error('영양을 흡수하는 중이에요.');this.transaction(p=>{if(p.coins<5)throw Error('영양제는 동전 5개예요. 벌레를 잡거나 수확해 모아주세요.');p.coins-=5;p.nutrition=Math.min(100,p.nutrition+40);p.nextFeed=this.now()+8000;p.lastAt=this.now();});}
  sunlight(){if(this.now()<this.data.nextSun)throw Error('잠깐 그늘에서 쉬고 있어요.');this.transaction(p=>{p.sunUntil=this.now()+22000;p.nextSun=this.now()+35000;p.lastAt=this.now();});}
  touch(){if(this.data.growth>=100)return this.harvest();if(this.now()<this.data.nextPat)return null;return this.transaction(p=>{p.nextPat=this.now()+1800;p.lastAt=this.now();if(p.bug){p.bug=false;p.stats.bugs++;p.coins+=4;p.growth=Math.min(100,p.growth+3);return {bug:true,coins:4};}p.growth=Math.min(100,p.growth+.35);return {pat:true};});}
- harvest(){if(this.data.growth<100)throw Error('사과가 더 익을 때까지 기다려 주세요.');return this.transaction(p=>{const quality=clamp(p.care/Math.max(1,p.growing),.35,1.1),stars=quality>.95?3:quality>.7?2:1,apples=3+stars+Math.floor(p.upgrades.basket/3),coins=Math.round(this.variety.value*(.7+quality*.5)*(1+p.upgrades.basket*.13));p.coins=Math.min(Number.MAX_SAFE_INTEGER,p.coins+coins);p.gems+=stars===3?2:1;p.stats.harvests++;p.stats.apples+=apples;p.growth=0;p.care=0;p.growing=0;p.bug=false;p.water=Math.max(p.water,40);p.nutrition=Math.max(p.nutrition,35);p.lastAt=this.now();return {coins,gems:stars===3?2:1,apples,stars};});}
+ harvest(){if(this.data.growth<100)throw Error('사과가 더 익을 때까지 기다려 주세요.');return this.transaction(p=>{const quality=clamp(p.care/Math.max(1,p.growing),.35,1.1),stars=quality>.95?3:quality>.7?2:1,apples=3+stars+Math.floor(p.upgrades.basket/3),coins=Math.round(this.variety.value*(.7+quality*.5)*(1+p.upgrades.basket*.13));p.coins=Math.min(Number.MAX_SAFE_INTEGER,p.coins+coins);p.stats.harvests++;p.stats.apples+=apples;p.growth=0;p.care=0;p.growing=0;p.bug=false;p.water=Math.max(p.water,40);p.nutrition=Math.max(p.nutrition,35);p.lastAt=this.now();return {coins,gems:0,apples,stars};});}
  upgrade(kind){if(!['soil','can','basket'].includes(kind))throw Error('정원 도구를 골라주세요.');const price=this.cost(kind);this.transaction(p=>{if(p.upgrades[kind]>=30)throw Error('정원 도구가 최고 단계예요.');if(p.coins<price)throw Error('수확 동전을 조금 더 모아주세요.');p.coins-=price;p.upgrades[kind]++;p.lastAt=this.now();});}
  cost(kind){return Math.ceil(35*1.4**this.data.upgrades[kind]);}
  buyVariety(id){const variety=VARIETIES.find(v=>v.id===id);if(!variety)throw Error('품종을 확인해 주세요.');this.transaction(p=>{if(!p.owned.includes(id)){if(p[variety.currency]<variety.cost)throw Error(`${variety.currency==='gems'?'정원 보석':'수확 동전'}이 부족해요.`);p[variety.currency]-=variety.cost;p.owned.push(id);}p.lastAt=this.now();});}

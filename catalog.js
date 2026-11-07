@@ -17,7 +17,7 @@ export const SKIN_CATALOG = catalog([
   { id: 'cars', name: '차고의 전설', price: 100, description: '기아부터 부가티까지, 14가지 자동차 브랜드 배지.', icon: '🏎️' },
   { id: 'fruit3d', name: '3D 과일', price: 80, description: '빛과 그림자, 껍질의 질감이 살아 있는 입체 과일.', icon: '🍒' },
   { id: 'food', name: '야식 정원', price: 75, description: '도넛·초밥·피자·햄버거로 차리는 한 상.', icon: '🍔' },
-  { id: 'royalGem', name: '보석 광산', price: 9999, description: '합칠 때마다 보석 +1. 10단계 이상 보석을 합치면 +10.', icon: '💠' },
+  { id: 'royalGem', name: '보석 광산', price: 9999, description: '합칠 때마다 수박 동전 +1. 10단계 이상 보석을 합치면 동전 +10.', icon: '💠' },
 ]);
 
 export const HATS = catalog([
@@ -44,6 +44,6 @@ export const BASKETS = catalog([
 
 export const ITEMS = catalog([
   { id: 'eraser', name: '선택지우개', price: 8, description: '원하는 과일 하나를 직접 골라 지워요.', icon: '✦' },
-  { id: 'shake', name: '흔들기', price: 5, description: '1개로 1회 사용해요. 보석으로 구매하거나 특별 사과를 합쳐 얻어요.', icon: '🌀' },
+  { id: 'shake', name: '흔들기', price: 5, description: '1개로 1회 사용해요. 수박 동전으로 구매하거나 특별 사과를 합쳐 얻어요.', icon: '🌀' },
   { id: 'calm', name: '작은 과일 정리', price: 6, description: '작은 과일부터 3개를 삭제해 바구니에 틈을 만들어요.', icon: '🧹' },
 ]);

@@ -87,7 +87,7 @@ const world = new FruitWorld({
     updateGemProgress();
     updateScore();
     const { x, y, level, points, combo, specialMerged } = event;
-    if(currentSkin==='royalGem')progressStore.creditGemMerge(event.mergeId,level>=10?10:1).catch(error=>toast(error.message));
+    if(currentSkin==='royalGem'){const coinBonus=level>=10?10:1;progressStore.creditGemMerge(event.mergeId,coinBonus).then(credited=>{if(credited)floaters.push({x,y:y-65,text:'🪙 +'+coinBonus,life:1.2});}).catch(error=>toast(error.message));}
     if(level===FRUITS.length-1){world.blast={x,y};for(let i=0;i<60;i++){const a=i*Math.PI/30;particles.push({x,y,vx:Math.cos(a)*240,vy:Math.sin(a)*240,life:1.5,maxLife:1.5,color:`hsl(${i*6} 75% 62%)`,r:3+i%5});}}
     hub?.merge(event);
     if(world.score>=10000&&world.score-points<10000)setTimeout(()=>hub?.share(canvas,'10,000점 돌파!',world.score,level),180);
@@ -337,7 +337,7 @@ async function shake() {
   playSound('shake');
   pulseTool('shake');
   const remaining=progressStore.profile.inventory.shake;
-  toast(activeMode === 'free' ? '마음껏 흔들어보세요! 횟수 제한이 없어요.' : remaining ? `와르르! 흔들기 ${remaining}개가 남았어요` : '와르르! 보석이나 특별 사과로 흔들기를 더 모아보세요');
+  toast(activeMode === 'free' ? '마음껏 흔들어보세요! 횟수 제한이 없어요.' : remaining ? `와르르! 흔들기 ${remaining}개가 남았어요` : '와르르! 수박 동전이나 특별 사과로 흔들기를 더 모아보세요');
   updateShake();
   saveGame();
   }catch(error){toast(error.message);}
@@ -443,16 +443,16 @@ function showGameOver() {
 }
 
 function updateRevive() {
-  const gems=progressStore.profile.gems;
-  const available=started&&world.state==='over'&&!(activeMode==='timed'&&world.time>=120)&&!roundCredited&&!reviveBusy&&!starting&&world.bodies.length>=3&&gems>=10;
+  const coins=progressStore.profile.coins;
+  const available=started&&world.state==='over'&&!(activeMode==='timed'&&world.time>=120)&&!roundCredited&&!reviveBusy&&!starting&&world.bodies.length>=3&&coins>=10;
   $('revive-button').disabled=!available;
-  $('revive-button').textContent=reviveBusy?'준비 중…':'💎 10 · 이어하기';
-  $('revive-note').textContent=reviveBusy?'이어갈 정원을 안전하게 저장하고 있어요':world.bodies.length<3?'이어가려면 과일이 3개 이상 필요해요':gems<10?`보석 ${10-gems}개가 더 필요해요 · 보유 ${gems.toLocaleString('ko-KR')}개`:'점수는 그대로 · 이어서 3초 동안 안전해요';
-  if(world.state==='over')$('run-gems').textContent=`이번 판 과일 ${roundCleared}개 정리 · 모은 보석 ${progressStore.pendingRun?.earnedGems||0}개`;
+  $('revive-button').textContent=reviveBusy?'준비 중…':'🪙 10 · 이어하기';
+  $('revive-note').textContent=reviveBusy?'이어갈 정원을 안전하게 저장하고 있어요':world.bodies.length<3?'이어가려면 과일이 3개 이상 필요해요':coins<10?`수박 동전 ${10-coins}개가 더 필요해요 · 보유 ${coins.toLocaleString('ko-KR')}개`:'점수는 그대로 · 이어서 3초 동안 안전해요';
+  if(world.state==='over')$('run-gems').textContent=`이번 판 과일 ${roundCleared}개 정리 · 모은 동전 ${progressStore.pendingRun?.earnedCoins||0}개`;
 }
 
 async function reviveGame() {
-  if(reviveBusy||inventoryBusy||erasingBusy||starting||!started||roundCredited||world.state!=='over'||(activeMode==='timed'&&world.time>=120)||world.bodies.length<3||progressStore.profile.gems<10)return;
+  if(reviveBusy||inventoryBusy||erasingBusy||starting||!started||roundCredited||world.state!=='over'||(activeMode==='timed'&&world.time>=120)||world.bodies.length<3||progressStore.profile.coins<10)return;
   reviveBusy=true;updateRevive();
   try {
     const candidate=new FruitWorld({width:WIDTH,height:HEIGHT,fruits:FRUITS});
@@ -479,8 +479,9 @@ async function reviveGame() {
 function updateGemProgress() {
   const saved = progressStore.profile.mergedFruits;
   const pending = started && !roundCredited ? Math.max(0, roundCleared - (progressStore.pendingRun?.creditedFruits || 0)) : 0;
-  const progress = (saved + pending) % 20;
-  $('gem-balance').title=`다음 보석까지 과일 ${20-progress}개`;
+  const progress = (saved + pending) % 200;
+  $('gem-balance').title=`다섯 게임 공용 보석 · 다음 수박 보석까지 과일 ${200-progress}개`;
+  $('coin-count').title='수박 동전 · 도구와 이어하기에 사용';
 }
 
 function settleRun() {
@@ -489,8 +490,8 @@ function settleRun() {
   const cleared = roundCleared;
   settlement = progressStore.finishRun(world.score, cleared,runExtras()).then(result => {
     roundCredited = true;
-    const earned = result.runEarnedGems ?? result.earnedGems;
-    $('run-gems').textContent = earned > 0 ? `◆ 이번 판 보석 ${earned}개를 모았어요!` : `과일 ${cleared}개 정리 · 다음 보석에 한 걸음 더!`;
+    const earned = result.runEarnedCoins ?? result.earnedCoins ?? 0;
+    $('run-gems').textContent = earned > 0 ? `🪙 이번 판 수박 동전 ${earned}개를 모았어요!` : `과일 ${cleared}개 정리 · 다음 보석에 한 걸음 더!`;
     updateGemProgress();
     if (progressStore.storageAvailable) gameSave.clear();
     saveDirty = false; saveElapsed = 0;
@@ -509,7 +510,9 @@ function renderProfile() {
   const sceneChanged = currentBackground !== profile.equippedBackground || currentBasket !== profile.equippedBasket;
   currentSkin = profile.equippedSkin;
   currentBackground = profile.equippedBackground; currentBasket = profile.equippedBasket;
+  $('coin-count').textContent = profile.coins.toLocaleString('ko-KR');
   $('gem-count').textContent = profile.gems.toLocaleString('ko-KR');
+  fitNumericText($('coin-count'));
   $('shop-gems').textContent = `💎 ${profile.gems.toLocaleString('ko-KR')}`;
   fitNumericText($('gem-count'));
   fitNumericText($('shop-gems'));
@@ -563,15 +566,15 @@ function renderShop(force = false) {
     }
     const title=document.createElement('h3');title.textContent=item.id==='mystery'&&owned?'문드러진 열매':item.name;
     const description=document.createElement('p');description.textContent=item.description||'점수판 위 쫄라맨에게 씌워요.';
-    const price=document.createElement('span');price.className='skin-price';price.textContent=item.price?`◆ ${item.price}`:'기본 제공';
+    const price=document.createElement('span');price.className='skin-price';price.textContent=item.price?`${isItem?'🪙':'💎'} ${item.price}`:'기본 제공';
     card.append(title,description,price);
     if (isItem) {
       const stock=document.createElement('span');stock.className='item-stock';
       stock.textContent=`보유 ${profile.inventory[item.id]+(item.id==='eraser'?itemCount:0)}개`;
       const actions=document.createElement('div');actions.className='item-actions';
       const buy=document.createElement('button');buy.type='button';buy.className='skin-buy';
-      buy.textContent=profile.inventory[item.id]>=999?'가방이 가득해요':profile.gems<item.price?`보석 ${item.price-profile.gems}개 더 필요`:'1개 구매';
-      buy.disabled=commerceBusy||inventoryBusy||profile.gems<item.price||profile.inventory[item.id]>=999;
+      buy.textContent=profile.inventory[item.id]>=999?'가방이 가득해요':profile.coins<item.price?`수박 동전 ${item.price-profile.coins}개 더 필요`:'1개 구매';
+      buy.disabled=commerceBusy||inventoryBusy||profile.coins<item.price||profile.inventory[item.id]>=999;
       buy.addEventListener('click',()=>purchaseShopItem('items',item));
       const use=document.createElement('button');use.type='button';use.className='secondary-button';
       const availability=inventoryAvailability(item.id);
@@ -624,8 +627,9 @@ function updateInventory() {
   $('bag-count').textContent=String(count);
   for (const id of ['shake','calm']) {
     $(`inventory-${id}-count`).textContent=String(inventory[id]);
-    $(`inventory-${id}`).disabled=(id!=='shake'&&!inventoryAvailability(id).ok)||inventoryBusy||commerceBusy||erasingBusy||reviveBusy;
+    $(`inventory-${id}`).disabled=(id==='shake'?(progressStore.profile.coins<ITEMS.find(item=>item.id===id).price||inventory[id]>=999):!inventoryAvailability(id).ok)||inventoryBusy||commerceBusy||erasingBusy||reviveBusy;
   }
+  for(const button of document.querySelectorAll('[data-buy-tool]')){const item=ITEMS.find(entry=>entry.id===button.dataset.buyTool);if(!item)continue;button.textContent=`🪙 ${item.price} 구매`;button.title=`수박 동전 ${item.price}개로 ${item.name} 구매`;button.disabled=progressStore.profile.coins<item.price||inventory[item.id]>=999||inventoryBusy||commerceBusy||erasingBusy||reviveBusy;}
   updateToolHud();
 }
 
@@ -644,7 +648,7 @@ function updateToolHud() {
     const active=id==='eraser'&&eraseMode;
     let text=!live?'플레이 중 사용':remaining>1e-6?`${Math.ceil(remaining-1e-6)}초 대기`:stock>0?'준비 완료':'상점에서 충전';
     if(live&&id==='shake'&&activeMode==='free')text='무제한 사용';
-    else if(live&&id==='shake'&&stock===0)text='보석·특별사과로 획득';
+    else if(live&&id==='shake'&&stock===0)text='동전·특별사과로 획득';
     else if(live&&id==='shake'&&stock>0&&!world.bodies.length)text='과일이 필요해요';
     if(live&&id==='eraser'&&eraseMode)text=erasingBusy?'지우는 중…':'과일을 선택하세요';
     if(live&&stock>0&&remaining<=1e-6&&id!=='shake'&&!active){const available=inventoryAvailability(id);if(!available.ok)text=available.reason;}
@@ -726,7 +730,7 @@ function unlockAchievement(id) {
   progressStore.unlockAchievement(id,{mode:activeMode,runId:progressStore.pendingRun?.id}).then(result => {
     if (result.unlocked) {
       const achievement = ACHIEVEMENTS.find(item => item.id === id);
-      toast(`${achievement.icon} 업적 달성: ${achievement.title} · ◆ +${result.earnedGems}`, 3500);
+      toast(`${achievement.icon} 업적 달성: ${achievement.title} · 💎 공용 보석 +${result.earnedGems}`, 3500);
     }
   }).catch(error => toast(error.message)).finally(() => achievementPending.delete(id));
 }
@@ -735,7 +739,7 @@ function checkpointRound() {
   if (!checkpointDirty || checkpointBusy || !started || roundCredited || !progressStore.pendingRun || progressStore.pendingRun.finished) return;
   checkpointDirty = false; checkpointBusy = true;
   progressStore.checkpointRun(world.score, roundCleared,runExtras()).then(result => {
-    if (result.earnedGems > 0) toast(`◆ 보석 +${result.earnedGems}! 지금 바로 사용할 수 있어요`);
+    if (result.earnedCoins > 0) toast(`🪙 수박 동전 +${result.earnedCoins}!`);
     if (progressStore.profile.classicMergedFruits >= 100) unlockAchievement('merges100');
     updateGemProgress();
   }).catch(error => { checkpointDirty = true; toast(error.message); }).finally(() => { checkpointBusy = false; });
@@ -1009,7 +1013,7 @@ const progressInitialization = progressStore.init().then(async () => {
   renderProfile(); await prepareSavedGame(); progressReady = true;
   if(progressStore.refundedToolGems>0)toast(`삭제된 도구를 보석 ${progressStore.refundedToolGems.toLocaleString('ko-KR')}개로 돌려드렸어요.`,4000);
 });
-observeNumericText([$('score'), $('best-score'), $('final-score'), $('gem-count'), $('shop-gems')]);
+observeNumericText([$('score'), $('best-score'), $('final-score'), $('coin-count'), $('gem-count'), $('shop-gems')]);
 renderColorPresets();
 applyTheme(); updateModeLabel(); updateSoundControls(); renderModes();
 
@@ -1278,7 +1282,7 @@ $('friends-menu').addEventListener('click',()=>{social.openFriends();$('menu-dia
 $('account-menu').addEventListener('click',()=>{social.openAccount(social.user?'login':'register');$('menu-dialog').close();});
 hub=createHub({
   state:()=>({world,mode:selectedGame==='suika'?activeMode:hub?.controller().mode()||'classic',skin:currentSkin,game:selectedGame,canvas}),store:()=>progressStore,social:()=>social,
-  toast,open:openDialog,effect:playSound,achievements:renderAchievements,arcadeActive:value=>{arcadePlaying=value;},
+  toast,open:openDialog,cosmetics:()=>openShop('skins'),effect:playSound,achievements:renderAchievements,arcadeActive:value=>{arcadePlaying=value;},
   resume:()=>{if(selectedGame==='suika'&&started&&world.state==='paused'&&pausedByDialog&&!document.querySelector('dialog[open]')){world.state='playing';pausedByDialog=false;}},
   switchGame:game=>{
     if(game===selectedGame)return;saveGame();
@@ -1294,6 +1298,8 @@ hub=createHub({
     if(game==='suika'&&resetModeOnReturn)startGame({mode:'classic'}).then(()=>{if(activeMode==='classic')resetModeOnReturn=false;});
   },
 });
+let walletRefreshPending=false;
+globalThis.addEventListener('garden-wallet-change',()=>{if(!progressReady||walletRefreshPending)return;walletRefreshPending=true;queueMicrotask(()=>{walletRefreshPending=false;if(progressReady)renderProfile();});});
 mountPlayLayout();
 social.init().catch(error=>toast(error.message));
 requestAnimationFrame(frame);
