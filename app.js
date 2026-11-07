@@ -42,7 +42,7 @@ const COLOR_PRESETS=[
 ];
 let preferences = loadPreferences();
 let activeMode = 'classic', totalShakes = 0, eraseMode = false, selectedFruitId = null;
-let hub=null,selectedGame='suika',arcadePlaying=false,wasSuikaPlaying=false;
+let hub=null,selectedGame='suika',arcadePlaying=false,wasSuikaPlaying=false,resetModeOnReturn=false;
 let seedState = (Date.now() >>> 0) || 1;
 
 let checkpointDirty = false, checkpointBusy = false, social = null;
@@ -938,6 +938,11 @@ async function prepareSavedGame() {
   if (!saved) return;
   const run = await progressStore.resumeRun(saved.runId);
   if (!run || run.finished) { gameSave.clear(); return; }
+  if(saved.mode!=='classic'){
+    if(recovery)await progressStore.acknowledgeRevival(recovery.requestId);
+    await progressStore.finishRun(saved.world.score,saved.roundCleared,{specialShakeRewards:saved.specialShakeRewards,discoveredLevels:saved.discoveredLevels});
+    gameSave.clear();activeMode='classic';world.setMode('classic');resetToWelcome();applyTheme();updateModeLabel();return;
+  }
   if (!world.restore(saved.world)) { gameSave.clear(); return; }
   activeMode = world.mode;
   seedState = Number.isInteger(saved.seedState) ? saved.seedState >>> 0 : (Date.now() >>> 0) || 1;
@@ -1275,7 +1280,19 @@ hub=createHub({
   state:()=>({world,mode:selectedGame==='suika'?activeMode:hub?.controller().mode()||'classic',skin:currentSkin,game:selectedGame,canvas}),store:()=>progressStore,social:()=>social,
   toast,open:openDialog,effect:playSound,achievements:renderAchievements,arcadeActive:value=>{arcadePlaying=value;},
   resume:()=>{if(selectedGame==='suika'&&started&&world.state==='paused'&&pausedByDialog&&!document.querySelector('dialog[open]')){world.state='playing';pausedByDialog=false;}},
-  switchGame:game=>{if(game===selectedGame)return;saveGame();if(game!=='suika'){if(selectedGame==='suika'){wasSuikaPlaying=started&&(world.state==='playing'||world.state==='paused'&&pausedByDialog);if(wasSuikaPlaying)world.state='paused';pausedByDialog=false;}arcadePlaying=true;}else if(wasSuikaPlaying&&world.state==='paused')world.state='playing';selectedGame=game;syncAudio();},
+  switchGame:game=>{
+    if(game===selectedGame)return;saveGame();
+    if(game!=='suika'){
+      if(selectedGame==='suika'){
+        resetModeOnReturn=activeMode!=='classic';
+        wasSuikaPlaying=started&&(world.state==='playing'||world.state==='paused'&&pausedByDialog);
+        if(wasSuikaPlaying)world.state='paused';pausedByDialog=false;
+      }
+      arcadePlaying=true;
+    }else if(!resetModeOnReturn&&wasSuikaPlaying&&world.state==='paused')world.state='playing';
+    selectedGame=game;syncAudio();
+    if(game==='suika'&&resetModeOnReturn)startGame({mode:'classic'}).then(()=>{if(activeMode==='classic')resetModeOnReturn=false;});
+  },
 });
 mountPlayLayout();
 social.init().catch(error=>toast(error.message));
