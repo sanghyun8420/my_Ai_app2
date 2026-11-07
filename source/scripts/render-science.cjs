@@ -1,0 +1,13 @@
+const {createCanvas,GlobalFonts}=require('@napi-rs/canvas');
+const fs=require('node:fs');
+for(const name of ['Regular','Bold']){const font='/usr/share/fonts/opentype/noto/NotoSansCJK-'+name+'.ttc';if(fs.existsSync(font))GlobalFonts.registerFromPath(font,'Noto Sans KR');}
+(async()=>{
+ const {SCIENCE_STAGES,drawScience,drawScienceBackground,drawSupernova,scienceReaction}=await import('../dist/science.js');
+ const c=createCanvas(1400,570),ctx=c.getContext('2d');drawScienceBackground(ctx,1400,570,2);
+ for(const [i,s]of SCIENCE_STAGES.entries()){const x=100+(i%7)*200,y=105+Math.floor(i/7)*275;ctx.fillStyle='#344b6380';ctx.beginPath();ctx.roundRect(x-91,y-88,182,240,14);ctx.fill();drawScience(ctx,i,x,y,68,0,1,2);ctx.fillStyle='#d3e7ef';ctx.font='700 19px "Noto Sans KR"';ctx.textAlign='center';ctx.fillText((i+1)+'. '+s.name,x,y+103);ctx.font='13px "Noto Sans KR"';ctx.fillText(s.label.replaceAll('₂','2'),x,y+129);}
+ fs.writeFileSync(require('node:path').join(require('node:os').tmpdir(),'science-stage-sheet.png'),c.toBuffer('image/png'));
+ const field=createCanvas(1200,720),f=field.getContext('2d');drawScienceBackground(f,1200,720,3);drawScience(f,4,185,310,100);drawScience(f,13,780,340,105);drawSupernova(f,780,340,.75);fs.writeFileSync(require('node:path').join(require('node:os').tmpdir(),'science-supernova-scene.png'),field.toBuffer('image/png'));
+ const expected=[[0,0,2],[0,1,3],[1,0,3],[0,3,4],[1,2,4],[2,1,4],[4,4,5],[12,12,13],[1,1,null],[2,2,null],[3,3,null],[13,13,null]];for(const [a,b,r]of expected)if(scienceReaction(a,b)!==r)throw Error('recipe mismatch');
+ const state=createCanvas(200,200).getContext('2d');state.globalAlpha=.71;state.fillStyle='#123456';state.font='13px serif';state.lineWidth=3;state.translate(7,9);const before={alpha:state.globalAlpha,fill:state.fillStyle,font:state.font,line:state.lineWidth,transform:state.getTransform().toString()};for(let i=0;i<14;i++){drawScience(state,i,100,100,50,.1,.8,2);const after={alpha:state.globalAlpha,fill:state.fillStyle,font:state.font,line:state.lineWidth,transform:state.getTransform().toString()};if(JSON.stringify(after)!==JSON.stringify(before))throw Error('Canvas state leak '+i);}drawScienceBackground(state,200,200,2);drawSupernova(state,100,100,.7);const after={alpha:state.globalAlpha,fill:state.fillStyle,font:state.font,line:state.lineWidth,transform:state.getTransform().toString()};if(JSON.stringify(after)!==JSON.stringify(before))throw Error('background/effect state leak');
+ console.log('PASS science assets:14 distinct stages, recipe cases, native Canvas rendering and preserved drawing state.');
+})().catch(error=>{console.error(error);process.exitCode=1;});

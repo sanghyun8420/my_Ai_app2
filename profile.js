@@ -8,8 +8,8 @@ const PRICES = Object.freeze(Object.fromEntries(SKIN_CATALOG.map(item => [item.i
 const ITEM_LIMIT = 999;
 const RECEIPT_LIMIT = 32;
 const REVIVAL_COST = 10;
-const RUN_MODES = new Set(['classic','apple','free','water','space','watermelon','timed','challenge']);
-const SPECIAL_MODES = ['apple','free','water','space','watermelon','timed','challenge'];
+const RUN_MODES = new Set(['classic','apple','free','water','space','watermelon','timed','challenge','science']);
+const SPECIAL_MODES = ['apple','free','water','space','watermelon','timed','challenge','science'];
 const REMOVED_TOOL_PRICES = { magnet: 10, swap: 6, freeze: 8 };
 
 export const ACHIEVEMENTS = Object.freeze([

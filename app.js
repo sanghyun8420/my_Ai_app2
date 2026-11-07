@@ -1,4 +1,5 @@
 import { createApiFetcher } from './remote-api.js';
+import { SCIENCE_STAGES, drawScience, drawScienceBackground, drawSupernova } from './science.js';
 import { FRUITS, drawFruit, APPLE_LEVEL, WATERMELON_LEVEL, SECRET_LEVEL } from './fruits.js';
 import { FruitWorld } from './physics.js';
 import { drawSkinnedFruit, SKINS, skinFruitName } from './skins.js';
@@ -18,6 +19,7 @@ const canvas = $('game-canvas');
 const ctx = canvas.getContext('2d');
 const WIDTH = 600, HEIGHT = 720;
 const MODES = [
+  {id:'science',name:'과학 정원',icon:'⚗️',description:'2H + O → H₂O. 물 이후는 우주 테마 성장! 마지막은 초신성 폭발.'},
   {id:'watermelon',name:'수박 파티',icon:'🍉',description:'수박부터 시작해 비밀 과일까지!'},
   {id:'timed',name:'120초 정원',icon:'⏱',description:'120초 동안 가장 높은 점수에 도전해요.'},
   {id:'challenge',name:'챌린지',icon:'🎯',description:'큰 과일부터 시작해 5,000점을 달성하세요.'},
@@ -62,6 +64,7 @@ let activeSpecial = false, nextSpecial = false, dropCount = 0, itemCount = 0;
 let secretDiscovered = false;
 try { secretDiscovered = localStorage.getItem('suika-garden-secret') === 'yes'; } catch {}
 if(secretDiscovered)discoveredLevels.add(SECRET_LEVEL);
+let scienceEffect=null;const scienceDiscovered=new Set([0,1]);
 let particles = [], floaters = [], maxLevel = 0, watermelonMade = false;
 let soundEnabled = preferences.sound, toastTimer;
 const gameAudio = new GardenAudio();
@@ -87,6 +90,7 @@ const world = new FruitWorld({
     updateGemProgress();
     updateScore();
     const { x, y, level, points, combo, specialMerged } = event;
+    if(activeMode==='science'){scienceMerge(event);return;}
     if(currentSkin==='royalGem'){const coinBonus=level>=10?10:1;progressStore.creditGemMerge(event.mergeId,coinBonus).then(credited=>{if(credited)floaters.push({x,y:y-65,text:'🪙 +'+coinBonus,life:1.2});}).catch(error=>toast(error.message));}
     if(level===FRUITS.length-1){world.blast={x,y};for(let i=0;i<60;i++){const a=i*Math.PI/30;particles.push({x,y,vx:Math.cos(a)*240,vy:Math.sin(a)*240,life:1.5,maxLife:1.5,color:`hsl(${i*6} 75% 62%)`,r:3+i%5});}}
     hub?.merge(event);
@@ -149,6 +153,20 @@ const world = new FruitWorld({
     if (social?.user && activeMode==='classic') social.saveScore(world.score,activeMode).catch(error=>toast(error.message));
   },
 });
+function definitions(){return activeMode==='science'?SCIENCE_STAGES:FRUITS;}
+function tokenName(level){return activeMode==='science'?SCIENCE_STAGES[level].name:skinFruitName(level,currentSkin);}
+function drawToken(c,level,x,y,r,angle=0,alpha=1,special=false,time=0){if(activeMode==='science')drawScience(c,level,x,y,r,angle,alpha,time);else drawSkinnedFruit(c,level,x,y,r,angle,alpha,special,time,currentSkin);}
+function scienceMerge(event){
+  const {level,x,y,points,combo}=event;scienceDiscovered.add(level);maxLevel=Math.max(maxLevel,level);renderEvolution();
+  const stage=SCIENCE_STAGES[level];floaters.push({x,y:y-stage.radius,text:stage.label.replaceAll('₂','2')+' +'+points,life:1.2});playSound(level===13?'special':'merge',level);
+  if(!reducedMotion)for(let i=0;i<16;i++){const angle=i*Math.PI/8;particles.push({x,y,vx:Math.cos(angle)*95,vy:Math.sin(angle)*95-35,life:.8,maxLife:.8,color:stage.color,r:2+i%3});}
+  $('game-status').textContent=stage.name+' 완성';
+  if(level===4)toast('H₂O 완성! 수소 2개와 산소 1개가 모였어요.',3200);
+  if(level===13){
+    world.blast={x,y,radius:390};scienceEffect={x,y,age:0};toast('초신성 폭발! 주변 물질이 흩어졌어요 ✨',4000);
+    const runId=progressStore.pendingRun?.id;setTimeout(()=>{if(activeMode==='science'&&selectedGame==='suika'&&progressStore.pendingRun?.id===runId)hub?.share(canvas,'초신성 폭발!',world.score);},800);
+  }
+}
 function fruitIcon(level, size = 64, special = false) {
   const icon = document.createElement('canvas');
   icon.width = icon.height = size * 2;
@@ -156,37 +174,40 @@ function fruitIcon(level, size = 64, special = false) {
   icon.style.height = `${size}px`;
   const context = icon.getContext('2d');
   context.scale(2, 2);
-  drawSkinnedFruit(context, level, size / 2, size / 2 + 2, size * .43, 0, 1, special, .7, currentSkin);
+  drawToken(context,level,size/2,size/2+2,size*.43,0,1,special,.7);
   icon.setAttribute('role', 'img');
-  icon.setAttribute('aria-label', special ? '반짝이는 사과' : skinFruitName(level,currentSkin));
+  icon.setAttribute('aria-label', special ? '반짝이는 사과' : tokenName(level));
   if (special) animatedIcons.add({ icon, size, level });
   return icon;
 }
 
 function renderEvolution() {
   $('evolution-grid').replaceChildren();
-  FRUITS.forEach((fruit, level) => {
-  const locked=level>=10&&!discoveredLevels.has(level);
+  definitions().forEach((fruit, level) => {
+  const locked=activeMode==='science'?level>1&&!scienceDiscovered.has(level):level>=10&&!discoveredLevels.has(level);
   const cell = document.createElement('div');
   cell.className = 'evo-fruit';
   if (level === maxLevel && maxLevel > 0) cell.classList.add('active');
-  cell.title = `${level + 1}단계 · ${locked?'???':skinFruitName(level,currentSkin)}`;
+  cell.title = `${level + 1}단계 · ${locked?'???':tokenName(level)}`;
   if(locked){const mark=document.createElement('b');mark.textContent='?';cell.append(mark);}else cell.append(fruitIcon(level, 32));
   const label = document.createElement('span');
-  label.className='evo-name';label.textContent = locked?'???':skinFruitName(level,currentSkin);
+  label.className='evo-name';label.textContent = locked?'???':tokenName(level);
   const number = document.createElement('small');number.className='evo-level';number.textContent = String(level + 1).padStart(2,'0');
   cell.append(number,label);
   $('evolution-grid').append(cell);
   });
-  $('goal-label').textContent = secretDiscovered ? '용과 너머 태양의 열매까지' : '수박 다음엔 어떤 과일이?';
+  document.querySelector('.evolution-rail .section-heading h2').textContent=activeMode==='science'?'발견한 물질':'발견한 과일';
+  $('evolution-grid').setAttribute('aria-label',activeMode==='science'?'발견한 물질과 별 단계':'발견한 과일 모음');
+  $('goal-label').textContent = activeMode==='science'?'마지막 목표 · 초신성 폭발':secretDiscovered ? '용과 너머 태양의 열매까지' : '수박 다음엔 어떤 과일이?';
 }
 
 function recordDiscovery(level){
+  if(activeMode==='science'){if(!scienceDiscovered.has(level)){scienceDiscovered.add(level);renderEvolution();}return;}
   if(discoveredLevels.has(level))return;
   discoveredLevels.add(level);checkpointDirty=true;saveDirty=true;renderEvolution();
 }
 
-function runExtras(){return {specialShakeRewards,discoveredLevels:[...discoveredLevels]};}
+function runExtras(){return activeMode==='science'?{specialShakeRewards:0,discoveredLevels:[]}:{specialShakeRewards,discoveredLevels:[...discoveredLevels]};}
 renderEvolution();
 
 function drawWelcome() {
@@ -211,11 +232,12 @@ drawWelcome();
 function updateNext() {
   $('next-fruit').replaceChildren(fruitIcon(nextLevel, 64, nextSpecial));
   $('next-fruit').classList.toggle('special-preview', nextSpecial);
-  $('next-name').textContent = nextSpecial ? '✦ 반짝이는 사과' : skinFruitName(nextLevel,currentSkin);
+  $('next-name').textContent = nextSpecial ? '✦ 반짝이는 사과' : tokenName(nextLevel);
 }
 updateNext();
 
 function randomFruit() {
+  if(activeMode==='science')return (dropCount+2)%3===0?1:0;
   if (activeMode === 'apple') return APPLE_LEVEL;
   if(activeMode==='watermelon')return WATERMELON_LEVEL;
   if(activeMode==='challenge')return 2+Math.floor(mergeRandom()*4);
@@ -271,6 +293,7 @@ async function startGame(options = {}) {
   activeLevel = activeMode === 'apple' ? APPLE_LEVEL : activeMode==='watermelon'?WATERMELON_LEVEL:activeMode==='challenge'?3:0; nextLevel = activeLevel; aimX = WIDTH / 2;
   specialShakeRewards=0;shakeReadyAt = 0; maxLevel = 0; watermelonMade = false;
   toolReadyAt = Object.fromEntries(Object.keys(TOOL_COOLDOWNS).map(id => [id, 0]));
+  scienceEffect=null;scienceDiscovered.clear();scienceDiscovered.add(0);scienceDiscovered.add(1);
   activeSpecial = false; nextSpecial = false; dropCount = 0; itemCount = 0;
   totalShakes = 0;
   roundCleared = 0; roundCredited = false; settlement = null;
@@ -285,7 +308,7 @@ async function startGame(options = {}) {
   updateNext(); updateScore(); updateShake(); updateItem();
   canvas.focus({ preventScroll: true });
   playSound('drop');
-    applyTheme(); updateModeLabel();
+    applyTheme(); updateModeLabel();renderEvolution();
     updateGemProgress();
     saveGame();
   } catch (error) {
@@ -303,9 +326,9 @@ function drop() {
     dropCount++;
     activeLevel = nextLevel;
     activeSpecial = nextSpecial;
-    nextSpecial = activeMode!=='watermelon'&&(dropCount + 2) % 20 === 0;
+    nextSpecial = !['watermelon','science'].includes(activeMode)&&(dropCount + 2) % 20 === 0;
     nextLevel = nextSpecial ? APPLE_LEVEL : randomFruit();
-    const radius = FRUITS[activeLevel].radius;
+    const radius = definitions()[activeLevel].radius;
     aimX = Math.max(radius + 8, Math.min(WIDTH - radius - 8, aimX));
     updateNext();
     $('game-status').textContent = activeSpecial ? '✦ 오늘은 반짝이는 열매가 찾아왔어요' : watermelonMade ? '수박이 자란 행복한 정원' : '같은 과일끼리 만나게 해주세요';
@@ -428,7 +451,7 @@ function recordCleanup(removed) {
   updateGemProgress();
   if (!reducedMotion) for (const body of removed) for(let i=0;i<8;i++) {
     const a=i/8*Math.PI*2;
-    particles.push({x:body.x,y:body.y,vx:Math.cos(a)*90,vy:Math.sin(a)*90-35,life:.7,maxLife:.7,color:FRUITS[body.level].color,r:3});
+    particles.push({x:body.x,y:body.y,vx:Math.cos(a)*90,vy:Math.sin(a)*90-35,life:.7,maxLife:.7,color:definitions()[body.level].color,r:3});
   }
 }
 
@@ -764,12 +787,14 @@ function updateModeLabel() {
   $('mode-label').textContent = `${mode.icon} ${mode.name}`;
   $('mode-record-note').hidden=activeMode==='classic';
   document.body.dataset.mode = activeMode;
+  $('science-recipe').hidden=activeMode!=='science';
+  document.querySelector('.next-card').setAttribute('aria-label',activeMode==='science'?'다음 원자':'다음 과일');
 }
 
 function renderModes() {
   $('mode-grid').replaceChildren();
   MODES.forEach(mode => {
-    const unlocked = ['watermelon','timed','challenge'].includes(mode.id)||preferences.unlockedModes.includes(mode.id);
+    const unlocked = ['science','watermelon','timed','challenge'].includes(mode.id)||preferences.unlockedModes.includes(mode.id);
     const button = document.createElement('button'); button.type = 'button'; button.className = 'mode-card';
     button.classList.toggle('mode-selected', activeMode === mode.id); button.disabled = !unlocked;
     const icon = document.createElement('span'); icon.textContent = mode.icon;
@@ -962,7 +987,7 @@ async function prepareSavedGame() {
   if (saved.world.width !== WIDTH) aimX *= WIDTH / saved.world.width;
   secretDiscovered = secretDiscovered || saved.secretDiscovered;
   if (secretDiscovered) { try { localStorage.setItem('suika-garden-secret', 'yes'); } catch {} }
-  const radius = FRUITS[activeLevel].radius;
+  const radius = definitions()[activeLevel].radius;
   aimX = Math.max(radius + 8, Math.min(WIDTH - radius - 8, aimX));
   started = true; roundCredited = false; settlement = null; particles = []; floaters = [];
   checkpointDirty=true;
@@ -1113,7 +1138,7 @@ function pickFruit(event) {
 
 function aim(event) {
   const bounds = canvas.getBoundingClientRect();
-  const radius = FRUITS[activeLevel].radius;
+  const radius = definitions()[activeLevel].radius;
   aimX = Math.max(radius + 8, Math.min(WIDTH - radius - 8, (event.clientX - bounds.left) / bounds.width * WIDTH));
 }
 canvas.addEventListener('pointermove', event => { if (eraseMode) pickFruit(event); else aim(event); });
@@ -1134,7 +1159,7 @@ document.addEventListener('keydown', event => {
   if (!started || world.state !== 'playing' || document.querySelector('dialog[open]')) return;
   if (event.target instanceof HTMLButtonElement && event.code === 'Space') return;
   if (['ArrowLeft', 'ArrowRight', 'Space', 'KeyS', 'KeyD', 'KeyP'].includes(event.code)) event.preventDefault();
-  const radius = FRUITS[activeLevel].radius;
+  const radius = definitions()[activeLevel].radius;
   if (event.code === 'ArrowLeft') aimX = Math.max(radius + 8, aimX - 17);
   if (event.code === 'ArrowRight') aimX = Math.min(WIDTH - radius - 8, aimX + 17);
   if (event.code === 'Space' && !event.repeat) drop();
@@ -1165,9 +1190,9 @@ function render(dt) {
   ctx.lineWidth = 1; ctx.setLineDash([5, 6]);
   ctx.beginPath(); ctx.moveTo(13, 90); ctx.lineTo(WIDTH - 13, 90); ctx.stroke();
   ctx.setLineDash([]); ctx.fillStyle = palette.text; ctx.font = '8px "DM Sans", sans-serif';
-  ctx.fillText('MAX', 17, 83); ctx.restore();
+  if(activeMode==='science')ctx.fillStyle='#c0dbe7';ctx.fillText('MAX', 17, 83); ctx.restore();
   if (started && world.state === 'playing' && world.time - world.lastDrop >= .35) {
-    const radius = FRUITS[activeLevel].radius;
+    const radius = definitions()[activeLevel].radius;
     let floor = HEIGHT - 8 - radius;
     for (const b of world.bodies) {
       const dx = aimX - b.x, distance = radius + b.r;
@@ -1175,13 +1200,13 @@ function render(dt) {
     }
     ctx.save(); ctx.strokeStyle = '#c6d0af'; ctx.globalAlpha = .6; ctx.lineWidth = 1; ctx.setLineDash([3, 7]);
     ctx.beginPath(); ctx.moveTo(aimX, 48 + radius); ctx.lineTo(aimX, Math.max(48 + radius, floor)); ctx.stroke(); ctx.restore();
-    drawSkinnedFruit(ctx, activeLevel, aimX, 43, radius, 0, .92, activeSpecial, animationTime, currentSkin);
+    drawToken(ctx,activeLevel,aimX,43,radius,0,.92,activeSpecial,animationTime);
     ctx.fillStyle = '#9bad80'; ctx.beginPath(); ctx.moveTo(aimX - 3, 8);ctx.lineTo(aimX + 3, 8);ctx.lineTo(aimX, 12);ctx.fill();
   }
   for (const body of world.bodies) {
     ctx.save();ctx.translate(body.x,body.y);
     const squash=Math.max(0,Math.min(1,body.squash||0));ctx.scale(1+squash*.13,1-squash*.12);
-    drawSkinnedFruit(ctx, body.level, 0, 0, body.r, body.angle, 1, body.special, animationTime, currentSkin);
+    drawToken(ctx,body.level,0,0,body.r,body.angle,1,body.special,animationTime);
     ctx.restore();
     if (eraseMode) {
       ctx.save();ctx.strokeStyle=body.id===selectedFruitId?'#f4b65d':'#d6ae62';ctx.lineWidth=body.id===selectedFruitId?3:1;ctx.setLineDash(body.id===selectedFruitId?[]:[4,4]);
@@ -1205,10 +1230,12 @@ function render(dt) {
     ctx.fillStyle = `rgba(230, 144, 105, ${danger * .1})`;
     ctx.fillRect(0, 0, WIDTH, 95);
   }
+  if(activeMode==='science'&&scienceEffect){drawSupernova(ctx,scienceEffect.x,scienceEffect.y,scienceEffect.age,reducedMotion);scienceEffect.age+=dt;if(scienceEffect.age>2.5)scienceEffect=null;}
   drawBasketFrame(ctx,currentBasket,WIDTH,HEIGHT,animationTime);
 }
 
 function drawModeBackground() {
+  if(activeMode==='science')drawScienceBackground(ctx,WIDTH,HEIGHT,reducedMotion?0:animationTime);
   if (activeMode==='space') {
     ctx.save();
     for(let i=0;i<65;i++) {

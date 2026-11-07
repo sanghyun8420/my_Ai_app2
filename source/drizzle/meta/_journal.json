@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1793844000000,
+      "tag": "0001_game_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793894527429,
+      "tag": "0002_social",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793977242600,
+      "tag": "0003_arcade_social",
+      "breakpoints": true
+    }
+  ]
+}

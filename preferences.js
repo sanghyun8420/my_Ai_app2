@@ -1,6 +1,6 @@
 const PREFERENCES_KEY = 'suika-garden-preferences-v1';
 const THEMES = new Set(['light', 'dark']);
-const MODES = new Set(['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge']);
+const MODES = new Set(['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge', 'science']);
 const DEFAULTS = Object.freeze({
   theme: 'light',
   sound: true,

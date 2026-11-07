@@ -1,0 +1,27 @@
+import {readFile,readdir,mkdir,writeFile,cp,rm} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+const root=fileURLToPath(new URL('../',import.meta.url)),output=path.join(root,'build');
+const manifest=JSON.parse(await readFile(path.join(root,'.openai/hosting.json'),'utf8'));
+if(manifest.d1!=='DB'||manifest.static)throw new Error('Expected Worker Site with DB binding');
+const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.zip':'application/zip'};
+const assets={};
+for(const name of await readdir(path.join(root,'dist'))){const type=types[path.extname(name)];if(type){const binary=['.png','.zip'].includes(path.extname(name));assets['/'+name]={type,body:binary?(await readFile(path.join(root,'dist',name))).toString('base64'):await readFile(path.join(root,'dist',name),'utf8'),...(binary?{encoding:'base64'}:{})};}}
+const html=assets['/index.html'].body,app=assets['/app.js'].body;
+const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]);
+if(new Set(ids).size!==ids.length)throw new Error('Duplicate HTML IDs');
+for(const [,id]of app.matchAll(/\$\('([^']+)'\)/g))if(!ids.includes(id))throw new Error('Missing UI element '+id);
+for(const [,name]of html.matchAll(/(?:src|href)="\.\/([^"]+)"/g))if(!assets['/'+name])throw new Error('Missing asset '+name);
+const api=await readFile(path.join(root,'worker/api.js'),'utf8');
+const entry=(await readFile(path.join(root,'worker/index.js'),'utf8')).replace(/^import \{ handleApi \} from '\.\/api\.js';\s*/m,'').replace('/*__STATIC_ASSETS__*/ {}',JSON.stringify(assets));
+const bundle=api+'\n'+entry;
+await rm(output,{recursive:true,force:true});await mkdir(path.join(output,'dist/server'),{recursive:true});await mkdir(path.join(output,'.openai'),{recursive:true});
+await writeFile(path.join(output,'dist/server/index.js'),bundle);
+await cp(path.join(root,'.openai/hosting.json'),path.join(output,'.openai/hosting.json'));
+await cp(path.join(root,'drizzle'),path.join(output,'drizzle'),{recursive:true});
+const built=await import('data:text/javascript;base64,'+Buffer.from(bundle).toString('base64'));
+const response=await built.default.fetch(new Request('https://suika.test/'),{},{});
+if(!response.ok||!(await response.text()).includes('menu-open'))throw new Error('Built homepage invalid');
+const me=await built.default.fetch(new Request('https://suika.test/api/me'),{},{});
+if(me.status!==503)throw new Error('Missing database must fail clearly');
+console.log(`Built and validated Worker with ${Object.keys(assets).length} assets, ${ids.length} UI IDs, account/friend/room API and migrations.`);

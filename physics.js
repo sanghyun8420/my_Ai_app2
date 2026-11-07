@@ -1,3 +1,6 @@
+import { SCIENCE_STAGES, scienceReaction } from './science.js';
+const WORLD_MODES=new Set(['classic','apple','free','water','space','watermelon','timed','challenge','science']);
+
 /** Small, deterministic circle solver used by the orchard game. */
 export const OVERFLOW_SECONDS = .7;
 
@@ -7,8 +10,9 @@ export class FruitWorld {
     this.width = width;
     this.height = height;
     this.maxLine = 90;
-    this.fruits = fruits;
-    this.mode = ['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge'].includes(mode) ? mode : 'classic';
+    this.baseFruits = fruits;
+    this.mode = WORLD_MODES.has(mode) ? mode : 'classic';
+    this.fruits = this.mode==='science'?SCIENCE_STAGES:fruits;
     this.random = typeof random === 'function' ? random : Math.random;
     this.onMerge = onMerge || (() => {});
     this.onDanger = onDanger || (() => {});
@@ -77,7 +81,8 @@ export class FruitWorld {
       const legacy = snapshot.version === 1;
       if (legacy ? snapshot.width !== 520 || snapshot.height !== 650 : snapshot.width !== this.width || snapshot.height !== this.height) return false;
       const mode = legacy ? 'classic' : snapshot.mode;
-      if (!['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge'].includes(mode) ||
+      const fruits=mode==='science'?SCIENCE_STAGES:this.baseFruits;
+      if (!WORLD_MODES.has(mode) ||
           !finite(snapshot.time, 0, 1e9) || !counter(snapshot.score) || !counter(snapshot.combo) || !counter(snapshot.tick) || !counter(snapshot.nextId, 1) ||
           !['playing', 'paused', 'over'].includes(snapshot.state) || !Array.isArray(snapshot.bodies) || snapshot.bodies.length > 300 ||
           !finite(snapshot.shakeRemaining, 0, (legacy ? .75 : 1) + 1e-9) || !finite(snapshot.shakeElapsed, 0, 1.1) ||
@@ -86,20 +91,20 @@ export class FruitWorld {
       const timestamp = value => value === null || finite(value, 0, snapshot.time + 1e-9);
       if (!timestamp(snapshot.lastMerge) || !timestamp(snapshot.lastDrop)) return false;
       const ids = new Set();
-      const maxRadius = Math.max(...this.fruits.map(fruit => fruit.radius));
+      const maxRadius = Math.max(...fruits.map(fruit => fruit.radius));
       const bodies = [];
       let maxId = 0;
       for (const body of snapshot.bodies) {
-        if (!record(body) || !counter(body.id, 1) || ids.has(body.id) || !Number.isInteger(body.level) || body.level < 0 || body.level >= this.fruits.length || !this.fruits[body.level] ||
+        if (!record(body) || !counter(body.id, 1) || ids.has(body.id) || !Number.isInteger(body.level) || body.level < 0 || body.level >= fruits.length || !fruits[body.level] ||
             typeof body.incoming !== 'boolean' || typeof body.entered !== 'boolean' || (body.incoming && body.entered) ||
             (body.landed!==undefined&&typeof body.landed!=='boolean') ||
-            typeof body.special !== 'boolean' || (body.special && !this.isApple(body.level)) ||
+            typeof body.special !== 'boolean' || (body.special && (mode==='science'||!(fruits[body.level]?.id==='apple'||/사과|apple/i.test(fruits[body.level]?.name||'')))) ||
             !finite(body.age, 0, 1e9) || !finite(body.overflowTime, 0, legacy ? 3 : 2) ||
             (!legacy && !finite(body.squash, 0, 1)) ||
             !finite(body.vx, -700, 700) || !finite(body.vy, -700, 1100) ||
             !finite(body.spin, -.8 - 1e-9, .8 + 1e-9) || !finite(body.angle, -1e6, 1e6) ||
             !Number.isSafeInteger(body.mergedTick) || body.mergedTick < -1 || body.mergedTick > snapshot.tick) return false;
-        const r = this.fruits[body.level].radius;
+        const r = fruits[body.level].radius;
         // An overfull pile may extend above the basket. The bound still excludes
         // absurd coordinates while allowing every circle in a 300-body stack.
         if (!finite(body.x, 8 + r - 1e-7, snapshot.width - 8 - r + 1e-7) ||
@@ -131,7 +136,7 @@ export class FruitWorld {
         protectionKind = protectedUntil > snapshot.time ? 'shake' : null;
       }
       restored = {
-        bodies, time: snapshot.time, score: snapshot.score, state: snapshot.state, mode,
+        bodies, time: snapshot.time, score: snapshot.score, state: snapshot.state, mode,fruits,
         combo: snapshot.combo, lastMerge: snapshot.lastMerge === null ? -Infinity : snapshot.lastMerge,
         lastDrop: snapshot.lastDrop === null ? -Infinity : snapshot.lastDrop,
         tick: snapshot.tick, nextId: snapshot.nextId, shakeRemaining: snapshot.shakeRemaining,
@@ -163,8 +168,11 @@ export class FruitWorld {
   }
 
   setMode(id) {
-    if (!['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge'].includes(id)) return false;
-    this.mode = id;
+    if (!WORLD_MODES.has(id)) return false;
+    const fruits=id==='science'?SCIENCE_STAGES:this.baseFruits;
+    if(this.bodies.some(body=>!fruits[body.level]))return false;
+    this.mode = id;this.fruits=fruits;
+    for(const body of this.bodies){body.r=fruits[body.level].radius;body.special=this.isApple(body.level)&&body.special===true;this.bound(body,0,false);}
     this.resetOverflow();
     return true;
   }
@@ -214,6 +222,7 @@ export class FruitWorld {
   }
 
   isApple(level) {
+    if(this.mode==='science')return false;
     const fruit = this.fruits[level];
     return fruit?.id === 'apple' || /사과|apple/i.test(fruit?.name || '');
   }
@@ -359,12 +368,13 @@ export class FruitWorld {
           if (distance2 > sum * sum) continue;
           a.landed=true;b.landed=true;
 
-          if (iteration === 0 && a.level === b.level && a.level < this.fruits.length - 1 &&
+          const resultLevel=this.mode==='science'?scienceReaction(a.level,b.level):(a.level===b.level&&a.level<this.fruits.length-1?a.level+1:null);
+          if (iteration === 0 && resultLevel!==null && this.fruits[resultLevel] &&
               a.mergedTick !== this.tick && b.mergedTick !== this.tick &&
               !reserved.has(a.id) && !reserved.has(b.id)) {
             reserved.add(a.id);
             reserved.add(b.id);
-            merges.push([a, b]);
+            merges.push([a, b,resultLevel]);
           }
 
           const distance = Math.sqrt(distance2);
@@ -417,8 +427,7 @@ export class FruitWorld {
     // Resolve touching pairs before checking overflow, as a merge may clear them.
     if (merges.length) {
       this.bodies = this.bodies.filter(body => !reserved.has(body.id));
-      for (const [a, b] of merges) {
-        const level = a.level + 1;
+      for (const [a, b,level] of merges) {
         const x = (a.x + b.x) * 0.5;
         const y = Math.min(this.height - 8 - this.fruits[level].radius, (a.y + b.y) * 0.5);
         const entered = a.entered || b.entered || y - this.fruits[level].radius >= this.maxLine;
@@ -444,7 +453,7 @@ export class FruitWorld {
         this.score += points;
         this.combo = this.time - this.lastMerge < 1.3 ? this.combo + 1 : 1;
         this.lastMerge = this.time;
-        this.onMerge({ mergeId:mergedBody.id, level, x: mergedBody.x, y: mergedBody.y, points, combo: this.combo, specialMerged });
+        this.onMerge({ mergeId:mergedBody.id, level, x: mergedBody.x, y: mergedBody.y, points, combo: this.combo, specialMerged,consumedCount:2,...(this.mode==='science'?{reaction:{inputs:[a.level,b.level],output:level}}:{}) });
       }
     }
     for (const body of this.bodies) {
@@ -452,7 +461,7 @@ export class FruitWorld {
         body.spin = 0;
       } else if (Math.abs(body.spin) < 0.015) body.spin = 0;
     }
-    if(this.blast){const {x,y}=this.blast;this.bodies=this.bodies.filter(b=>Math.hypot(b.x-x,b.y-y)>250+b.r);this.blast=null;this.protect(2,'revive');}
+    if(this.blast){const {x,y}=this.blast,radius=Number.isFinite(this.blast.radius)?Math.max(0,Math.min(1200,this.blast.radius)):250;this.bodies=this.bodies.filter(b=>Math.hypot(b.x-x,b.y-y)>radius+b.r);this.blast=null;this.protect(2,'revive');}
     for(const body of this.bodies) body.overflowTime = !this.overflowProtected && this.crossesMax(body) ? (body.overflowTime||0)+dt : 0;
     const warning = Math.max(0,...this.bodies.map(body=>(body.overflowTime||0)/OVERFLOW_SECONDS));
     this.onDanger(Math.min(1,warning));
