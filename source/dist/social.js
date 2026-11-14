@@ -13,7 +13,7 @@ function socialError(message, code = 'REQUEST_FAILED', status = 0) {
 export class GardenSocial {
   constructor({
     onRoom = () => {}, onUser = () => {}, onError = () => {},
-    onBeforeAccountChange = async () => {}, openDialog, getMode = () => 'classic',
+    onBeforeAccountChange = async () => {}, onNeedPlayer, openDialog, getMode = () => 'classic',
     fetcher, getGame=()=> 'suika', document: doc = globalThis.document, location = globalThis.location,
     navigator = globalThis.navigator, clock = () => Date.now(),
   } = {}) {
@@ -26,6 +26,7 @@ export class GardenSocial {
     this.onUser = onUser;
     this.onError = onError;
     this.onBeforeAccountChange = onBeforeAccountChange;
+    this.onNeedPlayer = onNeedPlayer;
     this.getMode = getMode;
     this.getGame=getGame;
     this.openDialog = openDialog || (id => { const dialog = this.$(id); if (dialog && !dialog.open) dialog.showModal(); });
@@ -134,7 +135,7 @@ export class GardenSocial {
       throw socialError('계정 정보를 확인하지 못했어요.', 'INVALID_RESPONSE');
     }
     this.user = {
-      id: user.id, username: user.username,
+      id: user.id, username: user.username,isGuest:!!user.isGuest,
       displayName: String(user.displayName || user.username).slice(0, 32),
       friendCode: String(user.friendCode || ''),
       bestScore: Number.isSafeInteger(user.bestScore) && user.bestScore >= 0 ? user.bestScore : 0,
@@ -151,8 +152,9 @@ export class GardenSocial {
       else { this.user = null; this._renderAccount(); this.onUser(null); }
       if (this._pendingRoom || this._pendingInvite) {
         if (!this.user) {
-          this.openAccount('login');
-          this._feedback('auth-feedback', '친구가 보낸 초대예요. 로그인하거나 새 계정을 만들면 함께할 수 있어요.');
+          if(this.onNeedPlayer)this.onNeedPlayer();
+          else this.openAccount('login');
+          this._feedback('auth-feedback', '친구가 보낸 초대예요. 이름을 정하거나 기존 계정으로 로그인하면 함께할 수 있어요.');
         } else await this._handlePendingLinks();
       }
       return this.user;
@@ -187,7 +189,7 @@ export class GardenSocial {
     const summary = this.$('account-summary');
     if (summary) {
       summary.hidden = !signedIn;
-      summary.textContent = signedIn ? `${this.user.displayName}님 · @${this.user.username}\n내 친구 코드 ${this.user.friendCode}` : '';
+      summary.textContent = signedIn ? `${this.user.displayName}님 · ${this.user.isGuest?'닉네임 플레이':'@'+this.user.username}\n내 친구 코드 ${this.user.friendCode}` : '';
     }
     if (this.$('account-label')) this._text('account-label', signedIn ? this.user.displayName : '회원가입');
     if (signedIn) this._text('auth-title', '내 정원 계정');
@@ -248,8 +250,9 @@ export class GardenSocial {
   _requireUser() {
     if (this.user) return true;
     this.$('friends-dialog')?.close();
-    this.openAccount('register');
-    this._feedback('auth-feedback', '친구와 함께하려면 먼저 계정을 만들어주세요.');
+    if(this.onNeedPlayer)this.onNeedPlayer();
+    else this.openAccount('register');
+    this._feedback('auth-feedback', '이름을 정하면 친구와 함께할 수 있어요.');
     return false;
   }
 

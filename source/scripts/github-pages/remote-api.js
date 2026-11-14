@@ -24,7 +24,7 @@ export function createApiFetcher(base, { fetcher = globalThis.fetch?.bind(global
     if (token) headers.set('Authorization', `Bearer ${token}`);
     const response = await fetcher(url.href, { ...init, headers, credentials: 'omit', mode: 'cors', redirect: 'error', cache: 'no-store' });
     if (response.status === 401) remember(null);
-    if (response.ok && ['/api/auth/login', '/api/auth/register'].includes(url.pathname)) {
+    if (response.ok && ['/api/auth/login', '/api/auth/register','/api/guest'].includes(url.pathname)) {
       const payload = await response.clone().json();
       if (!valid(payload.accessToken)) throw new Error('GitHub 게임과 로그인 서버 연결을 확인해 주세요.');
       remember(payload.accessToken);

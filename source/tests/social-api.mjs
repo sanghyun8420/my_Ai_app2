@@ -28,6 +28,7 @@ const db = new D1();
 db.sqlite.exec(await readFile(new URL('../drizzle/0001_game_accounts.sql', import.meta.url), 'utf8'));
 db.sqlite.exec(await readFile(new URL('../drizzle/0002_social.sql', import.meta.url), 'utf8'));
 db.sqlite.exec(await readFile(new URL('../drizzle/0003_arcade_social.sql', import.meta.url), 'utf8'));
+db.sqlite.exec(await readFile(new URL('../drizzle/0004_nickname_cloud.sql', import.meta.url), 'utf8'));
 const origin = 'https://garden.example';
 const password = 'garden-password-123';
 async function call(path, { method = 'GET', body, cookie, ip = '192.0.2.10', headers = {}, environment = { DB: db } } = {}) {
@@ -62,7 +63,7 @@ try {
   const dave = await register('dave_44', '데이브');
   const eve = await register('eve_555', '이브');
   assert.equal(alice.username, 'alice_1'); assert.match(alice.friendCode, /^SG-[A-Z2-9]{8}$/);
-  assert.deepEqual(Object.keys((await get('/api/me', alice)).data.user).sort(), ['bestScore', 'displayName', 'friendCode', 'id', 'username']);
+  assert.deepEqual(Object.keys((await get('/api/me', alice)).data.user).sort(), ['bestScore', 'displayName', 'friendCode', 'id', 'isGuest', 'username']);
   assert.equal((await post('/api/auth/register', { username: 'ALICE_1', password }, null)).status, 409);
   const passwordRow = db.sqlite.prepare('SELECT password_salt, password_hash, password_iterations FROM garden_accounts WHERE id = ?').get(alice.id);
   assert.equal(passwordRow.password_iterations, 100000);

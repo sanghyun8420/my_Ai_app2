@@ -19,7 +19,7 @@ const rows = async statement => (await statement.all()).results || [];
 const changes = result => Number(result?.meta?.changes ?? result?.changes ?? 0);
 const timestamp = () => Date.now();
 const integer = (value, max = MAX_SCORE) => Number.isSafeInteger(value) && value >= 0 && value <= max;
-const publicAccount = user => user ? { id: user.id, username: user.username, displayName: user.display_name, friendCode: user.friend_code, bestScore: user.best_score } : null;
+const publicAccount = user => user ? { id: user.id, username: user.username, displayName: user.display_name, friendCode: user.friend_code, bestScore: user.best_score, isGuest:!!user.is_guest } : null;
 function encoded(bytes) { return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', ''); }
 function decoded(text) {
   const padded = text.replaceAll('-', '+').replaceAll('_', '/') + '='.repeat((4 - text.length % 4) % 4);
@@ -46,22 +46,22 @@ function password(value) {
   return value;
 }
 function displayName(value, fallback) {
-  if (value === undefined) return fallback;
+  if (value === undefined && fallback !== undefined) return fallback;
   if (typeof value !== 'string') fail(400, 'INVALID_DISPLAY_NAME', '별명을 확인해 주세요.');
   const name = value.normalize('NFKC').replace(/[\u0000-\u001f\u007f-\u009f<>]/g, '').replace(/\s+/g, ' ').trim();
   if (!name || [...name].length > 16) fail(400, 'INVALID_DISPLAY_NAME', '별명은 1~16자로 입력해 주세요.');
   return name;
 }
-async function bodyJson(request) {
+async function bodyJson(request,maxBytes=16384) {
   if (!/^application\/json(?:;|$)/i.test(request.headers.get('Content-Type') || '')) fail(415, 'JSON_REQUIRED', 'JSON 형식으로 다시 요청해 주세요.');
-  if (Number(request.headers.get('Content-Length')) > 16384) fail(413, 'BODY_TOO_LARGE', '요청이 너무 큽니다.');
+  if (Number(request.headers.get('Content-Length')) > maxBytes) fail(413, 'BODY_TOO_LARGE', '요청이 너무 큽니다.');
   const reader = request.body?.getReader(), decoder = new TextDecoder();
   let text = '', size = 0;
   if (reader) {
     for (;;) {
       const chunk = await reader.read(); if (chunk.done) break;
       size += chunk.value.byteLength;
-      if (size > 16384) { await reader.cancel(); fail(413, 'BODY_TOO_LARGE', '요청이 너무 큽니다.'); }
+      if (size > maxBytes) { await reader.cancel(); fail(413, 'BODY_TOO_LARGE', '요청이 너무 큽니다.'); }
       text += decoder.decode(chunk.value, { stream: true });
     }
     text += decoder.decode();
@@ -88,7 +88,7 @@ function sessionToken(request) {
 }
 async function optionalAccount(request, db) {
   const token = sessionToken(request); if (!token) return null;
-  return stmt(db, 'SELECT a.* FROM garden_sessions s JOIN garden_accounts a ON a.id = s.account_id WHERE s.token_hash = ? AND s.expires_at > ?', await hash(token), timestamp()).first();
+  return stmt(db, 'SELECT a.*,EXISTS(SELECT 1 FROM garden_guest_keys g WHERE g.account_id=a.id) AS is_guest FROM garden_sessions s JOIN garden_accounts a ON a.id = s.account_id WHERE s.token_hash = ? AND s.expires_at > ?', await hash(token), timestamp()).first();
 }
 async function account(request, db) {
   const user = await optionalAccount(request, db);
@@ -141,6 +141,19 @@ async function roomView(db, room, user, requireMember = true) {
     players: players.map(player => ({ id: player.id, displayName: player.display_name, score: player.score, fruitCount: player.fruit_count, playing: !!player.playing, updatedAt: player.updated_at })) };
 }
 
+const CLOUD_KEYS=new Set(['garden-economy-v1','suika-garden-run-v1','suika-garden-preferences-v1','suika-garden-best','suika-garden-secret','garden-buddy-comments','suika-garden-profile-v3','garden-arcade-apple-v1','garden-arcade-blocks-v1','garden-expedition-v1','garden-orchard-v1']);
+function cloudSnapshot(value){
+  if(!value||typeof value!=='object'||value.version!==1||!value.values||typeof value.values!=='object'||Array.isArray(value.values))fail(400,'INVALID_BACKUP','저장 기록 형식을 확인해 주세요.');
+  const values={};for(const [key,text]of Object.entries(value.values)){if(!CLOUD_KEYS.has(key)||!(text===null||typeof text==='string'))fail(400,'INVALID_BACKUP','저장할 게임 기록을 확인해 주세요.');if(text!==null&&text.length>450000)fail(413,'BODY_TOO_LARGE','저장 기록이 너무 커요.');values[key]=text;}
+  const economy=values['garden-economy-v1'];if(!economy)fail(400,'INVALID_BACKUP','게임 지갑 정보가 없어요.');
+  try{const data=JSON.parse(economy);if(data.version!==1||!Number.isSafeInteger(data.gems)||data.gems<0||!data.records)throw Error();}catch{fail(400,'INVALID_BACKUP','게임 지갑을 읽지 못했어요.');}
+  return {version:1,values};
+}
+async function guestBudget(db,request){
+ const now=timestamp(),key=await hash('guest:'+ (request.headers.get('CF-Connecting-IP')||'unknown'));
+ await stmt(db,'INSERT INTO garden_login_limits(key_hash,window_started,attempts) VALUES(?,?,1) ON CONFLICT(key_hash) DO UPDATE SET attempts=CASE WHEN window_started<? THEN 1 ELSE attempts+1 END,window_started=CASE WHEN window_started<? THEN excluded.window_started ELSE window_started END',key,now,now-LIMIT_MS,now-LIMIT_MS).run();
+ const limit=await stmt(db,'SELECT attempts FROM garden_login_limits WHERE key_hash=?',key).first();if(limit.attempts>200)fail(429,'GUEST_LIMIT','잠시 후 이름을 다시 저장해 주세요.',{'Retry-After':'600'});
+}
 async function route(request, env) {
   const path = new URL(request.url).pathname, method = request.method;
   if (!env.DB) fail(503, 'DATABASE_NOT_CONFIGURED', '계정과 친구 저장소를 준비 중입니다.');
@@ -153,6 +166,41 @@ async function route(request, env) {
     return json({game,scores,notice:'클라이언트 제출 기록 · 기기 점수는 검증되지 않습니다.'});
   }
   if (method === 'POST') checkOrigin(request);
+  if(path==='/api/guest'&&method==='POST'){
+    const body=await bodyJson(request);if(typeof body.key!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(body.key))fail(400,'INVALID_RECOVERY','복구 코드를 그대로 복사해 넣어 주세요.');
+    await guestBudget(db,request);const keyHash=await hash(body.key);
+    let user=await stmt(db,'SELECT a.* FROM garden_guest_keys g JOIN garden_accounts a ON a.id=g.account_id WHERE g.key_hash=?',keyHash).first(),created=false;
+    if(!user){
+      if(body.displayName===undefined)fail(404,'RECOVERY_NOT_FOUND','이 복구 코드를 찾지 못했어요. 코드를 다시 확인해 주세요.');
+      const name=displayName(body.displayName),id='ga_'+randomToken(18),time=timestamp();
+      try{await db.batch([
+        stmt(db,'INSERT INTO garden_accounts(id,username,display_name,friend_code,password_salt,password_hash,password_iterations,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',id,'v_'+randomCode(12).toLowerCase(),name,'SG-'+randomCode(8),randomToken(16),randomToken(32),ITERATIONS,time,time),
+        stmt(db,'INSERT INTO garden_guest_keys(key_hash,account_id,created_at) VALUES(?,?,?)',keyHash,id,time),
+      ]);created=true;}catch(error){if(!await stmt(db,'SELECT account_id FROM garden_guest_keys WHERE key_hash=?',keyHash).first())throw error;}
+      user=await stmt(db,'SELECT a.* FROM garden_guest_keys g JOIN garden_accounts a ON a.id=g.account_id WHERE g.key_hash=?',keyHash).first();
+    }
+    const response=await newSession(db,{...user,is_guest:1},request,true);return new Response(response.body,{status:created?201:200,headers:response.headers});
+  }
+  if(path==='/api/player/name'&&method==='POST'){
+    const user=await account(request,db),body=await bodyJson(request),name=displayName(body.displayName);
+    await stmt(db,'UPDATE garden_accounts SET display_name=?,updated_at=? WHERE id=?',name,timestamp(),user.id).run();return json({user:publicAccount({...user,display_name:name})});
+  }
+  if(path==='/api/profile/import'&&method==='POST'){
+    const user=await account(request,db),body=await bodyJson(request),scores=body.scores;
+    if(!scores||typeof scores!=='object'||Array.isArray(scores)||Object.keys(scores).some(game=>!GAMES.has(game)||!integer(scores[game])))fail(400,'INVALID_SCORE','최고점수 정보를 확인해 주세요.');
+    const commands=Object.entries(scores).map(([game,score])=>stmt(db,'INSERT INTO garden_game_scores(account_id,game,best_score,updated_at) VALUES(?,?,?,?) ON CONFLICT(account_id,game) DO UPDATE SET best_score=MAX(best_score,excluded.best_score),updated_at=excluded.updated_at',user.id,game,score,timestamp()));
+    if(scores.suika!==undefined)commands.push(stmt(db,'UPDATE garden_accounts SET best_score=MAX(best_score,?),updated_at=? WHERE id=?',scores.suika,timestamp(),user.id));
+    if(commands.length)await db.batch(commands);return json({imported:true});
+  }
+  if(path==='/api/cloud-save'&&['GET','POST'].includes(method)){
+    const user=await account(request,db);
+    if(method==='GET'){const saved=await stmt(db,'SELECT version,payload,updated_at FROM garden_cloud_saves WHERE account_id=?',user.id).first();return json({version:saved?.version||0,snapshot:saved?JSON.parse(saved.payload):null,updatedAt:saved?.updated_at||null});}
+    const body=await bodyJson(request,512*1024);if(!integer(body.version,1000000000))fail(400,'INVALID_VERSION','저장 기록 버전을 확인해 주세요.');
+    const snapshot=cloudSnapshot(body.snapshot),payload=JSON.stringify(snapshot),time=timestamp();
+    const result=body.version===0?await stmt(db,'INSERT INTO garden_cloud_saves(account_id,version,payload,updated_at) VALUES(?,1,?,?) ON CONFLICT(account_id) DO NOTHING',user.id,payload,time).run():await stmt(db,'UPDATE garden_cloud_saves SET version=version+1,payload=?,updated_at=? WHERE account_id=? AND version=?',payload,time,user.id,body.version).run();
+    if(!changes(result))fail(409,'CLOUD_CONFLICT','다른 주소나 기기에 더 새 기록이 있어요. 저장 메뉴에서 불러올 기록을 골라 주세요.');
+    return json({version:body.version+1,updatedAt:time});
+  }
   if(path==='/api/messages'&&['GET','POST'].includes(method)){
     const user=await account(request,db),body=method==='POST'?await bodyJson(request):null;
     const friend=body?.friendId||new URL(request.url).searchParams.get('friend');

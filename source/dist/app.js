@@ -12,6 +12,10 @@ import { getCosmeticPalette, drawCosmeticBackdrop, drawBasketFrame } from './cos
 import { GardenAudio } from './audio.js';
 import { createHub, drawBuddy } from './hub.js';
 import { mountPlayLayout } from './play-layout.js';
+import { PlayerCloud, applyPendingRestore } from './player-cloud.js';
+
+// Restore before creating any wallet, settings or game models.
+const pendingPlayerRestore = applyPendingRestore();
 
 const $ = id => document.getElementById(id);
 const canvas = $('game-canvas');
@@ -46,7 +50,7 @@ let activeMode = 'classic', totalShakes = 0, eraseMode = false, selectedFruitId 
 let hub=null,selectedGame='suika',arcadePlaying=false,wasSuikaPlaying=false,resetModeOnReturn=false;
 let seedState = (Date.now() >>> 0) || 1;
 
-let checkpointDirty = false, checkpointBusy = false, social = null;
+let checkpointDirty = false, checkpointBusy = false, social = null, playerCloud = null;
 let roomElapsed = 0;
 let palette = { background:'#fffdf3', dots:'#dce3cc', line:'#b9c3a3', text:'#8f9e7c' };
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1295,18 +1299,19 @@ social = new GardenSocial({
   getMode:()=>selectedGame==='suika'?activeMode:hub?.controller().mode()||'classic',
   onError:error=>toast(error.message || '친구 기능에 연결하지 못했어요.'),
   onBeforeAccountChange:async()=>{saveGame();},
-  onUser:user=>{ $('account-open').textContent=user?`☺ ${user.displayName}`:'회원가입';globalThis.dispatchEvent(new CustomEvent('garden-user',{detail:user})); },
+  onNeedPlayer:()=>playerCloud?.open(),
+  onUser:user=>{ $('account-open').textContent=user?`☺ ${user.displayName}`:'이름 정하기';globalThis.dispatchEvent(new CustomEvent('garden-user',{detail:user})); },
   onRoom:async({room,joinedNew})=>{
     if (room && joinedNew) {if(room.game&&room.game!=='suika')globalThis.dispatchEvent(new CustomEvent('garden-room',{detail:room}));else{hub?.select('suika');await startGame({mode:room.mode,seed:room.seed});}}
     if (room?.game==='suika'&&selectedGame==='suika'&&room?.mode==='classic'&&room.players.length>1) unlockAchievement('friendGame');
   },
 });
 $('friends-open').addEventListener('click',()=>social.openFriends());
-$('account-open').addEventListener('click',()=>social.openAccount(social.user?'login':'register'));
+$('account-open').addEventListener('click',()=>playerCloud?.open());
 $('friends-menu').addEventListener('click',()=>{social.openFriends();$('menu-dialog').close();});
-$('account-menu').addEventListener('click',()=>{social.openAccount(social.user?'login':'register');$('menu-dialog').close();});
+$('account-menu').addEventListener('click',()=>{playerCloud?.open();$('menu-dialog').close();});
 hub=createHub({
-  state:()=>({world,mode:selectedGame==='suika'?activeMode:hub?.controller().mode()||'classic',skin:currentSkin,game:selectedGame,canvas}),store:()=>progressStore,social:()=>social,
+  state:()=>({world,mode:selectedGame==='suika'?activeMode:hub?.controller().mode()||'classic',skin:currentSkin,game:selectedGame,canvas}),store:()=>progressStore,social:()=>social,player:()=>playerCloud,
   toast,open:openDialog,cosmetics:()=>openShop('skins'),effect:playSound,achievements:renderAchievements,arcadeActive:value=>{arcadePlaying=value;},
   resume:()=>{if(selectedGame==='suika'&&started&&world.state==='paused'&&pausedByDialog&&!document.querySelector('dialog[open]')){world.state='playing';pausedByDialog=false;}},
   switchGame:game=>{
@@ -1326,5 +1331,18 @@ hub=createHub({
 let walletRefreshPending=false;
 globalThis.addEventListener('garden-wallet-change',()=>{if(!progressReady||walletRefreshPending)return;walletRefreshPending=true;queueMicrotask(()=>{walletRefreshPending=false;if(progressReady)renderProfile();});});
 mountPlayLayout();
-social.init().catch(error=>toast(error.message));
+playerCloud = new PlayerCloud({social,openDialog,beforeCapture:async()=>{
+  await progressStore._queue;
+  saveGame();hub?.arcade.save();hub?.growth.save();
+}});
+globalThis.addEventListener('garden-player-close',()=>{
+  if(!document.querySelector('dialog[open]')&&pausedByDialog&&!starting&&!resumeAvailable&&!eraseMode){
+    if(selectedGame==='suika'&&started&&world.state==='paused')world.state='playing';
+    pausedByDialog=false;
+  }
+});
+const playerInitialization = Promise.all([progressInitialization,social.init()]).then(()=>playerCloud.init()).then(()=>{
+  if(pendingPlayerRestore?.restored)toast('서버 기록을 불러왔어요.');
+  else if(pendingPlayerRestore?.error)toast('서버 기록을 불러오지 못했어요. 이 기기의 기록은 유지했어요.');
+}).catch(error=>{playerCloud.status(error.message);toast(error.message);});
 requestAnimationFrame(frame);
