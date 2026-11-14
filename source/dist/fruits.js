@@ -17,6 +17,7 @@ export const FRUITS = [
 ];
 
 export const APPLE_LEVEL = 4;
+export const PEAR_LEVEL = 5;
 export const WATERMELON_LEVEL = 9;
 export const SECRET_LEVEL = 10;
 export const FINAL_LEVEL = FRUITS.length - 1;
@@ -159,7 +160,7 @@ export function drawFruit(ctx, level, x, y, radius, rotation = 0, alpha = 1, spe
   level = Math.max(0, Math.min(FRUITS.length - 1, level | 0));
   ctx.save(); ctx.translate(x, y); ctx.scale(radius / 44, radius / 44); ctx.globalAlpha *= alpha;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  if (special && level === APPLE_LEVEL) drawSpecialAppleEffect(ctx, time, 'back');
+  if (special && [APPLE_LEVEL,PEAR_LEVEL].includes(level)) drawSpecialAppleEffect(ctx, time, 'back');
   ctx.save(); ctx.rotate(rotation);
   for (const shape of SCENES[level]) {
     ctx.save(); ctx.globalAlpha *= shape.opacity ?? 1;
@@ -181,7 +182,7 @@ export function drawFruit(ctx, level, x, y, radius, rotation = 0, alpha = 1, spe
     ctx.restore();
   }
   ctx.restore();
-  if (special && level === APPLE_LEVEL) drawSpecialAppleEffect(ctx, time);
+  if (special && [APPLE_LEVEL,PEAR_LEVEL].includes(level)) drawSpecialAppleEffect(ctx, time);
   ctx.restore();
 }
 
@@ -195,7 +196,7 @@ function sparkle(ctx, x, y, radius, rotation = 0) {
   ctx.fill(); ctx.stroke(); ctx.restore();
 }
 
-/** Shared, bounded lucky-apple animation in local fruit coordinates. */
+/** Shared, bounded lucky-apple and lucky-pear animation in local fruit coordinates. */
 export function drawSpecialAppleEffect(ctx, time = 0, layer = 'front') {
   time = Number.isFinite(time) ? time : 0;
   const tau = Math.PI * 2;

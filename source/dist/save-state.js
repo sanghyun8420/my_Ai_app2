@@ -63,12 +63,14 @@ function knownRecord(value, savedAt) {
   }
   if (!finiteNumber(value.aimX, 8, 592) || !integer(value.shakes, 0, 5) || !finiteNumber(value.shakeReadyAt)) throw saveError('저장된 조작 정보가 올바르지 않아요.');
   if (!COUNTERS.every(key => integer(value[key], 0, MAX_COUNTER)) || !FLAGS.every(key => typeof value[key] === 'boolean') || !LEVELS.every(key => integer(value[key], 0, 13))) throw saveError('저장된 게임 진행 정보가 올바르지 않아요.');
-  if ((value.activeSpecial && value.activeLevel !== 4) || (value.nextSpecial && value.nextLevel !== 4)) throw saveError('저장된 반짝이는 사과 정보가 올바르지 않아요.');
+  if ((value.activeSpecial && ![4,5].includes(value.activeLevel)) || (value.nextSpecial && ![4,5].includes(value.nextLevel))) throw saveError('저장된 특별 과일 정보가 올바르지 않아요.');
   const mode = value.mode === undefined ? 'classic' : value.mode;
   const seedState = value.seedState === undefined ? 0 : value.seedState;
   const totalShakes = value.totalShakes === undefined ? 0 : value.totalShakes;
   if (!MODES.has(mode) || !integer(seedState, 0, 0xffffffff) || !integer(totalShakes, 0, MAX_COUNTER)) throw saveError('저장된 게임 모드 정보가 올바르지 않아요.');
   const specialShakeRewards = value.specialShakeRewards === undefined ? 0 : value.specialShakeRewards;
+  const specialPearsCleared=value.specialPearsCleared??0;
+  if(!integer(specialPearsCleared,0,MAX_COUNTER)||specialPearsCleared>value.roundCleared)throw saveError('저장된 특별 배 정보가 올바르지 않아요.');
   const discovered = value.discoveredLevels === undefined ? [] : value.discoveredLevels;
   if (!integer(specialShakeRewards, 0, MAX_COUNTER) || !Array.isArray(discovered) || !Array.from(discovered).every(level => integer(level, 0, 13))) throw saveError('저장된 과일 발견 정보가 올바르지 않아요.');
   const discoveredLevels = [...new Set(discovered)].sort((a, b) => a - b);
@@ -102,6 +104,7 @@ function knownRecord(value, savedAt) {
     seedState,
     totalShakes,
     specialShakeRewards,
+    specialPearsCleared,
     discoveredLevels,
     toolReadyAt,
   };

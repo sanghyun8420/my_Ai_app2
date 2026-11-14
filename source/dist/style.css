@@ -669,3 +669,6 @@ dialog>.eyebrow,.evolution-rail>.section-heading>span{display:none}
 .account-dialog input:not([type=checkbox]) { font-size:16px; }
 .account-dialog .field>label { margin-bottom:6px; }
 @media(max-width:380px){.signup-offer{gap:9px;padding:12px}.signup-offer-gem{font-size:21px}.signup-offer strong{font-size:12px}.signup-offer button{padding:9px}}
+
+.pear-progress{font-size:10px;line-height:1.4;padding:2px 7px;border-radius:7px;background:#f2e8ac;color:#6b5a20;white-space:nowrap;font-variant-numeric:tabular-nums}
+html[data-theme=dark] .pear-progress{background:#514b26;color:#f0dc8e}

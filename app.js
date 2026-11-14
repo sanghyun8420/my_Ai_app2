@@ -1,6 +1,6 @@
 import { createApiFetcher } from './remote-api.js';
 import { SCIENCE_STAGES, drawScience, drawScienceBackground, drawSupernova } from './science.js';
-import { FRUITS, drawFruit, APPLE_LEVEL, WATERMELON_LEVEL, SECRET_LEVEL } from './fruits.js';
+import { FRUITS, drawFruit, APPLE_LEVEL,PEAR_LEVEL, WATERMELON_LEVEL, SECRET_LEVEL } from './fruits.js';
 import { FruitWorld } from './physics.js';
 import { drawSkinnedFruit, SKINS, skinFruitName } from './skins.js';
 import { GardenProgress, ACHIEVEMENTS } from './profile.js';
@@ -62,7 +62,7 @@ try { best = Math.max(0, Number(localStorage.getItem('suika-garden-best')) || 0)
 $('best-score').textContent = best.toLocaleString('ko-KR');
 let started = false, activeLevel = 0, nextLevel = 0, aimX = WIDTH / 2;
 let shakeReadyAt = 0, danger = 0, lastFrame = 0;
-let specialShakeRewards=0;
+let specialShakeRewards=0,specialPearsCleared=0;
 const discoveredLevels=new Set();
 const TOOL_COOLDOWNS = { eraser:1, calm:5 };
 let toolReadyAt = Object.fromEntries(Object.keys(TOOL_COOLDOWNS).map(id => [id, 0]));
@@ -93,6 +93,7 @@ const world = new FruitWorld({
     saveDirty = true;
     checkpointDirty = true;
     roundCleared += 2;
+    specialPearsCleared+=event.specialPearsCleared||0;
     updateGemProgress();
     updateScore();
     const { x, y, level, points, combo, specialMerged } = event;
@@ -142,6 +143,7 @@ const world = new FruitWorld({
       $('goal-label').textContent = level === FRUITS.length - 1 ? '태양의 열매 발견 완료!' : `다음 목표 · ${FRUITS[level + 1].name}`;
     }
   },
+  onBlast(removed){if(activeMode!=='science')recordCleanup(removed);},
   onDanger(value) {
     danger = value;
     $('danger-message').hidden = value < .1;
@@ -182,7 +184,7 @@ function fruitIcon(level, size = 64, special = false) {
   context.scale(2, 2);
   drawToken(context,level,size/2,size/2+2,size*.43,0,1,special,.7);
   icon.setAttribute('role', 'img');
-  icon.setAttribute('aria-label', special ? '반짝이는 사과' : tokenName(level));
+  icon.setAttribute('aria-label', special ? (level===PEAR_LEVEL?'반짝이는 특별 배':'반짝이는 사과') : tokenName(level));
   if (special) animatedIcons.add({ icon, size, level });
   return icon;
 }
@@ -213,7 +215,7 @@ function recordDiscovery(level){
   discoveredLevels.add(level);checkpointDirty=true;saveDirty=true;renderEvolution();
 }
 
-function runExtras(){return activeMode==='science'?{specialShakeRewards:0,discoveredLevels:[]}:{specialShakeRewards,discoveredLevels:[...discoveredLevels]};}
+function runExtras(){return activeMode==='science'?{specialShakeRewards:0,specialPearsCleared:0,discoveredLevels:[]}:{specialShakeRewards,specialPearsCleared,discoveredLevels:[...discoveredLevels]};}
 renderEvolution();
 
 function drawWelcome() {
@@ -238,7 +240,7 @@ drawWelcome();
 function updateNext() {
   $('next-fruit').replaceChildren(fruitIcon(nextLevel, 64, nextSpecial));
   $('next-fruit').classList.toggle('special-preview', nextSpecial);
-  $('next-name').textContent = nextSpecial ? '✦ 반짝이는 사과' : tokenName(nextLevel);
+  $('next-name').textContent = nextSpecial ? (nextLevel===PEAR_LEVEL?'✦ 특별 배':'✦ 반짝이는 사과') : tokenName(nextLevel);
 }
 updateNext();
 
@@ -297,7 +299,7 @@ async function startGame(options = {}) {
   world.reset();
   world.setMode(activeMode);
   activeLevel = activeMode === 'apple' ? APPLE_LEVEL : activeMode==='watermelon'?WATERMELON_LEVEL:activeMode==='challenge'?3:0; nextLevel = activeLevel; aimX = WIDTH / 2;
-  specialShakeRewards=0;shakeReadyAt = 0; maxLevel = 0; watermelonMade = false;
+  specialShakeRewards=0;specialPearsCleared=0;shakeReadyAt = 0; maxLevel = 0; watermelonMade = false;
   toolReadyAt = Object.fromEntries(Object.keys(TOOL_COOLDOWNS).map(id => [id, 0]));
   scienceEffect=null;scienceDiscovered.clear();scienceDiscovered.add(0);scienceDiscovered.add(1);
   activeSpecial = false; nextSpecial = false; dropCount = 0; itemCount = 0;
@@ -332,12 +334,13 @@ function drop() {
     dropCount++;
     activeLevel = nextLevel;
     activeSpecial = nextSpecial;
-    nextSpecial = !['watermelon','science'].includes(activeMode)&&(dropCount + 2) % 20 === 0;
-    nextLevel = nextSpecial ? APPLE_LEVEL : randomFruit();
+    const appleBonus=!['watermelon','science'].includes(activeMode)&&(dropCount+2)%20===0;
+    const pearBonus=!['apple','watermelon','science'].includes(activeMode)&&(dropCount+2)%5===4&&!appleBonus;
+    nextSpecial=appleBonus||pearBonus;nextLevel=pearBonus?PEAR_LEVEL:appleBonus?APPLE_LEVEL:randomFruit();
     const radius = definitions()[activeLevel].radius;
     aimX = Math.max(radius + 8, Math.min(WIDTH - radius - 8, aimX));
     updateNext();
-    $('game-status').textContent = activeSpecial ? '✦ 오늘은 반짝이는 열매가 찾아왔어요' : watermelonMade ? '수박이 자란 행복한 정원' : '같은 과일끼리 만나게 해주세요';
+    $('game-status').textContent = activeSpecial ? (activeLevel===PEAR_LEVEL?'✦ 특별 배를 모으면 보석을 받아요':'✦ 오늘은 반짝이는 열매가 찾아왔어요') : watermelonMade ? '수박이 자란 행복한 정원' : '같은 과일끼리 만나게 해주세요';
     playSound('drop');
     saveGame();
   } else if (activeMode === 'space' && world.spaceCrowded) {
@@ -424,6 +427,7 @@ async function eraseSelected() {
   if (!body) { world.state = 'paused'; return; }
   eraseMode = false; selectedFruitId = null;
   roundCleared++;
+  specialPearsCleared+=body.level===PEAR_LEVEL&&body.special?1:0;
   checkpointDirty = true;
   updateGemProgress();
   if (fromBonus) itemCount--;
@@ -453,7 +457,7 @@ function toast(message, duration = 2200) {
 }
 
 function recordCleanup(removed) {
-  roundCleared += removed.length;checkpointDirty=true;saveDirty=true;
+  roundCleared += removed.length;specialPearsCleared+=removed.filter(body=>body.level===PEAR_LEVEL&&body.special).length;checkpointDirty=true;saveDirty=true;
   updateGemProgress();
   if (!reducedMotion) for (const body of removed) for(let i=0;i<8;i++) {
     const a=i/8*Math.PI*2;
@@ -488,13 +492,13 @@ async function reviveGame() {
     if(!candidate.restore(world.serialize()))throw new Error('이어갈 정원을 준비하지 못했어요.');
     const removed=candidate.removeSmallest(3);
     if(removed.length!==3||!candidate.revive())throw new Error('이어갈 과일이 부족해요.');
-    const snapshot={...gameRecord(),world:candidate.serialize(),roundCleared:roundCleared+removed.length};
+    const snapshot={...gameRecord(),world:candidate.serialize(),roundCleared:roundCleared+removed.length,specialPearsCleared:specialPearsCleared+removed.filter(body=>body.level===PEAR_LEVEL&&body.special).length};
     const runId=progressStore.pendingRun.id;
     const requestId=`revive-${runId}-${world.tick}`;
     const result=await progressStore.purchaseRevival({requestId,runId,score:world.score,mergedFruits:snapshot.roundCleared,snapshot});
     const recovery=result.recovery;
     if(!recovery||!world.restore(recovery.snapshot.world))throw new Error('복원할 정원을 찾지 못했어요. 다시 들어오면 자동 복구해요.');
-    roundCleared=recovery.snapshot.roundCleared;
+    roundCleared=recovery.snapshot.roundCleared;specialPearsCleared=recovery.snapshot.specialPearsCleared;
     particles=[];floaters=[];checkpointDirty=false;saveDirty=true;
     $('game-overlay').hidden=true;pausedByDialog=false;
     $('game-status').textContent='다시 열린 정원 · 3초 안전 보호';
@@ -510,6 +514,11 @@ function updateGemProgress() {
   const pending = started && !roundCredited ? Math.max(0, roundCleared - (progressStore.pendingRun?.creditedFruits || 0)) : 0;
   const progress = (saved + pending) % GEM_INTERVALS.suika;
   $('gem-balance').title=`다섯 게임 공용 보석 · 과일 ${GEM_INTERVALS.suika-progress}개 더 정리하면 보석 ${GEM_REWARD}개`;
+  const pendingPears=started&&!roundCredited&&!progressStore.pendingRun?.finished?Math.max(0,specialPearsCleared-(progressStore.pendingRun?.creditedSpecialPears||0)):0;
+  const pearCount=progressStore.profile.specialPearsCleared+pendingPears;
+  $('pear-progress').textContent=`🍐 ${pearCount%3}/3`;
+  $('pear-progress').hidden=activeMode==='science';
+  $('pear-progress').setAttribute('aria-label',`특별 배 ${pearCount%3}개 수집,3개마다 보석 1~5개`);
   $('coin-count').title='수박 동전 · 도구와 이어하기에 사용';
 }
 
@@ -768,7 +777,8 @@ function checkpointRound() {
   if (!checkpointDirty || checkpointBusy || !started || roundCredited || !progressStore.pendingRun || progressStore.pendingRun.finished) return;
   checkpointDirty = false; checkpointBusy = true;
   progressStore.checkpointRun(world.score, roundCleared,runExtras()).then(result => {
-    if (result.earnedCoins > 0) toast(`🪙 수박 동전 +${result.earnedCoins}!`);
+    if(result.earnedGems>0){toast(`🍐 특별 배 보상! 💎 +${result.earnedGems}`,3200);playSound('special');}
+    else if (result.earnedCoins > 0) toast(`🪙 수박 동전 +${result.earnedCoins}!`);
     if (progressStore.profile.classicMergedFruits >= 100) unlockAchievement('merges100');
     updateGemProgress();
   }).catch(error => { checkpointDirty = true; toast(error.message); }).finally(() => { checkpointBusy = false; });
@@ -975,7 +985,7 @@ async function prepareSavedGame() {
   if (!run || run.finished) { gameSave.clear(); return; }
   if(saved.mode!=='classic'){
     if(recovery)await progressStore.acknowledgeRevival(recovery.requestId);
-    await progressStore.finishRun(saved.world.score,saved.roundCleared,{specialShakeRewards:saved.specialShakeRewards,discoveredLevels:saved.discoveredLevels});
+    await progressStore.finishRun(saved.world.score,saved.roundCleared,{specialShakeRewards:saved.specialShakeRewards,specialPearsCleared:saved.specialPearsCleared,discoveredLevels:saved.discoveredLevels});
     gameSave.clear();activeMode='classic';world.setMode('classic');resetToWelcome();applyTheme();updateModeLabel();return;
   }
   if (!world.restore(saved.world)) { gameSave.clear(); return; }
@@ -985,7 +995,7 @@ async function prepareSavedGame() {
   applyTheme(); updateModeLabel();
   ({ activeLevel, nextLevel, activeSpecial, nextSpecial, aimX, shakeReadyAt,
     dropCount, itemCount, roundCleared, maxLevel, watermelonMade, toolReadyAt } = saved);
-  specialShakeRewards=saved.specialShakeRewards;
+  specialShakeRewards=saved.specialShakeRewards;specialPearsCleared=saved.specialPearsCleared;
   for(const level of saved.discoveredLevels)discoveredLevels.add(level);
   for(const body of world.bodies)discoveredLevels.add(body.level);
   if(maxLevel>0)discoveredLevels.add(maxLevel);

@@ -5,7 +5,7 @@ const WORLD_MODES=new Set(['classic','apple','free','water','space','watermelon'
 export const OVERFLOW_SECONDS = .7;
 
 export class FruitWorld {
-  constructor({ width = 600, height = 720, fruits, onMerge, onDanger, onGameOver, random = Math.random, mode = 'classic' } = {}) {
+  constructor({ width = 600, height = 720, fruits, onMerge, onDanger, onGameOver,onBlast, random = Math.random, mode = 'classic' } = {}) {
     if (!fruits?.length) throw new TypeError('FruitWorld needs fruit definitions.');
     this.width = width;
     this.height = height;
@@ -15,6 +15,7 @@ export class FruitWorld {
     this.fruits = this.mode==='science'?SCIENCE_STAGES:fruits;
     this.random = typeof random === 'function' ? random : Math.random;
     this.onMerge = onMerge || (() => {});
+    this.onBlast = onBlast || (() => {});
     this.onDanger = onDanger || (() => {});
     this.onGameOver = onGameOver || (() => {});
     this.reset();
@@ -98,7 +99,7 @@ export class FruitWorld {
         if (!record(body) || !counter(body.id, 1) || ids.has(body.id) || !Number.isInteger(body.level) || body.level < 0 || body.level >= fruits.length || !fruits[body.level] ||
             typeof body.incoming !== 'boolean' || typeof body.entered !== 'boolean' || (body.incoming && body.entered) ||
             (body.landed!==undefined&&typeof body.landed!=='boolean') ||
-            typeof body.special !== 'boolean' || (body.special && (mode==='science'||!(fruits[body.level]?.id==='apple'||/사과|apple/i.test(fruits[body.level]?.name||'')))) ||
+            typeof body.special !== 'boolean' || (body.special && (mode==='science'||!(['apple','pear'].includes(fruits[body.level]?.id)||/사과|apple|^배$|pear/i.test(fruits[body.level]?.name||'')))) ||
             !finite(body.age, 0, 1e9) || !finite(body.overflowTime, 0, legacy ? 3 : 2) ||
             (!legacy && !finite(body.squash, 0, 1)) ||
             !finite(body.vx, -700, 700) || !finite(body.vy, -700, 1100) ||
@@ -172,7 +173,7 @@ export class FruitWorld {
     const fruits=id==='science'?SCIENCE_STAGES:this.baseFruits;
     if(this.bodies.some(body=>!fruits[body.level]))return false;
     this.mode = id;this.fruits=fruits;
-    for(const body of this.bodies){body.r=fruits[body.level].radius;body.special=this.isApple(body.level)&&body.special===true;this.bound(body,0,false);}
+    for(const body of this.bodies){body.r=fruits[body.level].radius;body.special=(this.isApple(body.level)||this.isPear(body.level))&&body.special===true;this.bound(body,0,false);}
     this.resetOverflow();
     return true;
   }
@@ -227,6 +228,11 @@ export class FruitWorld {
     return fruit?.id === 'apple' || /사과|apple/i.test(fruit?.name || '');
   }
 
+  isPear(level) {
+    if(this.mode==='science')return false;
+    const fruit=this.fruits[level];return fruit?.id==='pear'||/^배$|pear/i.test(fruit?.name||'');
+  }
+
   makeBody(level, x, y, options = {}) {
     const r = this.fruits[level].radius;
     return {
@@ -237,7 +243,7 @@ export class FruitWorld {
       incoming: false, entered: y - r >= this.maxLine, overflowTime: 0,
       mergedTick: -1, ...options,
       landed:typeof options.landed==='boolean'?options.landed:options.incoming!==true,
-      special: this.isApple(level) && options.special === true,
+      special: (this.isApple(level)||this.isPear(level)) && options.special === true,
     };
   }
 
@@ -433,6 +439,7 @@ export class FruitWorld {
         const entered = a.entered || b.entered || y - this.fruits[level].radius >= this.maxLine;
         const incoming = !entered && a.incoming && b.incoming;
         const specialMerged = this.isApple(a.level) && (a.special === true || b.special === true);
+        const specialPearsCleared = [a,b].filter(body=>this.isPear(body.level)&&body.special).length;
         const mergedBody = this.makeBody(level, x, y, {
           vx: (a.vx + b.vx) * 0.35,
           vy: Math.min(-35, (a.vy + b.vy) * 0.35),
@@ -445,7 +452,7 @@ export class FruitWorld {
           entered, incoming,
           landed:a.landed||b.landed,
           mergedTick: this.tick,
-          special: this.isApple(level) && this.random() < 0.06,
+          special: this.isApple(level)?this.random()<0.06:this.isPear(level)&&this.random()<0.4,
         });
         this.bound(mergedBody, 0, false);
         this.bodies.push(mergedBody);
@@ -453,7 +460,7 @@ export class FruitWorld {
         this.score += points;
         this.combo = this.time - this.lastMerge < 1.3 ? this.combo + 1 : 1;
         this.lastMerge = this.time;
-        this.onMerge({ mergeId:mergedBody.id, level, x: mergedBody.x, y: mergedBody.y, points, combo: this.combo, specialMerged,consumedCount:2,...(this.mode==='science'?{reaction:{inputs:[a.level,b.level],output:level}}:{}) });
+        this.onMerge({ mergeId:mergedBody.id, level, x: mergedBody.x, y: mergedBody.y, points, combo: this.combo, specialMerged,specialPearsCleared,consumedCount:2,...(this.mode==='science'?{reaction:{inputs:[a.level,b.level],output:level}}:{}) });
       }
     }
     for (const body of this.bodies) {
@@ -461,7 +468,7 @@ export class FruitWorld {
         body.spin = 0;
       } else if (Math.abs(body.spin) < 0.015) body.spin = 0;
     }
-    if(this.blast){const {x,y}=this.blast,radius=Number.isFinite(this.blast.radius)?Math.max(0,Math.min(1200,this.blast.radius)):250;this.bodies=this.bodies.filter(b=>Math.hypot(b.x-x,b.y-y)>radius+b.r);this.blast=null;this.protect(2,'revive');}
+    if(this.blast){const {x,y}=this.blast,radius=Number.isFinite(this.blast.radius)?Math.max(0,Math.min(1200,this.blast.radius)):250;const removed=this.bodies.filter(b=>Math.hypot(b.x-x,b.y-y)<=radius+b.r);this.bodies=this.bodies.filter(b=>!removed.includes(b));this.blast=null;this.protect(2,'revive');if(removed.length)this.onBlast(removed);}
     for(const body of this.bodies) body.overflowTime = !this.overflowProtected && this.crossesMax(body) ? (body.overflowTime||0)+dt : 0;
     const warning = Math.max(0,...this.bodies.map(body=>(body.overflowTime||0)/OVERFLOW_SECONDS));
     this.onDanger(Math.min(1,warning));

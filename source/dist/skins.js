@@ -1,4 +1,4 @@
-import { FRUITS, drawFruit, drawSpecialAppleEffect, APPLE_LEVEL } from './fruits.js';
+import { FRUITS, drawFruit, drawSpecialAppleEffect, APPLE_LEVEL, PEAR_LEVEL } from './fruits.js';
 import { SKIN_CATALOG } from './catalog.js';
 import { drawCarLogo, drawPlanet, drawFruit3D, PLANET_NAMES } from './skin-details.js';
 
@@ -435,10 +435,10 @@ export function drawSkinnedFruit(ctx, level, x, y, radius, rotation = 0, alpha =
   ctx.save();
   ctx.translate(x, y); ctx.scale(radius / 45, radius / 45);
   ctx.globalAlpha *= alpha; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  if (special && level === APPLE_LEVEL) drawSpecialAppleEffect(ctx, time, 'back');
+  if (special && [APPLE_LEVEL,PEAR_LEVEL].includes(level)) drawSpecialAppleEffect(ctx, time, 'back');
   ctx.save(); ctx.rotate(rotation);
   renderer(ctx, level, FRUITS[level].color, time);
   ctx.restore();
-  if (special && level === APPLE_LEVEL) drawSpecialAppleEffect(ctx, time);
+  if (special && [APPLE_LEVEL,PEAR_LEVEL].includes(level)) drawSpecialAppleEffect(ctx, time);
   ctx.restore();
 }

@@ -8,7 +8,7 @@ globalThis.Path2D=Path2D;
  for(const skin of SKINS)for(let level=0;level<FRUITS.length;level++){
   const canvas=createCanvas(240,240),c=canvas.getContext('2d');let depth=0;
   const save=c.save.bind(c),restore=c.restore.bind(c);c.save=()=>{depth++;save();};c.restore=()=>{depth--;assert(depth>=0);restore();};
-  drawSkinnedFruit(c,level,120,120,75,.4,1,level===4,.7,skin.id);
+  drawSkinnedFruit(c,level,120,120,75,.4,1,(level===4||level===5),.7,skin.id);
   assert.equal(depth,0,skin.id);assert.equal(c.globalAlpha,1);assert.equal(c.getTransform().a,1);
   assert(c.getImageData(0,0,240,240).data.some((n,i)=>i%4===3&&n>0));count++;
  }
