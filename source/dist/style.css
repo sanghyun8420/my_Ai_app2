@@ -633,3 +633,19 @@ dialog>.eyebrow,.evolution-rail>.section-heading>span{display:none}
  .player-input-row { flex-direction:column; }
  .player-input-row button { width:100%; min-height:44px; }
 }
+
+.install-dialog { max-width:420px; padding:32px 28px 24px; text-align:center; }
+.install-app-icon { display:block; border:1px solid #244a3b12; border-radius:23%; margin:3px auto 18px; box-shadow:0 8px 20px #244a3b12; }
+.install-dialog .eyebrow { margin-bottom:8px; }
+.install-dialog h2 { max-width:280px; margin:0 auto 14px; font-size:22px; line-height:1.4; word-break:keep-all; letter-spacing:-.8px; }
+#install-description { font-size:14px; line-height:1.7; color:var(--ink); margin:0 0 14px; }
+.install-save-note { border-radius:10px; padding:10px; background:var(--card-soft); color:var(--green); font-size:12px; }
+#install-guide { text-align:left; margin-top:18px; }
+#install-steps { padding-left:23px; font-size:13px; line-height:1.8; }
+#install-steps li { margin:10px 0; padding-left:2px; }
+.install-browser-note { color:var(--muted); font-size:11px; line-height:1.7; }
+#install-status { color:var(--muted); font-size:12px; line-height:1.7; }
+#install-status:empty { display:none; }
+#install-confirm { display:block; width:100%; min-height:48px; margin-top:22px; font-size:14px; }
+#install-later { min-height:40px; margin-top:8px; font-size:12px; }
+@media (max-width:380px) { .install-dialog { padding:28px 20px 20px; } .install-dialog h2 { font-size:20px; } }

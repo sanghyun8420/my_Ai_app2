@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import {GardenInstall,INSTALL_KEY,installPlatform} from '../dist/install.js';
+assert.equal(installPlatform({userAgent:'Mozilla iPhone Safari'}),'ios');
+assert.equal(installPlatform({platform:'MacIntel',maxTouchPoints:5}),'ios');
+assert.equal(installPlatform({userAgent:'Android Chrome'}),'android');
+assert.equal(installPlatform({userAgent:'Macintosh Chrome'}),'desktop');
+const map=new Map([['garden-economy-v1','existing wallet'],['suika-garden-run-v1','existing board']]);
+const storage={getItem:key=>map.get(key)||null,setItem:(key,value)=>map.set(key,value)};
+let now=100000,playing=false,modal=false,opens=0,registered,prepared=0,installed=0;
+const win=new EventTarget();Object.assign(win,{location:new URL('https://garden.example/my_Ai_app2/'),matchMedia:()=>({matches:false}),setInterval:()=>1,clearInterval(){}});
+const navigator={userAgent:'Android Chrome',serviceWorker:{register:async(...args)=>{registered=args;return {};}}};
+const controller=new GardenInstall({window:win,document:null,navigator,storage,clock:()=>now,isPlaying:()=>playing,beforeInstall:()=>prepared++,onInstalled:()=>installed++}).init();
+controller.open=()=>opens++;controller.doc={hidden:false,querySelector:()=>modal?{}:null};
+await controller.registration;assert.deepEqual(registered,['./sw.js',{scope:'./',updateViaCache:'none'}]);
+const tick=(n=1)=>{for(let i=0;i<n;i++){now+=1000;controller.tick();}};
+tick(40);assert.equal(opens,0,'entry/idle time must not trigger install');playing=true;tick(20);assert.equal(opens,0);modal=true;tick(30);assert.equal(opens,0,'do not overlap shop/account dialogs');modal=false;controller.doc.hidden=true;tick(30);assert.equal(opens,0);controller.doc.hidden=false;tick(15);assert.equal(opens,1);tick(100);assert.equal(opens,1,'one automatic popup per visit');
+let prompted=0;const before=new Event('beforeinstallprompt',{cancelable:true});Object.assign(before,{prompt:async()=>{prompted++;},userChoice:Promise.resolve({outcome:'accepted'})});win.dispatchEvent(before);assert(before.defaultPrevented);await Promise.all([controller.install(),controller.install()]);assert.equal(prompted,1);assert.equal(prepared,1);assert(!controller.read().installedAt,'browser acceptance alone must not claim installation complete');
+win.dispatchEvent(new Event('appinstalled'));assert(controller.installed);assert(controller.read().installedAt);assert.equal(installed,1);
+assert.equal(map.get('garden-economy-v1'),'existing wallet');assert.equal(map.get('suika-garden-run-v1'),'existing board','install never clears guest progress');
+controller.dispose();
+const make=(extra={})=>new GardenInstall({window:win,document:null,navigator:{},storage,clock:()=>now,isPlaying:()=>true,...extra});
+map.delete(INSTALL_KEY);const dismissed=make();dismissed.dismiss();let later=0;const repeat=make();repeat.open=()=>later++;repeat.lastTick=now;for(let i=0;i<40;i++){now+=1000;repeat.tick();}assert.equal(later,0,'dismissal persists across reloads');now+=8*86400000;for(let i=0;i<35;i++){now+=1000;repeat.tick();}assert.equal(later,1,'offer is available again after cooldown');
+const ios=make({navigator:{userAgent:'iPhone Safari'}});assert.equal(ios.platform,'ios');await ios.install();assert(ios.manual,'iOS uses truthful manual home-screen steps');
+let badPrompts=0;const bad=make();bad.promptEvent={prompt:async()=>{badPrompts++;throw Error('not allowed');}};await bad.install();assert.equal(badPrompts,1);assert(bad.manual);assert(!bad.busy);
+const blocked=make({navigator:{get serviceWorker(){throw Error('blocked');}}});assert.doesNotThrow(()=>blocked.init());blocked.dispose();
+const standalone=make({navigator:{standalone:true}});standalone.open=()=>{throw Error('must not offer again');};for(let i=0;i<50;i++){now+=1000;standalone.tick();}
+console.log('PASS install offer: active-play timing, no overlapping/background prompts, persistent cooldown, real one-use browser installation, installed event, iOS fallback, unsupported browsers and untouched guest device saves.');

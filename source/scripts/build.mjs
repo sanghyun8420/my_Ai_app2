@@ -1,10 +1,12 @@
 import {readFile,readdir,mkdir,writeFile,cp,rm} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
+import {writeServiceWorker} from './pwa-assets.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url)),output=path.join(root,'build');
 const manifest=JSON.parse(await readFile(path.join(root,'.openai/hosting.json'),'utf8'));
 if(manifest.d1!=='DB'||manifest.static)throw new Error('Expected Worker Site with DB binding');
-const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.zip':'application/zip'};
+await writeServiceWorker(path.join(root,'dist'));
+const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.zip':'application/zip','.webmanifest':'application/manifest+json; charset=utf-8'};
 const assets={};
 for(const name of await readdir(path.join(root,'dist'))){const type=types[path.extname(name)];if(type){const binary=['.png','.zip'].includes(path.extname(name));assets['/'+name]={type,body:binary?(await readFile(path.join(root,'dist',name))).toString('base64'):await readFile(path.join(root,'dist',name),'utf8'),...(binary?{encoding:'base64'}:{})};}}
 const html=assets['/index.html'].body,app=assets['/app.js'].body;

@@ -6,7 +6,7 @@ import path from 'node:path';
 import {handleApi} from '../worker/api.js';
 
 const defaultRoot=fileURLToPath(new URL('../',import.meta.url));
-const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.zip':'application/zip'};
+const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.zip':'application/zip','.webmanifest':'application/manifest+json; charset=utf-8'};
 const BODY_LIMIT=16384;
 
 function localD1(sqlite){

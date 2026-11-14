@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "수박정원 · 다섯 가지 작은 게임",
+  "short_name": "수박정원",
+  "description": "수박, 사과, 블록과 나만의 작은 정원. 로그인 없이 기기에 자동 저장하는 다섯 가지 게임.",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f8f0",
+  "theme_color": "#244a3b",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "./app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./app-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

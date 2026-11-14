@@ -1,4 +1,5 @@
 import { developerBundle } from './source-package.mjs';
+import { writeServiceWorker } from './pwa-assets.mjs';
 import { readFile, readdir, mkdir, writeFile, copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,8 +10,9 @@ const publicUrl = 'https://sanghyun8420.github.io/my_Ai_app2/';
 const api = 'https://suika-shake-garden-n5k7.hbhbhs02.chatgpt.site/';
 await mkdir(output, { recursive: true });
 if ((await readdir(output)).length) throw new Error('내보낼 폴더는 비어 있어야 합니다.');
+await writeServiceWorker(path.join(root,'dist'));
 for (const name of await readdir(path.join(root, 'dist'))) {
-  if (name === 'github-pages-download.html' || !/\.(html|css|js|svg|png)$/.test(name)) continue;
+  if (name === 'github-pages-download.html' || !/\.(html|css|js|svg|png|webmanifest)$/.test(name)) continue;
   await copyFile(path.join(root, 'dist', name), path.join(output, name));
 }
 const appPath = path.join(output, 'app.js');
@@ -30,6 +32,7 @@ await copyFile(path.join(root, 'scripts/github-pages/README.md'),path.join(outpu
 
 await copyFile(path.join(root,'RELEASE-NOTES.ko.md'),path.join(output,'RELEASE-NOTES.ko.md'));
 for(const name of ['AGENTS.md','CONTINUE.ko.md'])await copyFile(path.join(root,'scripts/github-pages',name),path.join(output,name));
+await writeServiceWorker(output);
 const sourceCount=await developerBundle(root,output);
 console.log(`Included ${sourceCount} editable source files and source-code.zip`);
 console.log(`Exported ${ (await readdir(output)).length } GitHub Pages files to ${output}`);

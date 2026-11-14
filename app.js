@@ -14,6 +14,7 @@ import { GardenAudio } from './audio.js';
 import { createHub, drawBuddy } from './hub.js';
 import { mountPlayLayout } from './play-layout.js';
 import { PlayerCloud, applyPendingRestore } from './player-cloud.js';
+import { GardenInstall } from './install.js';
 
 // Restore before creating any wallet, settings or game models.
 const pendingPlayerRestore = applyPendingRestore();
@@ -1337,12 +1338,18 @@ playerCloud = new PlayerCloud({social,openDialog,beforeCapture:async()=>{
   await progressStore._queue;
   saveGame();hub?.arcade.save();hub?.growth.save();
 }});
-globalThis.addEventListener('garden-player-close',()=>{
+function resumeAfterDialog(){
   if(!document.querySelector('dialog[open]')&&pausedByDialog&&!starting&&!resumeAvailable&&!eraseMode){
     if(selectedGame==='suika'&&started&&world.state==='paused')world.state='playing';
     pausedByDialog=false;
   }
-});
+}
+globalThis.addEventListener('garden-player-close',resumeAfterDialog);
+const gardenInstall = new GardenInstall({openDialog,onClose:resumeAfterDialog,
+  isPlaying:()=>selectedGame==='suika'?started&&world.state==='playing':arcadePlaying,
+  beforeInstall:()=>{saveGame();hub?.arcade.save();hub?.growth.save();},
+  onInstalled:()=>toast('홈 화면에 수박정원을 추가했어요.'),
+}).init();
 const playerInitialization = Promise.all([progressInitialization,social.init()]).then(()=>playerCloud.init()).then(()=>{
   if(pendingPlayerRestore?.restored)toast('서버 기록을 불러왔어요.');
   else if(pendingPlayerRestore?.error)toast('서버 기록을 불러오지 못했어요. 이 기기의 기록은 유지했어요.');
