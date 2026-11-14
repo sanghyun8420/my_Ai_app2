@@ -45,10 +45,10 @@ export function createHub(api){
  ranking.querySelector('.rank-games').onclick=e=>{if(e.target.dataset.rank)rank(e.target.dataset.rank);};
  const rankButton=document.createElement('button');rankButton.className='menu-action';rankButton.textContent='🏆 리더보드';rankButton.onclick=()=>rank();$('menu-dialog').querySelector('.menu-list').append(rankButton);
  const support=document.createElement('a');support.className='menu-action support-link';support.href='mailto:hamsangadsl8420@gmail.com?subject='+encodeURIComponent('[수박정원 문의]');support.textContent='✉ 고객센터 · 이메일 문의';$('menu-dialog').append(support);
- const buddy=document.createElement('button');buddy.id='garden-buddy';buddy.setAttribute('aria-label','점수판 위에 앉은 쫄라맨 건드리기');buddy.innerHTML='<canvas width="140" height="160"></canvas><span class="buddy-bubble" hidden></span>';document.querySelector('.current-score').append(buddy);const bc=buddy.querySelector('canvas').getContext('2d'),bubble=buddy.querySelector('span'),buddyMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');let speechUntil=0,lastSpeech=0;
+ const buddy=document.createElement('button');buddy.id='garden-buddy';buddy.setAttribute('aria-label','점수판 위에 앉은 쫄라맨 건드리기');buddy.innerHTML='<canvas width="140" height="160"></canvas><span class="buddy-bubble" hidden></span>';document.querySelector('.current-score').append(buddy);const bc=buddy.querySelector('canvas').getContext('2d'),bubble=buddy.querySelector('span');let speechUntil=0,lastSpeech=0;
  const lines=['방금 좀 멋있을 뻔했어.','과일은 죄가 없어. 나는 봤어.','계획은 있었지? 나도 있었어.','같은 실수도 꾸준하면 기술이야.','이건 실수가 아니라 빌드업이지?','오, 그 합치기는 좀 인정.','조용히 보고만 있으려 했는데…'];
  function say(text){if(get('garden-buddy-comments')==='off')return;bubble.textContent=text;bubble.hidden=false;speechUntil=performance.now()+3800;}
- buddy.onclick=()=>{buddy.classList.remove('buddy-fall');void buddy.offsetWidth;buddy.classList.add('buddy-fall');say(['야! 여기 내 자리야.','잠깐, 나는 과일이 아니거든?','내가 떨어진 건 네 손 때문이야.'][Math.floor(Math.random()*3)]);api.effect('drop');};
+ buddy.onclick=()=>say(['응, 보고 있어. 네 다음 한 수.','잠깐, 나는 과일이 아니거든?','좋아. 이번에는 계획이 있는 눈빛이야.'][Math.floor(Math.random()*3)]);
  const buddySetting=document.createElement('label');buddySetting.className='setting-row';buddySetting.innerHTML='쫄라맨 수다 <input type="checkbox" aria-label="쫄라맨 수다 켜기">';buddySetting.querySelector('input').checked=get('garden-buddy-comments')!=='off';buddySetting.querySelector('input').onchange=e=>{put('garden-buddy-comments',e.target.checked?'on':'off');if(!e.target.checked)bubble.hidden=true;};$('menu-dialog').querySelector('.settings-group').append(buddySetting);
  const celebration=dialog('celebration-dialog','<h2 id="celebration-title">오늘의 정원</h2><canvas id="celebration-canvas" width="720" height="920"></canvas><button id="celebration-share" class="start-button">친구한테 사진 자랑하기 ↗</button>');
  let shareCanvas=null,shareTitle='수박정원';
@@ -72,14 +72,13 @@ export function createHub(api){
  for(const id of ['friends-open','friends-menu'])$(id).addEventListener('click',()=>socialTab(chatTab));
  socialTab('chat');
  // Visible password requirements and persistent login preference.
- const hint=document.createElement('small');hint.className='password-hint';hint.textContent='회원가입: 8~128자 · 영문과 숫자를 각각 포함';$('auth-password').after(hint);
- const remember=document.createElement('label');remember.className='remember-login';remember.innerHTML='<input type="checkbox" checked> 자동 로그인';$('auth-form').append(remember);remember.querySelector('input').checked=get('suika-remember-login')!=='false';remember.querySelector('input').onchange=e=>put('suika-remember-login',String(e.target.checked));
- const guest=$('account-dialog').querySelector('.dialog-close');guest.textContent='게스트로 플레이';guest.classList.add('guest-entry');guest.setAttribute('aria-label','게스트로 플레이');guest.onclick=()=>{put('garden-guest','yes',true);$('account-dialog').close();};
+ const remember=document.createElement('label');remember.className='remember-login';remember.innerHTML='<input type="checkbox" checked> 자동 로그인';$('auth-submit').before(remember);remember.querySelector('input').checked=get('suika-remember-login')!=='false';remember.querySelector('input').onchange=e=>put('suika-remember-login',String(e.target.checked));
+ const guest=$('account-dialog').querySelector('.dialog-close');guest.textContent='×';guest.setAttribute('aria-label','계정 창 닫기');guest.onclick=()=>{put('garden-guest','yes',true);$('account-dialog').close();};
  globalThis.addEventListener('garden-user',()=>{identity.textContent=friendIdentity();});
  document.addEventListener('click',e=>{const b=e.target.closest?.('[data-buy-tool]');if(b)safe(()=>api.store().buyItem(b.dataset.buyTool));});
  let last=0,seconds=0,beat=0;
  function frame(now){const dt=last?Math.min(.1,(now-last)/1000):0;last=now;const s=api.state();if(s.game==='suika'&&s.world.state==='playing'&&s.mode==='classic'&&!document.hidden&&!document.querySelector('dialog[open]'))seconds+=dt;
    if(seconds>=15){const n=Math.floor(seconds);seconds-=n;safe(()=>api.store().recordHub(n));}
-   if(!document.hidden){bc.clearRect(0,0,140,160);drawBuddy(bc,api.store().profile.equippedHat,70,85,1.7,buddyMotion?.matches?0:now/1000);if(now>speechUntil)bubble.hidden=true;beat+=dt;if(beat>2&&friends.open&&chatTab==='chat'){beat=0;if(now-chatAt>2200){chatAt=now;messages();}}}requestAnimationFrame(frame);}
+   if(!document.hidden){bc.clearRect(0,0,140,160);drawBuddy(bc,api.store().profile.equippedHat,70,85,1.7,0);if(now>speechUntil)bubble.hidden=true;beat+=dt;if(beat>2&&friends.open&&chatTab==='chat'){beat=0;if(now-chatAt>2200){chatAt=now;messages();}}}requestAnimationFrame(frame);}
  requestAnimationFrame(frame);return {merge,rank,share,renderTiers,arcade,growth,controller,select,say};
 }

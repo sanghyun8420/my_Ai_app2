@@ -13,7 +13,7 @@ function socialError(message, code = 'REQUEST_FAILED', status = 0) {
 export class GardenSocial {
   constructor({
     onRoom = () => {}, onUser = () => {}, onError = () => {},
-    onBeforeAccountChange = async () => {}, onNeedPlayer, openDialog, getMode = () => 'classic',
+    onBeforeAccountChange = async () => {}, onAfterAuthentication = async () => {}, onNeedPlayer, openDialog, getMode = () => 'classic',
     fetcher, getGame=()=> 'suika', document: doc = globalThis.document, location = globalThis.location,
     navigator = globalThis.navigator, clock = () => Date.now(),
   } = {}) {
@@ -26,6 +26,7 @@ export class GardenSocial {
     this.onUser = onUser;
     this.onError = onError;
     this.onBeforeAccountChange = onBeforeAccountChange;
+    this.onAfterAuthentication = onAfterAuthentication;
     this.onNeedPlayer = onNeedPlayer;
     this.getMode = getMode;
     this.getGame=getGame;
@@ -97,6 +98,8 @@ export class GardenSocial {
     if (this.$('auth-name')) this.$('auth-name').maxLength = 16;
     this._listen('auth-login', 'click', () => this._setAccountMode('login'), 'auth-feedback');
     this._listen('auth-register', 'click', () => this._setAccountMode('register'), 'auth-feedback');
+    this._listen('auth-check-id', 'click', () => this.checkUsername(), 'auth-feedback');
+    this._listen('auth-username','input',()=>{this._feedback('auth-id-status','');},'auth-feedback');
     this._listen('auth-form', 'submit', event => { event.preventDefault(); return this._submitAccount(); }, 'auth-feedback');
     this._listen('account-logout', 'click', () => this._logout(), 'auth-feedback');
     this._listen('friend-form', 'submit', event => { event.preventDefault(); return this._addFriend(); }, 'friend-feedback');
@@ -170,22 +173,30 @@ export class GardenSocial {
   _setAccountMode(mode) {
     this._mode = mode === 'login' ? 'login' : 'register';
     const registering = this._mode === 'register';
-    this._text('auth-title', registering ? '함께 가꿀 계정을 만들어요' : '다시 만나서 반가워요');
-    this._text('auth-submit', registering ? '회원가입하고 시작' : '로그인');
+    this._text('auth-title', registering ? '내 정원 계정 만들기' : '로그인');
+    this._text('auth-submit', registering ? '회원가입하고 보석 500개 받기' : '로그인');
     if (this.$('auth-name-row')) this.$('auth-name-row').hidden = !registering;
+    if(this.$('auth-name')){this.$('auth-name').required=registering;if(registering&&this.user?.isGuest&&!this.$('auth-name').value)this.$('auth-name').value=this.user.displayName;}
+    for(const id of ['auth-confirm-row','auth-bonus-message','auth-check-id','auth-id-hint'])if(this.$(id))this.$(id).hidden=!registering;
+    if(this.$('auth-password-confirm'))this.$('auth-password-confirm').required=registering;
+    if(this.$('auth-username')){this.$('auth-username').minLength=registering?4:3;this.$('auth-username').pattern=registering?'(?=.*[A-Za-z])(?=.*[0-9])[A-Za-z0-9]{4,20}':'[A-Za-z0-9_]{3,20}';}
+    if(this.$('auth-login-footer'))this.$('auth-login-footer').hidden=registering;
+    if(this.$('auth-register-footer'))this.$('auth-register-footer').hidden=!registering;
+    this._feedback('auth-id-status','');
     if (this.$('auth-password')) this.$('auth-password').autocomplete = registering ? 'new-password' : 'current-password';
     for (const [id, active] of [['auth-login', !registering], ['auth-register', registering]]) {
       const button = this.$(id);
-      if (button) { button.classList.toggle('active', active); button.setAttribute('aria-selected', String(active)); }
+      if (button) { button.classList.toggle('active', active);  }
     }
     this._feedback('auth-feedback', '');
   }
 
   _renderAccount() {
-    const signedIn = !!this.user;
+    const signedIn = !!this.user&&!this.user.isGuest;
     if (this.$('auth-form')) this.$('auth-form').hidden = signedIn;
     if (this.$('account-logout')) this.$('account-logout').hidden = !signedIn;
     for (const id of ['auth-login', 'auth-register']) if (this.$(id)) this.$(id).hidden = signedIn;
+    if(signedIn)for(const id of ['auth-login-footer','auth-register-footer','auth-bonus-message'])if(this.$(id))this.$(id).hidden=true;
     const summary = this.$('account-summary');
     if (summary) {
       summary.hidden = !signedIn;
@@ -195,32 +206,47 @@ export class GardenSocial {
     if (signedIn) this._text('auth-title', '내 정원 계정');
   }
 
-  openAccount(mode = 'register') {
+  openAccount(mode = 'login') {
     this._setAccountMode(mode);
     this._renderAccount();
     this.openDialog('account-dialog');
-    if (!this.user) this.$('auth-username')?.focus();
+    if (!this.user||this.user.isGuest) this.$('auth-username')?.focus();
+  }
+
+  async checkUsername(){
+    const value=String(this.$('auth-username')?.value||'').trim();
+    if(!/^(?=.*[a-z])(?=.*[0-9])[a-z0-9]{4,20}$/i.test(value))throw socialError('아이디는 영문과 숫자를 모두 넣어 4~20자로 적어 주세요.','INVALID_USERNAME');
+    this._feedback('auth-id-status','중복 확인 중…');
+    const result=await this._request('/api/auth/availability?username='+encodeURIComponent(value));
+    if(this._mode==='register'&&value===String(this.$('auth-username')?.value||'').trim())this._feedback('auth-id-status',result.available?'사용할 수 있는 아이디예요.':'이미 사용 중인 아이디예요. 다른 아이디를 골라 주세요.');
+    return result.available;
   }
 
   async _submitAccount() {
     if (this._authBusy) return;
+    const mode=this._mode;
     const username = String(this.$('auth-username')?.value || '').trim();
     const password = String(this.$('auth-password')?.value || '');
-    const displayName = String(this.$('auth-name')?.value || username).trim();
+    const displayName = String(this.$('auth-name')?.value || '').trim();
     if (!USERNAME.test(username)) throw socialError('아이디는 영문·숫자·밑줄로 3~20자 입력해주세요.', 'INVALID_USERNAME');
     if (password.length < 8 || password.length > 128) throw socialError('비밀번호는 8~128자로 입력해주세요.', 'INVALID_PASSWORD');
-    if (this._mode === 'register' && (!displayName || [...displayName].length > 16)) throw socialError('별명은 1~16자로 입력해주세요.', 'INVALID_NAME');
-    if(this._mode==='register'&&(!/[a-zA-Z]/.test(password)||!/[0-9]/.test(password)))throw socialError('비밀번호에 영문과 숫자를 각각 넣어 주세요.','WEAK_PASSWORD');
+    if (mode === 'register' && (!displayName || [...displayName].length > 16)) throw socialError('별명은 1~16자로 입력해주세요.', 'INVALID_NAME');
+    if(mode==='register'&&(!/[a-zA-Z]/.test(password)||!/[0-9]/.test(password)))throw socialError('비밀번호에 영문과 숫자를 각각 넣어 주세요.','WEAK_PASSWORD');
+    if(mode==='register'&&!/^(?=.*[a-z])(?=.*[0-9])[a-z0-9]{4,20}$/i.test(username))throw socialError('아이디는 영문과 숫자를 모두 넣어 4~20자로 적어 주세요.','INVALID_USERNAME');
+    const passwordConfirm=String(this.$('auth-password-confirm')?.value||'');
+    if(mode==='register'&&passwordConfirm!==password)throw socialError('비밀번호 확인이 일치하지 않아요.','PASSWORD_MISMATCH');
     this._authBusy = true;
     if (this.$('auth-submit')) this.$('auth-submit').disabled = true;
     this._feedback('auth-feedback', '계정을 확인하고 있어요…');
     try {
-      await this.onBeforeAccountChange();
-      const payload = await this._request(`/api/auth/${this._mode === 'register' ? 'register' : 'login'}`, {
-        method: 'POST', body: this._mode === 'register' ? { username, password, displayName,remember:this._remember() } : { username, password,remember:this._remember() },
+      const registration=await this.onBeforeAccountChange({mode:mode});
+      const payload = await this._request(`/api/auth/${mode === 'register' ? 'register' : 'login'}`, {
+        method: 'POST', body: mode === 'register' ? { ...registration,username, password,passwordConfirm, displayName,remember:this._remember() } : { username, password,remember:this._remember() },
       });
       this._acceptUser(payload);
       if (this.$('auth-password')) this.$('auth-password').value = '';
+      if (this.$('auth-password-confirm')) this.$('auth-password-confirm').value = '';
+      await this.onAfterAuthentication(payload,mode);
       this._feedback('auth-feedback', '로그인했어요. 친구를 초대해 함께 가꿔보세요!');
       this.$('account-dialog')?.close();
       await this._handlePendingLinks();
@@ -234,7 +260,7 @@ export class GardenSocial {
     if (this._authBusy) return;
     this._authBusy = true;
     try {
-      await this.onBeforeAccountChange();
+      await this.onBeforeAccountChange({mode:'logout'});
       await this._request('/api/auth/logout', { method: 'POST', body: {} });
       this.user = null;
       this._friends = [];

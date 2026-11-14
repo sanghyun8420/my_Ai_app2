@@ -14,10 +14,10 @@ try{
  for(const pathname of ['/%2e%2e%2fworker%2fapi.js','/.env','/.openai/hosting.json','/%00','/does-not-exist'])assert.equal((await app(new Request(origin+pathname))).status,404,pathname);
  assert.equal((await app(new Request(origin+'/bad%zz'))).status,400);
  const empty=await app(new Request(origin+'/api/me'));assert.equal(empty.status,200);assert.equal((await empty.json()).user,null);
- const account={username:'local_dev1',password:'local-password-123',displayName:'로컬 개발'};
- const registered=await app(new Request(origin+'/api/auth/register',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(account)}));assert.equal(registered.status,201);const user=(await registered.json()).user,cookie=registered.headers.get('Set-Cookie').split(';')[0];assert.equal(user.username,'local_dev1');
+ const account={username:'localdev1',password:'local-password-123',passwordConfirm:'local-password-123',displayName:'로컬 개발'};
+ const registered=await app(new Request(origin+'/api/auth/register',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(account)}));assert.equal(registered.status,201);const user=(await registered.json()).user,cookie=registered.headers.get('Set-Cookie').split(';')[0];assert.equal(user.username,'localdev1');
  const me=await app(new Request(origin+'/api/me',{headers:{Cookie:cookie}}));assert.equal((await me.json()).user.id,user.id);
- const concurrent=await Promise.all(['parallel_a','parallel_b'].map(username=>app(new Request(origin+'/api/auth/register',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({...account,username})}))));
+ const concurrent=await Promise.all(['parallel1','parallel2'].map(username=>app(new Request(origin+'/api/auth/register',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({...account,username})}))));
  for(const response of concurrent)assert.equal(response.status,201,'simultaneous API registration batches cannot nest SQLite transactions');
  const parallelUsers=await Promise.all(concurrent.map(response=>response.json()));assert.notEqual(parallelUsers[0].user.id,parallelUsers[1].user.id);
 

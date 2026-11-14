@@ -13,7 +13,8 @@ import { getCosmeticPalette, drawCosmeticBackdrop, drawBasketFrame } from './cos
 import { GardenAudio } from './audio.js';
 import { createHub, drawBuddy } from './hub.js';
 import { mountPlayLayout } from './play-layout.js';
-import { PlayerCloud, applyPendingRestore } from './player-cloud.js';
+import { PlayerCloud, applyPendingRestore, captureDevice, PLAYER_KEY } from './player-cloud.js';
+import { GEM_INTERVALS, GEM_REWARD } from './economy.js';
 import { GardenInstall } from './install.js';
 
 // Restore before creating any wallet, settings or game models.
@@ -507,8 +508,8 @@ async function reviveGame() {
 function updateGemProgress() {
   const saved = progressStore.profile.mergedFruits;
   const pending = started && !roundCredited ? Math.max(0, roundCleared - (progressStore.pendingRun?.creditedFruits || 0)) : 0;
-  const progress = (saved + pending) % 200;
-  $('gem-balance').title=`다섯 게임 공용 보석 · 다음 수박 보석까지 과일 ${200-progress}개`;
+  const progress = (saved + pending) % GEM_INTERVALS.suika;
+  $('gem-balance').title=`다섯 게임 공용 보석 · 과일 ${GEM_INTERVALS.suika-progress}개 더 정리하면 보석 ${GEM_REWARD}개`;
   $('coin-count').title='수박 동전 · 도구와 이어하기에 사용';
 }
 
@@ -1301,18 +1302,31 @@ social = new GardenSocial({
   openDialog,
   getMode:()=>selectedGame==='suika'?activeMode:hub?.controller().mode()||'classic',
   onError:error=>toast(error.message || '친구 기능에 연결하지 못했어요.'),
-  onBeforeAccountChange:async()=>{saveGame();},
-  onNeedPlayer:()=>playerCloud?.open(),
-  onUser:user=>{ $('account-open').textContent=user?`☺ ${user.displayName}`:'이름 정하기';globalThis.dispatchEvent(new CustomEvent('garden-user',{detail:user})); },
+  onBeforeAccountChange:async({mode}={})=>{
+    await progressStore._queue;saveGame();hub?.arcade.save();hub?.growth.save();
+    if(mode==='register'){
+      if(social.user?.isGuest){await playerCloud.save({quiet:true});if(playerCloud.conflict)throw Error('다른 기기의 서버 기록이 있어요. 내 기록에서 불러온 뒤 가입해 주세요.');}
+      return {snapshot:captureDevice(),saveVersion:social.user?.isGuest?playerCloud.version:0};
+    }
+  },
+  onAfterAuthentication:async(payload,mode)=>{
+    localStorage.removeItem(PLAYER_KEY);
+    if(mode==='register'&&payload.cloud)await playerCloud.load(payload.cloud,{notice:'회원가입 완료! 보석 500개를 받았어요.'});
+    else await playerCloud.connect();
+  },
+  onNeedPlayer:()=>social.openAccount('login'),
+  onUser:user=>{ $('account-open').textContent=user&&!user.isGuest?`☺ ${user.displayName}`:'로그인';$('signup-offer').hidden=!!user&&!user.isGuest;globalThis.dispatchEvent(new CustomEvent('garden-user',{detail:user})); },
   onRoom:async({room,joinedNew})=>{
     if (room && joinedNew) {if(room.game&&room.game!=='suika')globalThis.dispatchEvent(new CustomEvent('garden-room',{detail:room}));else{hub?.select('suika');await startGame({mode:room.mode,seed:room.seed});}}
     if (room?.game==='suika'&&selectedGame==='suika'&&room?.mode==='classic'&&room.players.length>1) unlockAchievement('friendGame');
   },
 });
 $('friends-open').addEventListener('click',()=>social.openFriends());
-$('account-open').addEventListener('click',()=>playerCloud?.open());
+$('account-open').addEventListener('click',()=>social.openAccount('login'));
 $('friends-menu').addEventListener('click',()=>{social.openFriends();$('menu-dialog').close();});
-$('account-menu').addEventListener('click',()=>{playerCloud?.open();$('menu-dialog').close();});
+$('account-menu').addEventListener('click',()=>{social.openAccount('login');$('menu-dialog').close();});
+$('records-menu').addEventListener('click',()=>{playerCloud?.open();$('menu-dialog').close();});
+$('signup-offer-button').addEventListener('click',()=>{social.openAccount('register');$('menu-dialog').close();});
 hub=createHub({
   state:()=>({world,mode:selectedGame==='suika'?activeMode:hub?.controller().mode()||'classic',skin:currentSkin,game:selectedGame,canvas}),store:()=>progressStore,social:()=>social,player:()=>playerCloud,
   toast,open:openDialog,cosmetics:()=>openShop('skins'),effect:playSound,achievements:renderAchievements,arcadeActive:value=>{arcadePlaying=value;},
@@ -1351,7 +1365,7 @@ const gardenInstall = new GardenInstall({openDialog,onClose:resumeAfterDialog,
   onInstalled:()=>toast('홈 화면에 수박정원을 추가했어요.'),
 }).init();
 const playerInitialization = Promise.all([progressInitialization,social.init()]).then(()=>playerCloud.init()).then(()=>{
-  if(pendingPlayerRestore?.restored)toast('서버 기록을 불러왔어요.');
+  if(pendingPlayerRestore?.restored)toast(pendingPlayerRestore.notice||'서버 기록을 불러왔어요.');
   else if(pendingPlayerRestore?.error)toast('서버 기록을 불러오지 못했어요. 이 기기의 기록은 유지했어요.');
 }).catch(error=>{playerCloud.status(error.message);toast(error.message);});
 requestAnimationFrame(frame);

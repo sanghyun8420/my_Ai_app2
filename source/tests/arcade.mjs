@@ -19,9 +19,9 @@ const touch=blockDragPlacement(piece,250,272.5,board,true);
 assert.deepEqual([touch.x,touch.y],[2,2]);assert.equal(touch.top,landing.top,'touch ghost and snapped preview agree above the finger');
 const outside=blockDragPlacement(piece,100,80,board);
 assert.equal(b.fits(piece,outside.x,outside.y),false);
-const apples=new ArcadeStore('apple',store),blocks=new ArcadeStore('blocks',store);apples.award(200,40);assert.equal(apples.data.coins,50);assert.equal(blocks.data.gems,0);
+const apples=new ArcadeStore('apple',store),blocks=new ArcadeStore('blocks',store);apples.award(200,40);assert.equal(apples.data.coins,50);assert.equal(blocks.data.gems,10);
 apples.award(900,20,'challenge');assert.equal(apples.data.best,200);assert.equal(apples.data.cleared,40);assert.equal(apples.data.coins,70);
-apples.data.seconds=300;apples.save();assert(apples.claim('seconds',0));assert(!apples.claim('seconds',0));assert.equal(new ArcadeStore('apple',store).data.gems,10);
+apples.data.seconds=300;apples.save();assert(apples.claim('seconds',0));assert(!apples.claim('seconds',0));assert.equal(new ArcadeStore('apple',store).data.gems,25);
 const failing=new ArcadeStore('blocks',{getItem:()=>null,setItem:()=>{throw Error('quota');}});assert.throws(()=>failing.award(100,40));assert.equal(failing.data.gems,0);
 
 const fruits=[{radius:25,points:1},{radius:30,points:3}];

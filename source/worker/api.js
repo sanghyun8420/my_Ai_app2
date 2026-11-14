@@ -41,6 +41,10 @@ function username(value) {
   if (typeof value !== 'string' || !/^[A-Za-z0-9_]{3,20}$/.test(value)) fail(400, 'INVALID_USERNAME', '아이디는 영문·숫자·밑줄로 3~20자 입력해 주세요.');
   return value.toLowerCase();
 }
+function registrationName(value) {
+  if(typeof value!=='string'||!/^(?=.*[a-z])(?=.*[0-9])[a-z0-9]{4,20}$/i.test(value))fail(400,'INVALID_USERNAME','아이디는 영문과 숫자를 모두 넣어 4~20자로 적어 주세요.');
+  return value.toLowerCase();
+}
 function password(value) {
   if (typeof value !== 'string' || value.length < 8 || value.length > 128) fail(400, 'INVALID_PASSWORD', '비밀번호는 8~128자로 입력해 주세요.');
   return value;
@@ -218,22 +222,45 @@ async function route(request, env) {
     return json({messages:messages.reverse()});
   }
   if (path === '/api/me' && method === 'GET') return json({ user: publicAccount(await optionalAccount(request, db)) });
+  if(path==='/api/auth/availability'&&method==='GET'){
+    const name=registrationName(new URL(request.url).searchParams.get('username'));
+    const used=await stmt(db,'SELECT id FROM garden_accounts WHERE username=?',name).first();
+    return json({username:name,available:!used});
+  }
   if (path === '/api/auth/register' && method === 'POST') {
-    const body = await bodyJson(request), name = username(body.username), secret = password(body.password), display = displayName(body.displayName, name);
-    if(!/[a-zA-Z]/.test(secret)||!/[0-9]/.test(secret))fail(400,'WEAK_PASSWORD','비밀번호는 8~128자이며 영문과 숫자를 각각 포함해야 해요.');
-    const limitKey = await authLimit(db, request, name);
-    const existing = await stmt(db, 'SELECT id FROM garden_accounts WHERE username = ?', name).first();
-    if (existing) fail(409, 'USERNAME_TAKEN', '이미 사용 중인 아이디예요. 다른 아이디를 골라 주세요.');
-    const salt = crypto.getRandomValues(new Uint8Array(16)), hashed = await passwordHash(secret, salt), time = timestamp();
-    const id = `ga_${randomToken(18)}`, friendCode = `SG-${randomCode(8)}`;
-    try { await stmt(db, 'INSERT INTO garden_accounts (id, username, display_name, friend_code, password_salt, password_hash, password_iterations, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, name, display, friendCode, encoded(salt), encoded(hashed), ITERATIONS, time, time).run(); }
-    catch (error) {
-      if (await stmt(db, 'SELECT id FROM garden_accounts WHERE username = ?', name).first()) fail(409, 'USERNAME_TAKEN', '이미 사용 중인 아이디예요. 다른 아이디를 골라 주세요.');
+    const body=await bodyJson(request,512*1024),name=registrationName(body.username),secret=password(body.password),display=displayName(body.displayName);
+    if(!/[a-zA-Z]/.test(secret)||!/[0-9]/.test(secret))fail(400,'WEAK_PASSWORD','비밀번호는 8~128자이며 영문과 숫자를 각각 포함해야 해요. 대소문자를 구분해요.');
+    if(body.passwordConfirm!==secret)fail(400,'PASSWORD_MISMATCH','비밀번호 확인이 일치하지 않아요.');
+    const limitKey=await authLimit(db,request,name),guest=await optionalAccount(request,db);
+    if(guest&&!guest.is_guest)fail(409,'ALREADY_REGISTERED','이미 로그인한 계정이에요.');
+    if(await stmt(db,'SELECT id FROM garden_accounts WHERE username=?',name).first())fail(409,'USERNAME_TAKEN','이미 사용 중인 아이디예요. 다른 아이디를 골라 주세요.');
+    const id=guest?.id||`ga_${randomToken(18)}`,friendCode=guest?.friend_code||`SG-${randomCode(8)}`,time=timestamp();
+    const current=guest?await stmt(db,'SELECT version FROM garden_cloud_saves WHERE account_id=?',id).first():null;
+    const expected=body.saveVersion??0;
+    if(!integer(expected,1000000000)||(current?.version||0)!==expected)fail(409,'CLOUD_CONFLICT','서버 기록이 바뀌었어요. 내 기록을 확인한 뒤 가입해 주세요.');
+    const keys={'suika-garden-profile-v3':20,'garden-arcade-apple-v1':10,'garden-arcade-blocks-v1':16,'garden-expedition-v1':60,'garden-orchard-v1':35};
+    const snapshot=body.snapshot?cloudSnapshot(body.snapshot):{version:1,values:{'garden-economy-v1':JSON.stringify({version:1,rewardRules:2,gems:0,revision:0,records:Object.fromEntries(Object.entries(keys).map(([key,coins])=>[key,{coins,gems:0}])),milestones:{}})}};
+    const wallet=JSON.parse(snapshot.values['garden-economy-v1']);
+    if(wallet.gems>Number.MAX_SAFE_INTEGER-500)fail(400,'WALLET_LIMIT','보석 저장 한도를 확인해 주세요.');
+    const receipt=`signup_${randomToken(18)}`;wallet.gems+=500;wallet.revision=Math.min(Number.MAX_SAFE_INTEGER,(Number.isSafeInteger(wallet.revision)?wallet.revision:0)+1);wallet.recordVersions=Object.fromEntries(Object.keys(keys).map(key=>[key,Math.min(Number.MAX_SAFE_INTEGER,(Number.isSafeInteger(wallet.recordVersions?.[key])?wallet.recordVersions[key]:0)+1)]));wallet.registrationRewards={...wallet.registrationRewards,[id]:receipt};snapshot.values['garden-economy-v1']=JSON.stringify(wallet);
+    const salt=crypto.getRandomValues(new Uint8Array(16)),hashed=await passwordHash(secret,salt),version=expected+1;
+    const writes=[guest
+      ?stmt(db,'UPDATE garden_accounts SET username=?,display_name=?,password_salt=?,password_hash=?,password_iterations=?,updated_at=? WHERE id=? AND EXISTS(SELECT 1 FROM garden_guest_keys WHERE account_id=?)',name,display,encoded(salt),encoded(hashed),ITERATIONS,time,id,id)
+      :stmt(db,'INSERT INTO garden_accounts(id,username,display_name,friend_code,password_salt,password_hash,password_iterations,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',id,name,display,friendCode,encoded(salt),encoded(hashed),ITERATIONS,time,time),
+      // The CHECK constraint rolls the entire batch back if a device saves after the version check.
+      stmt(db,'INSERT INTO garden_signup_rewards(account_id,receipt_id,amount,created_at) VALUES(?,?,CASE WHEN COALESCE((SELECT version FROM garden_cloud_saves WHERE account_id=?),0)=? THEN 500 ELSE -1 END,?)',id,receipt,id,expected,time),
+      stmt(db,'INSERT INTO garden_cloud_saves(account_id,version,payload,updated_at) VALUES(?,?,?,?) ON CONFLICT(account_id) DO UPDATE SET version=excluded.version,payload=excluded.payload,updated_at=excluded.updated_at',id,version,JSON.stringify(snapshot),time),
+      stmt(db,'DELETE FROM garden_guest_keys WHERE account_id=?',id),
+      stmt(db,'DELETE FROM garden_sessions WHERE account_id=?',id),
+    ];
+    try{await db.batch(writes);}catch(error){
+      if(await stmt(db,'SELECT id FROM garden_accounts WHERE username=?',name).first())fail(409,'USERNAME_TAKEN','이미 사용 중인 아이디예요. 다른 아이디를 골라 주세요.');
+      if(guest)fail(409,'CLOUD_CONFLICT','서버 기록이 바뀌었어요. 기록을 불러온 뒤 다시 가입해 주세요.');
       throw error;
     }
-    await stmt(db, 'DELETE FROM garden_login_limits WHERE key_hash = ?', limitKey).run();
-    const response = await newSession(db, await stmt(db, 'SELECT * FROM garden_accounts WHERE id = ?', id).first(), request, body.remember!==false);
-    return new Response(response.body, { status: 201, headers: response.headers });
+    await stmt(db,'DELETE FROM garden_login_limits WHERE key_hash=?',limitKey).run();
+    const response=await newSession(db,await stmt(db,'SELECT * FROM garden_accounts WHERE id=?',id).first(),request,body.remember!==false),payload=await response.json();
+    return new Response(JSON.stringify({...payload,signupReward:{id:receipt,amount:500},cloud:{version,snapshot,updatedAt:time}}),{status:201,headers:response.headers});
   }
   if (path === '/api/auth/login' && method === 'POST') {
     const body = await bodyJson(request), name = username(body.username), secret = password(body.password);

@@ -29,10 +29,12 @@ db.sqlite.exec(await readFile(new URL('../drizzle/0001_game_accounts.sql', impor
 db.sqlite.exec(await readFile(new URL('../drizzle/0002_social.sql', import.meta.url), 'utf8'));
 db.sqlite.exec(await readFile(new URL('../drizzle/0003_arcade_social.sql', import.meta.url), 'utf8'));
 db.sqlite.exec(await readFile(new URL('../drizzle/0004_nickname_cloud.sql', import.meta.url), 'utf8'));
+db.sqlite.exec(await readFile(new URL('../drizzle/0005_signup_rewards.sql', import.meta.url), 'utf8'));
 const origin = 'https://garden.example';
 const password = 'garden-password-123';
 async function call(path, { method = 'GET', body, cookie, ip = '192.0.2.10', headers = {}, environment = { DB: db } } = {}) {
   const requestHeaders = { 'CF-Connecting-IP': ip, ...headers };
+  if(path==='/api/auth/register'&&body){body={...body,passwordConfirm:body.passwordConfirm??body.password};if(body.displayName===undefined)body.displayName=body.username;}
   if (method === 'POST') { requestHeaders.Origin ??= origin; requestHeaders['Content-Type'] ??= 'application/json'; }
   if (cookie) requestHeaders.Cookie = cookie;
   const response = await handleApi(new Request(origin + path, { method, headers: requestHeaders, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), environment, {});
@@ -57,21 +59,21 @@ try {
   assert.equal((await post('/api/auth/register', {}, null, { headers: { Origin: 'https://evil.example' } })).status, 403);
   assert.equal((await post('/api/auth/register', {}, null, { headers: { 'Content-Type': 'text/plain' } })).status, 415);
 
-  const alice = await register('Alice_1', '앨리스');
-  const bob = await register('bob_22', '밥');
+  const alice = await register('Alice1', '앨리스');
+  const bob = await register('bob22', '밥');
   const carol = await register('carol33', '캐롤');
-  const dave = await register('dave_44', '데이브');
-  const eve = await register('eve_555', '이브');
-  assert.equal(alice.username, 'alice_1'); assert.match(alice.friendCode, /^SG-[A-Z2-9]{8}$/);
+  const dave = await register('dave44', '데이브');
+  const eve = await register('eve555', '이브');
+  assert.equal(alice.username, 'alice1'); assert.match(alice.friendCode, /^SG-[A-Z2-9]{8}$/);
   assert.deepEqual(Object.keys((await get('/api/me', alice)).data.user).sort(), ['bestScore', 'displayName', 'friendCode', 'id', 'isGuest', 'username']);
-  assert.equal((await post('/api/auth/register', { username: 'ALICE_1', password }, null)).status, 409);
+  assert.equal((await post('/api/auth/register', { username: 'ALICE1', password }, null)).status, 409);
   const passwordRow = db.sqlite.prepare('SELECT password_salt, password_hash, password_iterations FROM garden_accounts WHERE id = ?').get(alice.id);
   assert.equal(passwordRow.password_iterations, 100000);
   assert.equal(Buffer.from(passwordRow.password_salt, 'base64url').length, 16);
   assert.equal(Buffer.from(passwordRow.password_hash, 'base64url').length, 32);
   assert.notEqual(passwordRow.password_hash, password);
   assert.notEqual(db.sqlite.prepare('SELECT token_hash FROM garden_sessions WHERE account_id = ?').get(alice.id).token_hash, alice.cookie.split('=')[1]);
-  const login = await post('/api/auth/login', { username: 'ALICE_1', password }, null);
+  const login = await post('/api/auth/login', { username: 'ALICE1', password }, null);
   assert.equal(login.status, 200); assert.equal(login.data.user.id, alice.id);
   assert.equal((await post('/api/auth/login', { username: 'unknown_777', password }, null)).status, 401);
 
@@ -216,7 +218,7 @@ try {
   assert.equal(stored.size, 0);
   assert.equal((await (await remote('/api/me')).json()).user, null);
   assert.equal((await get('/api/me', alice)).data.user.id, alice.id, 'GitHub logout leaves the original site session intact');
-  const crossRegister = await call('/api/auth/register', { method: 'POST', headers: { Origin: pagesOrigin }, body: { username: 'github_user9', password } });
+  const crossRegister = await call('/api/auth/register', { method: 'POST', headers: { Origin: pagesOrigin }, body: { username: 'githubuser9', password } });
   assert.equal(crossRegister.status, 201); assert.match(crossRegister.data.accessToken, /^[A-Za-z0-9_-]{43}$/); assert.equal(crossRegister.response.headers.has('Set-Cookie'), false);
   assert.equal((await get('/api/me', alice)).data.accessToken, undefined, 'cookie sessions never expose their tokens');
   console.log('PASS GitHub Pages API: exact-origin CORS, preflight limits, no ambient cookies, hashed bearer sessions, tab reload, same-page login/friends/rooms, project-path invite links and independent logout.');

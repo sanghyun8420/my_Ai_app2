@@ -28,7 +28,7 @@ export function restoreDevice(snapshot,storage=globalThis.localStorage){
  return next;
 }
 export function applyPendingRestore(storage){
- try{storage??=globalThis.localStorage;const pending=parse(storage.getItem(PENDING_RESTORE));if(!pending)return null;restoreDevice(pending.snapshot,storage);storage.setItem(CLOUD_META,JSON.stringify(pending.meta));storage.removeItem(PENDING_RESTORE);return {restored:true};}
+ try{storage??=globalThis.localStorage;const pending=parse(storage.getItem(PENDING_RESTORE));if(!pending)return null;restoreDevice(pending.snapshot,storage);storage.setItem(CLOUD_META,JSON.stringify(pending.meta));storage.removeItem(PENDING_RESTORE);return {restored:true,notice:pending.meta?.notice};}
  catch(error){return {restored:false,error};}
 }
 function snapshotHash(snapshot){let h=2166136261;for(const c of JSON.stringify(snapshot))h=Math.imul(h^c.charCodeAt(0),16777619);return (h>>>0).toString(16);}
@@ -40,9 +40,9 @@ export class PlayerCloud {
  constructor({social,storage,document:doc=globalThis.document,openDialog,beforeCapture=()=>{},reload=()=>globalThis.location.reload(),onError=()=>{}}={}){
   this.social=social;try{this.storage=storage??globalThis.localStorage;}catch{this.storage=null;}this.document=doc;this.openDialog=openDialog;this.beforeCapture=beforeCapture;this.reload=reload;this.onError=onError;
   this.ready=false;this.busy=false;this.conflict=false;this.connected=false;this.restoring=false;this.version=0;this.userId=null;this.lastHash='';this.lastScores='';this.epoch=0;this.timer=null;
-  this.build();this.userListener=e=>{if(!this.ready||this.busy)return;if(!e.detail){this.userId=null;this.connected=false;this.storage?.removeItem(PLAYER_KEY);this.status('이 기기에 저장 중 · 이름을 정하면 순위에 참여해요.');return;}if(e.detail.id!==this.userId)this.connect().catch(error=>this.status(error.message));else this.render();};
+  this.build();this.userListener=e=>{if(!this.ready||this.busy)return;if(!e.detail){this.userId=null;this.connected=false;this.storage?.removeItem(PLAYER_KEY);this.status('이 기기에 저장 중 · 이름을 정하면 순위에 참여해요.');return;}if(this.social._authBusy)return;if(e.detail.id!==this.userId)this.connect().catch(error=>this.status(error.message));else this.render();};
   globalThis.addEventListener?.('garden-user',this.userListener);
-  this.visibilityListener=()=>{if(this.document?.hidden&&this.ready&&!this.busy&&!this.conflict)this.action(()=>this.save({quiet:true}));};
+  this.visibilityListener=()=>{if(this.document?.hidden&&this.ready&&!this.busy&&!this.social._authBusy&&!this.conflict)this.action(()=>this.save({quiet:true}));};
   this.document?.addEventListener('visibilitychange',this.visibilityListener);
  }
  $(id){return this.document?.getElementById(id);}
@@ -64,9 +64,9 @@ export class PlayerCloud {
  async action(fn){if(this.busy)return;this.busy=true;if(this.$('player-submit'))this.$('player-submit').disabled=true;try{await fn();}catch(error){this.status(error.message||'연결이 어려워요. 기기 기록은 그대로예요.');this.onError(error);}finally{this.busy=false;if(this.$('player-submit'))this.$('player-submit').disabled=false;this.render();}}
  async init(){
   const identity=this.identity();if(!this.social.user&&identity?.key){try{const response=await this.social._request('/api/guest',{method:'POST',body:{key:identity.key}});this.storage.setItem(PLAYER_KEY,JSON.stringify({key:identity.key,userId:response.user.id}));this.social._acceptUser(response);}catch(error){this.status(error.message);}}
-  this.ready=true;if(this.social.user){try{await this.connect();}catch(error){this.status(error.message);}}else this.open();
+  this.ready=true;if(this.social.user){try{await this.connect();}catch(error){this.status(error.message);}}
   if(this.social.user&&!this.conflict&&!this.restoring)await this.social._handlePendingLinks?.();
-  this.timer=setInterval(()=>{if(!this.busy&&!this.restoring&&this.social.user){if(!this.connected)this.connect().catch(error=>this.status(error.message));else if(!this.conflict)this.action(()=>this.save({quiet:true}));}},20000);this.timer.unref?.();return this;
+  this.timer=setInterval(()=>{if(!this.busy&&!this.social._authBusy&&!this.restoring&&this.social.user){if(!this.connected)this.connect().catch(error=>this.status(error.message));else if(!this.conflict)this.action(()=>this.save({quiet:true}));}},20000);this.timer.unref?.();return this;
  }
  async join(name){
   name=String(name).normalize('NFKC').trim();if(!name||[...name].length>16)throw Error('닉네임은 1~16자로 적어 주세요.');
@@ -103,10 +103,10 @@ export class PlayerCloud {
   try{const result=await this.social._request('/api/cloud-save',{method:'POST',body:{version:this.version,snapshot}});if(this.social.user?.id!==userId)return;this.version=result.version;this.lastHash=hash;this.conflict=false;this.storage.setItem(CLOUD_META,JSON.stringify({userId,version:this.version,hash}));this.status('서버 자동 저장됨 · 이 기기에도 저장돼요.');}
   catch(error){if(error.code==='CLOUD_CONFLICT'){this.conflict=true;this.status(error.message);}throw error;}
  }
- async load(remote){
+ async load(remote,{notice}={}){
   if(!this.social.user)return;remote??=await this.social._request('/api/cloud-save');if(!remote.snapshot){this.status('아직 서버에 저장된 진행이 없어요. 이 기기에서 플레이한 뒤 저장해 주세요.');return;}
   const snapshot=validateDevice(remote.snapshot);await this.beforeCapture();this.storage.setItem(BACKUP_KEY,JSON.stringify({at:Date.now(),values:captureDevice(this.storage).values}));
-  this.storage.setItem(PENDING_RESTORE,JSON.stringify({snapshot,meta:{userId:this.social.user.id,version:remote.version,hash:snapshotHash(snapshot)}}));this.restoring=true;this.status('서버 기록을 불러와 다시 시작해요.');this.reload();
+  this.storage.setItem(PENDING_RESTORE,JSON.stringify({snapshot,meta:{userId:this.social.user.id,version:remote.version,hash:snapshotHash(snapshot),...(notice?{notice}:{})}}));this.restoring=true;this.status('서버 기록을 불러와 다시 시작해요.');this.reload();
  }
  dispose(){clearInterval(this.timer);globalThis.removeEventListener?.('garden-user',this.userListener);this.document?.removeEventListener('visibilitychange',this.visibilityListener);}
 }
