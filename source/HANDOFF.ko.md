@@ -194,3 +194,11 @@ node scripts/export-github-pages.mjs /absolute/empty/output
 - 음식은 Canvas로 조리 재료·질감·그릇을 그리고 skin-details.js의 공유 LRU 캐시에512px로 저장합니다. 음식 그림을 매 프레임 다시 만들거나 외부 이미지를 런타임에 다운로드하지 않습니다. 회전·선택·특별 사과/배의 효과는 기존 공통 렌더링을 사용합니다.
 - 기아 로고는 Simple Icons의 CC0 KIA SVG 도형을 skin-details.js에 포함했습니다. 출처는 코드 주석에 있습니다. 같은 각진 선으로 임의로 대체하지 않습니다. Path2D는 브라우저 기본 API이며 Node 미리보기에서는 @napi-rs/canvas의 Path2D를 등록합니다.
 - `node scripts/render-skin-refresh.cjs /tmp/skin-refresh.png`로 자동차·행성·3D과일·음식56개를 비교할 수 있습니다. skin-art 검사는 음식14단계가 서로 다른 이미지인지도 확인합니다.
+
+## 자동차 원본 이미지와 썩은 과일 표면
+
+- 기아는 기존 정확한 SVG 도형을 유지합니다. 나머지13개는 `dist/car-*.png` 원본 이미지이며 `car-logo-data.js`에 출처 URL과 투명 여백의 콘텐츠 좌표를 기록합니다. PNG 바이트는 다운로드 원본 그대로입니다. 상표 도형·브랜드 글자를 임의의 말·황소 그림으로 대체하지 않습니다.
+- `car-logo-assets.js`가 같은 사이트에서 PNG를 미리 불러옵니다. 외부 CDN을 게임 실행 중에 요청하지 않습니다. 이미지가 준비되면 원본 도형을 Canvas 캐시에 그리며 로딩·실패 시 브랜드 이름으로 표시해 게임이 멈추지 않습니다. 새 PNG들도 정적 서비스워커 캐시와 Pages 내보내기에 포함됩니다.
+- Node 그림 검사·미리보기는 preloadCarLogos에 @napi-rs/canvas의 loadImage를 주입합니다. 실제 브라우저는 기본 Image를 사용합니다. 이미지가 로드되기 전 이름 표시는 캐시하지 않아 로딩 완료 시 원본 엠블럼으로 전환됩니다.
+- ??? 스킨은 skin-details.js의 paintRotten이 입체 과일을 먼저 그리고, 별도 캐시 표면 안에서 source-atop으로 손상을 합성합니다. 이 모드는 메인 게임판에 직접 사용하지 않습니다. 캐시 생성 실패에는 입체 과일만 그립니다. 멍과 곰팡이는 과일 실루엣 밖으로 새지 않으며 알파 회귀 검사로 확인합니다.
+- price999와 구매 전 ??? 화면은 그대로이며, 이미지나 게임판 이름에 스킨 미리보기를 노출하지 않습니다. render-skin-refresh.cjs는 이제 자동차·행성·3D·야식·썩은 과일70단계를 출력합니다.

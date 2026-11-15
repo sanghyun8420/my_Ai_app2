@@ -1,7 +1,7 @@
 import {drawFood,FOOD_NAMES} from './food-art.js';
 import { FRUITS, drawFruit, drawSpecialAppleEffect, APPLE_LEVEL, PEAR_LEVEL } from './fruits.js';
 import { SKIN_CATALOG } from './catalog.js';
-import { drawCarLogo, drawPlanet, drawFruit3D, PLANET_NAMES } from './skin-details.js';
+import { drawCarLogo, drawPlanet, drawFruit3D, drawRottenFruit, PLANET_NAMES } from './skin-details.js';
 
 export const SKINS = SKIN_CATALOG;
 
@@ -404,15 +404,10 @@ function mysteryBall(ctx, level, color, time = 0) {
 
 const CAR_LABELS=['기아','현대','제네시스','테슬라','랜드로버','벤츠','BMW','아우디','포르셰','페라리','람보르기니','코닉세그','파가니','부가티'];
 export function skinFruitName(level,skin='classic'){return skin==='cars'?CAR_LABELS[level]:skin==='galaxy'?PLANET_NAMES[level]:skin==='food'?FOOD_NAMES[level]:FRUITS[level].name;}
-function rottenBall(ctx,level){
-  drawFruit(ctx,level,0,0,44,0,1,false,0);ctx.save();
-  for(let i=0;i<9;i++){ctx.fillStyle=i%2?'#505336cc':'#5b3929bb';ctx.beginPath();ctx.ellipse(Math.sin(i*4.1)*29,Math.cos(i*2.8)*28,6+i%4,5+i%3,i,0,TAU);ctx.fill();}
-  ctx.strokeStyle='#b5bc86';ctx.lineWidth=1;for(let i=0;i<12;i++){ctx.beginPath();ctx.moveTo(18,11);ctx.lineTo(18+Math.cos(i)*12,11+Math.sin(i)*12);ctx.stroke();}ctx.restore();
-}
 function royalBall(ctx,level){gemBall(ctx,level);ctx.save();ctx.strokeStyle='#f5da7c';ctx.lineWidth=3;polygon(ctx,[[-20,-32],[-27,-43],[-8,-37],[0,-49],[9,-37],[27,-43],[20,-32]],'#bf963f','#f2dfa3',1);ctx.restore();}
 const RENDERERS = {
   numbers:numberBall, candy:candyBall, pastel:pastelBall, pixel:pixelBall,
-  cat:catBall, ice:iceBall, neon:neonBall, galaxy:drawPlanet, gem:gemBall, mystery:rottenBall,
+  cat:catBall, ice:iceBall, neon:neonBall, galaxy:drawPlanet, gem:gemBall, mystery:drawRottenFruit,
   cars:drawCarLogo,fruit3d:drawFruit3D,food:drawFood,royalGem:royalBall,
 };
 
