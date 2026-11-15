@@ -1,3 +1,4 @@
+import {createSessionFetcher} from './api-session.js';
 const MODES = new Set(['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge', 'science']);
 const ROOM_CODE = /^[A-Z0-9]{6,10}$/;
 const USERNAME = /^[A-Za-z0-9_]{3,20}$/;
@@ -20,7 +21,7 @@ export class GardenSocial {
     this.document = doc;
     this.location = location;
     this.navigator = navigator;
-    this.fetcher = fetcher || globalThis.fetch?.bind(globalThis);
+    this.fetcher = fetcher || (globalThis.fetch&&createSessionFetcher({origin:location?.origin}));
     this.clock = clock;
     this.onRoom = onRoom;
     this.onUser = onUser;
@@ -33,6 +34,7 @@ export class GardenSocial {
     this.getGame=getGame;
     this.openDialog = openDialog || (id => { const dialog = this.$(id); if (dialog && !dialog.open) dialog.showModal(); });
     this.user = null;
+    this._userVersion = 0;
     this.room = null;
     this._friends = [];
     this._mode = 'register';
@@ -114,6 +116,7 @@ export class GardenSocial {
   }
 
   async _request(path, { method = 'GET', body, keepalive = false } = {}) {
+    const userVersion=this._userVersion;
     if (!this.fetcher) throw socialError('친구 서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.', 'OFFLINE');
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
@@ -130,7 +133,7 @@ export class GardenSocial {
       if (!response.ok) throw socialError(payload?.error || '요청을 처리하지 못했어요.', payload?.code || 'REQUEST_FAILED', response.status);
       return payload;
     } catch (error) {
-      if (typeof error?.code === 'string') throw error;
+      if (typeof error?.code === 'string') {error.userVersion=userVersion;throw error;}
       throw socialError(error?.name === 'AbortError' ? '연결이 늦어지고 있어요. 다시 시도해주세요.' : '친구 서버에 연결하지 못했어요. 혼자 플레이는 계속할 수 있어요.', 'NETWORK_ERROR');
     } finally { clearTimeout(timer); }
   }
@@ -140,6 +143,7 @@ export class GardenSocial {
     if (!user || typeof user.id !== 'string' || !user.id || typeof user.username !== 'string') {
       throw socialError('계정 정보를 확인하지 못했어요.', 'INVALID_RESPONSE');
     }
+    this._userVersion++;
     this.user = {
       id: user.id, username: user.username,isGuest:!!user.isGuest,
       displayName: String(user.displayName || user.username).slice(0, 32),
@@ -152,8 +156,10 @@ export class GardenSocial {
   }
 
   async init() {
+    const userVersion=this._userVersion;
     try {
       const payload = await this._request('/api/me');
+      if(userVersion!==this._userVersion)return this.user;
       if (payload.user) this._acceptUser(payload);
       else { this.user = null; this._renderAccount(); this.onUser(null); }
       if (this._pendingRoom || this._pendingInvite) {
@@ -165,6 +171,7 @@ export class GardenSocial {
       }
       return this.user;
     } catch (error) {
+      if(userVersion!==this._userVersion)return this.user;
       this.user = null;
       this._renderAccount();
       this.onUser(null);
@@ -266,6 +273,7 @@ export class GardenSocial {
       await this.onBeforeAccountChange({mode:'logout'});
       await this._request('/api/auth/logout', { method: 'POST', body: {} });
       await this.onLogout();
+      this._userVersion++;
       this.user = null;
       this._friends = [];
       this._setRoom(null);
@@ -506,11 +514,14 @@ export class GardenSocial {
     if (this.document?.hidden) { this._schedulePoll(4000); return; }
     this._polling = true;
     const code = this.room.code;
+    const userVersion=this._userVersion;
     try {
       const payload = await this._request(`/api/rooms/${encodeURIComponent(code)}`);
+      if(userVersion!==this._userVersion)return;
       if (this.room?.code === code) this._setRoom(payload.room);
       this._pollFailures = 0;
     } catch (error) {
+      if(userVersion!==this._userVersion)return;
       this._pollFailures++;
       if (error.status === 401) {
         this.user = null; this._setRoom(null); this._renderAccount(); this.onUser(null);

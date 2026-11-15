@@ -102,9 +102,8 @@ async function account(request, db) {
 async function newSession(db, user, request, remember=true) {
   const token = randomToken(), time = timestamp();
   await stmt(db, 'INSERT INTO garden_sessions (token_hash, account_id, created_at, expires_at) VALUES (?, ?, ?, ?)', await hash(token), user.id, time, time + SESSION_MS).run();
-  return externalGame(request)
-    ? json({ user: publicAccount(user), accessToken: token })
-    : json({ user: publicAccount(user) }, 200, { 'Set-Cookie': cookie(token,remember?SESSION_MS/1000:null) });
+  const external=externalGame(request),explicit=external||request.headers.get('X-Garden-Session')==='bearer';
+  return json({user:publicAccount(user),...(explicit?{accessToken:token}:{})},200,external?{}:{'Set-Cookie':cookie(token,remember?SESSION_MS/1000:null)});
 }
 async function authLimit(db, request, name) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';

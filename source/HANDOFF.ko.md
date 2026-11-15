@@ -173,3 +173,11 @@ node scripts/export-github-pages.mjs /absolute/empty/output
 - `PlayerCloud`의 기본값은 `autoGuest=true`, `autoRestore=true`, 저장 주기5초입니다. 활성 상태에서15초마다 서버 버전을 확인하며 focus/online에도 최신 기록을 확인합니다. 손상된 서버 스냅샷은 자동 덮어쓰기를 막고 로컬을 유지합니다. 과거 수동 흐름 검사는 옵션을 false로 주어 유지하고 `tests/auto-cloud.mjs`가 기본 자동 흐름을 검사합니다.
 - `physics.js`의 `OVERFLOW_SECONDS=5`가 단일 기준입니다. landed 과일이 MAX 위에서 머무는 시간을 누적하고 내려오면0으로 만듭니다. 흔들기·부활 보호 중에는 누적하지 않으며 합쳐진 과일은 기존 경고를 이어받습니다. serialize/restore로0~5초를 보존합니다. `update()`에서 step의 경고를 다시0으로 덮어쓰지 않아야 숫자가 유지됩니다.
 - `promotion.js`의 공개 공유 주소는 항상 `https://sanghyun8420.github.io/my_Ai_app2/`이며 private key·초대 코드·세션을 첨부하지 않습니다. Web Share가 없으면 클립보드, 둘 다 없으면 주소 선택 안내를 사용합니다. QR은 `dist/promotion-qr.svg`입니다.
+
+## 로그인 유지 수정
+
+- 기존 Sites 원본에서 로그인 POST는200이지만 뒤의 cloud-save GET이401인 문제를 실제 운영 로그로 확인했습니다. `dist/api-session.js`가 앱 인증을 보존하고, GardenSocial의 기본 fetcher에 적용합니다. 쿠키 전달이 실패해도 인증된 게임 요청을 보낼 수 있습니다.
+- 동일 출처의 인증 POST에는 `X-Garden-Session: bearer`를 명시하고 API가 세션 토큰을 응답합니다. 외부 Pages 인증은 기존과 같이 토큰을 응답하며 쿠키를 보내지 않습니다. 일반 me·cloud-save 응답에는 인증 토큰이 없습니다. 세션 원문은 게임 저장·복구 ZIP·URL에 포함하지 않습니다.
+- API 세션 저장 키는 기존 `suika-garden-api-session-v1:<API 원본>`을 유지합니다. 기억 설정이 false면 탭 저장, 기본은 기기 저장이며 로그아웃하면 지웁니다. 세션은 기존30일 만료를 따릅니다.
+- 두 주소의 클라이언트가 같은 세션 모듈을 사용합니다. 편집 원본의 Pages 어댑터는 ../../dist/api-session.js를 가져오고 내보내기에서 ./api-session.js로 바꿉니다. 늦은401·늦은 게스트 인증 응답과 초기 me 응답은 새 계정을 덮어쓰지 않습니다.
+- `tests/auth-persistence.mjs`는 모든 쿠키를 버리는 전송으로 실제 API와 지갑을 사용해 가입→복원→재접속과 다른 기기 로그인을 검사합니다. 이전 쿠키 전용 테스트도 유지합니다. 운영 사용자 계정이나 기록을 테스트용으로 수정하지 않습니다.

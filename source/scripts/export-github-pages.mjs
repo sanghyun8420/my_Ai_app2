@@ -20,7 +20,7 @@ let app = await readFile(appPath, 'utf8');
 if ((app.match(/social = new GardenSocial\(\{/g) || []).length !== 1) throw new Error('친구 서버 연결 위치를 확인해 주세요.');
 app = `import { createApiFetcher } from './remote-api.js';\n` + app.replace('social = new GardenSocial({', `social = new GardenSocial({\n  fetcher: createApiFetcher('${api}'),`);
 await writeFile(appPath, app);
-await copyFile(path.join(root, 'scripts/github-pages/remote-api.js'), path.join(output, 'remote-api.js'));
+await writeFile(path.join(output,'remote-api.js'),(await readFile(path.join(root,'scripts/github-pages/remote-api.js'),'utf8')).replace("'../../dist/api-session.js'","'./api-session.js'"));
 const htmlPath = path.join(output, 'index.html');
 let html = await readFile(htmlPath, 'utf8');
 html=html.replace(/<meta[^>]+(?:property="og:[^"]+"|name="twitter:[^"]+")[^>]*>\s*/g,'');

@@ -1314,6 +1314,7 @@ social = new GardenSocial({
   getMode:()=>selectedGame==='suika'?activeMode:hub?.controller().mode()||'classic',
   onError:error=>toast(error.message || '친구 기능에 연결하지 못했어요.'),
   onBeforeAccountChange:async({mode}={})=>{
+    await playerInitialization;
     await playerCloud?.syncTask;await playerCloud?.connectTask;
     await progressStore._queue;saveGame();hub?.arcade.save();hub?.growth.save();
     if(social.user){await playerCloud.save({quiet:true});if(playerCloud.restoring)throw Error('최신 서버 기록을 불러오고 있어요. 잠시 후 다시 시도해 주세요.');}
