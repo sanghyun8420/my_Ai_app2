@@ -672,3 +672,19 @@ dialog>.eyebrow,.evolution-rail>.section-heading>span{display:none}
 
 .pear-progress{font-size:10px;line-height:1.4;padding:2px 7px;border-radius:7px;background:#f2e8ac;color:#6b5a20;white-space:nowrap;font-variant-numeric:tabular-nums}
 html[data-theme=dark] .pear-progress{background:#514b26;color:#f0dc8e}
+
+.danger-message{display:flex;align-items:center;gap:10px;padding:9px 14px;border:1px solid #e69c80;background:#fff2e7f5;box-shadow:0 4px 18px #7d3d281a;color:#a54f34;max-width:95%;white-space:normal;pointer-events:none}.danger-message strong{font-size:clamp(24px,5cqw,36px);font-variant-numeric:tabular-nums;line-height:1;font-weight:900}.danger-message span{font-size:11px;font-weight:750;line-height:1.6}.danger-message small{display:block;font-size:9px;font-weight:500;color:#9a735d}
+
+/* Quiet save status and a compact public sharing sheet. */
+#server-save-status {display:block;max-width:34ch;margin-top:4px;color:var(--muted);font-size:11px;font-weight:400;line-height:1.45;white-space:normal}
+.sync-dialog {width:min(360px,calc(100vw - 32px));text-align:center;padding:32px 24px}
+.sync-dialog h2 {font-size:23px}.sync-dialog p[role=status] {color:var(--muted);font-size:13px;line-height:1.7}
+.promotion-dialog {width:min(510px,calc(100vw - 28px));max-height:calc(100dvh - 32px);overflow:auto}
+.promotion-card {display:flex;align-items:center;gap:18px;padding:14px;margin:18px 0;border:1px solid var(--line);border-radius:20px;background:var(--card-soft)}
+.promotion-card img {width:128px;height:128px;flex-shrink:0;background:white;border-radius:12px}
+.promotion-card strong {font-size:20px}.promotion-card p,.promotion-card a {font-size:12px;line-height:1.65}
+.promotion-card a,.promotion-caption a {color:var(--ink);text-underline-offset:4px}
+.promotion-link,.promotion-caption textarea {width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--card);color:var(--ink);font:inherit;font-size:12px}
+.promotion-actions {display:flex;gap:10px;margin:14px 0}.promotion-actions button {flex:1}
+.promotion-caption {border-top:1px solid var(--line);padding-top:16px;font-size:13px}.promotion-caption summary {cursor:pointer}.promotion-caption textarea {margin:12px 0;resize:vertical;line-height:1.7}.promotion-caption a {display:block;margin-top:14px;font-size:12px}
+@media(max-width:360px){.promotion-card{gap:10px;padding:10px}.promotion-card img{width:100px;height:100px}.promotion-actions{flex-wrap:wrap}.promotion-actions button{min-width:120px}}

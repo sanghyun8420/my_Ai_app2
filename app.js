@@ -1,7 +1,8 @@
 import { createApiFetcher } from './remote-api.js';
+import { mountPromotion } from './promotion.js';
 import { SCIENCE_STAGES, drawScience, drawScienceBackground, drawSupernova } from './science.js';
 import { FRUITS, drawFruit, APPLE_LEVEL,PEAR_LEVEL, WATERMELON_LEVEL, SECRET_LEVEL } from './fruits.js';
-import { FruitWorld } from './physics.js';
+import { FruitWorld, OVERFLOW_SECONDS } from './physics.js';
 import { drawSkinnedFruit, SKINS, skinFruitName } from './skins.js';
 import { GardenProgress, ACHIEVEMENTS } from './profile.js';
 import { GameSave } from './save-state.js';
@@ -146,8 +147,10 @@ const world = new FruitWorld({
   onBlast(removed){if(activeMode!=='science')recordCleanup(removed);},
   onDanger(value) {
     danger = value;
-    $('danger-message').hidden = value < .1;
-    if (value >= .1) $('danger-message').textContent = '과일이 MAX 선을 넘었어요';
+    $('danger-message').hidden = value<=0||!started;
+    const remaining=Math.max(0,Math.ceil(OVERFLOW_SECONDS*(1-value)-1e-7));
+    if($('overflow-countdown').textContent!==String(remaining))$('overflow-countdown').textContent=String(remaining);
+    $('danger-message').setAttribute('aria-label',`MAX 선 초과, ${remaining}초 남았어요`);
   },
   onGameOver() {
     gameAudio.setPlaying(false);
@@ -1313,9 +1316,11 @@ social = new GardenSocial({
   getMode:()=>selectedGame==='suika'?activeMode:hub?.controller().mode()||'classic',
   onError:error=>toast(error.message || '친구 기능에 연결하지 못했어요.'),
   onBeforeAccountChange:async({mode}={})=>{
+    await playerCloud?.syncTask;await playerCloud?.connectTask;
     await progressStore._queue;saveGame();hub?.arcade.save();hub?.growth.save();
+    if(social.user){await playerCloud.save({quiet:true});if(playerCloud.restoring)throw Error('최신 서버 기록을 불러오고 있어요. 잠시 후 다시 시도해 주세요.');}
     if(mode==='register'){
-      if(social.user?.isGuest){await playerCloud.save({quiet:true});if(playerCloud.conflict)throw Error('다른 기기의 서버 기록이 있어요. 내 기록에서 불러온 뒤 가입해 주세요.');}
+      if(playerCloud.conflict)throw Error('서버 기록을 확인하지 못했어요. 내 기록에서 다시 연결해 주세요.');
       return {snapshot:captureDevice(),saveVersion:social.user?.isGuest?playerCloud.version:0};
     }
   },
@@ -1325,6 +1330,7 @@ social = new GardenSocial({
     else await playerCloud.connect();
   },
   onNeedPlayer:()=>social.openAccount('login'),
+  onLogout:()=>playerCloud?.resetForGuest(),
   onUser:user=>{ $('account-open').textContent=user&&!user.isGuest?`☺ ${user.displayName}`:'로그인';$('signup-offer').hidden=!!user&&!user.isGuest;globalThis.dispatchEvent(new CustomEvent('garden-user',{detail:user})); },
   onRoom:async({room,joinedNew})=>{
     if (room && joinedNew) {if(room.game&&room.game!=='suika')globalThis.dispatchEvent(new CustomEvent('garden-room',{detail:room}));else{hub?.select('suika');await startGame({mode:room.mode,seed:room.seed});}}
@@ -1335,6 +1341,7 @@ $('friends-open').addEventListener('click',()=>social.openFriends());
 $('account-open').addEventListener('click',()=>social.openAccount('login'));
 $('friends-menu').addEventListener('click',()=>{social.openFriends();$('menu-dialog').close();});
 $('account-menu').addEventListener('click',()=>{social.openAccount('login');$('menu-dialog').close();});
+mountPromotion({openDialog,toast});
 $('records-menu').addEventListener('click',()=>{playerCloud?.open();$('menu-dialog').close();});
 $('signup-offer-button').addEventListener('click',()=>{social.openAccount('register');$('menu-dialog').close();});
 hub=createHub({

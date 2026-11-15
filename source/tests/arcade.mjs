@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { AppleRound, BlockRound, ArcadeStore, blockDragPlacement } from '../dist/arcade.js';
-import { FruitWorld } from '../dist/physics.js';
+import { FruitWorld, OVERFLOW_SECONDS } from '../dist/physics.js';
 import { GardenProgress } from '../dist/profile.js';
 const storage=new Map(),store={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)};
 const a=new AppleRound(42),same=new AppleRound(42);assert.deepEqual(a.cells,same.cells);
@@ -26,7 +26,7 @@ const failing=new ArcadeStore('blocks',{getItem:()=>null,setItem:()=>{throw Erro
 
 const fruits=[{radius:25,points:1},{radius:30,points:3}];
 const advance=(w,s)=>{for(let i=0;i<Math.ceil(s*120);i++)w.update(1/120);};
-const w=new FruitWorld({height:140,fruits});w.bodies=[w.makeBody(0,100,107,{age:2})];advance(w,.5);assert.equal(w.state,'playing');advance(w,.25);assert.equal(w.state,'over');
+const w=new FruitWorld({height:140,fruits});w.bodies=[w.makeBody(0,100,107,{age:2})];advance(w,.5);assert.equal(w.state,'playing');advance(w,OVERFLOW_SECONDS);assert.equal(w.state,'over');
 const settle=new FruitWorld({fruits});settle.bodies=[settle.makeBody(0,100,687,{angle:1.2,age:2})];advance(settle,2);assert(Math.abs(settle.bodies[0].angle-1.2)<.01,'resting fruit retains its actual orientation');
 const merge=new FruitWorld({fruits});merge.bodies=[merge.makeBody(0,100,78,{incoming:true,landed:false}),merge.makeBody(0,100,125)];advance(merge,.4);assert.equal(merge.state,'playing','newly merging airborne fruit has time to settle');
 const shake=new FruitWorld({height:140,fruits});shake.bodies=[shake.makeBody(0,100,107,{age:2})];assert(shake.shake());advance(shake,1);assert.equal(shake.state,'playing');assert(shake.bodies.every(x=>x.overflowTime===0));

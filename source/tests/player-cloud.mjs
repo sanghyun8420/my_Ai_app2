@@ -10,7 +10,7 @@ const clients=[];
 async function client(initial={}){
  const storage=makeStorage(initial),profile=new GardenProgress({storage});await profile.init();let cookie='',reloads=0;
  const fetcher=async(path,init={})=>{const headers=new Headers(init.headers);headers.set('Origin',origin);if(cookie)headers.set('Cookie',cookie);const response=await app(new Request(origin+path,{...init,headers}));const session=response.headers.get('set-cookie');if(session)cookie=session.split(';')[0];return response;};
- const social=new GardenSocial({document:null,location:new URL(origin),fetcher});await social.init();const cloud=new PlayerCloud({social,storage,document:null,reload:()=>reloads++});await cloud.init();clients.push(cloud);return {storage,profile,social,cloud,reloads:()=>reloads};
+ const social=new GardenSocial({document:null,location:new URL(origin),fetcher});await social.init();const cloud=new PlayerCloud({social,storage,document:null,autoGuest:false,autoRestore:false,reload:()=>reloads++});await cloud.init();clients.push(cloud);return {storage,profile,social,cloud,reloads:()=>reloads};
 }
 try{
  const a=await client({[GAME_KEYS.suika]:JSON.stringify({gems:50,bestScore:12000}),'suika-garden-best':'17111',[GAME_KEYS.apple]:JSON.stringify({gems:3,best:25}),[GAME_KEYS.blocks]:JSON.stringify({best:450}),unrelated:'keep'});

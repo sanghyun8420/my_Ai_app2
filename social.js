@@ -13,7 +13,7 @@ function socialError(message, code = 'REQUEST_FAILED', status = 0) {
 export class GardenSocial {
   constructor({
     onRoom = () => {}, onUser = () => {}, onError = () => {},
-    onBeforeAccountChange = async () => {}, onAfterAuthentication = async () => {}, onNeedPlayer, openDialog, getMode = () => 'classic',
+    onBeforeAccountChange = async () => {}, onAfterAuthentication = async () => {}, onLogout = () => {}, onNeedPlayer, openDialog, getMode = () => 'classic',
     fetcher, getGame=()=> 'suika', document: doc = globalThis.document, location = globalThis.location,
     navigator = globalThis.navigator, clock = () => Date.now(),
   } = {}) {
@@ -27,6 +27,7 @@ export class GardenSocial {
     this.onError = onError;
     this.onBeforeAccountChange = onBeforeAccountChange;
     this.onAfterAuthentication = onAfterAuthentication;
+    this.onLogout = onLogout;
     this.onNeedPlayer = onNeedPlayer;
     this.getMode = getMode;
     this.getGame=getGame;
@@ -112,14 +113,16 @@ export class GardenSocial {
     this._listen('room-leave', 'click', () => this.leaveRoom(), 'room-feedback');
   }
 
-  async _request(path, { method = 'GET', body } = {}) {
+  async _request(path, { method = 'GET', body, keepalive = false } = {}) {
     if (!this.fetcher) throw socialError('친구 서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.', 'OFFLINE');
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
     try {
+      const encoded = body === undefined ? undefined : JSON.stringify(body);
       const response = await this.fetcher(path, {
         method, credentials: 'same-origin', signal: controller.signal,
-        ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+        keepalive: !!keepalive && (encoded === undefined || new TextEncoder().encode(encoded).length < 60000),
+        ...(encoded === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: encoded }),
       });
       let payload;
       try { payload = response.status === 204 ? {} : await response.json(); }
@@ -262,6 +265,7 @@ export class GardenSocial {
     try {
       await this.onBeforeAccountChange({mode:'logout'});
       await this._request('/api/auth/logout', { method: 'POST', body: {} });
+      await this.onLogout();
       this.user = null;
       this._friends = [];
       this._setRoom(null);

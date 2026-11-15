@@ -2,7 +2,7 @@ import { SCIENCE_STAGES, scienceReaction } from './science.js';
 const WORLD_MODES=new Set(['classic','apple','free','water','space','watermelon','timed','challenge','science']);
 
 /** Small, deterministic circle solver used by the orchard game. */
-export const OVERFLOW_SECONDS = .7;
+export const OVERFLOW_SECONDS = 5;
 
 export class FruitWorld {
   constructor({ width = 600, height = 720, fruits, onMerge, onDanger, onGameOver,onBlast, random = Math.random, mode = 'classic' } = {}) {
@@ -65,7 +65,7 @@ export class FruitWorld {
         id: body.id, level: body.level, x: body.x, y: body.y,
         vx: body.vx, vy: body.vy, angle: body.angle, spin: body.spin, squash: body.squash,
         age: body.age, incoming: body.incoming, entered: body.entered, landed:body.landed,
-        overflowTime: 0,
+        overflowTime:Math.min(OVERFLOW_SECONDS,body.overflowTime||0),
         mergedTick: body.mergedTick, special: body.special,
       })),
     };
@@ -100,7 +100,7 @@ export class FruitWorld {
             typeof body.incoming !== 'boolean' || typeof body.entered !== 'boolean' || (body.incoming && body.entered) ||
             (body.landed!==undefined&&typeof body.landed!=='boolean') ||
             typeof body.special !== 'boolean' || (body.special && (mode==='science'||!(['apple','pear'].includes(fruits[body.level]?.id)||/사과|apple|^배$|pear/i.test(fruits[body.level]?.name||'')))) ||
-            !finite(body.age, 0, 1e9) || !finite(body.overflowTime, 0, legacy ? 3 : 2) ||
+            !finite(body.age, 0, 1e9) || !finite(body.overflowTime, 0, OVERFLOW_SECONDS) ||
             (!legacy && !finite(body.squash, 0, 1)) ||
             !finite(body.vx, -700, 700) || !finite(body.vy, -700, 1100) ||
             !finite(body.spin, -.8 - 1e-9, .8 + 1e-9) || !finite(body.angle, -1e6, 1e6) ||
@@ -119,7 +119,7 @@ export class FruitWorld {
           id: body.id, level: body.level, r, x, y,
           vx: body.vx, vy: body.vy, angle: body.angle, spin: body.spin, squash: legacy ? 0 : body.squash,
           age: body.age, incoming: body.incoming, entered: body.entered,landed:body.landed===undefined?!body.incoming:body.landed,
-          overflowTime: 0, mergedTick: body.mergedTick, special: body.special,
+          overflowTime:body.overflowTime||0, mergedTick: body.mergedTick, special: body.special,
         });
       }
       if (snapshot.nextId <= maxId) return false;
@@ -148,6 +148,8 @@ export class FruitWorld {
       return false;
     }
     Object.assign(this, restored);
+    if(this.overflowProtected)for(const body of this.bodies)body.overflowTime=0;
+    this.danger=this.state==='over'?1:Math.min(1,Math.max(0,...this.bodies.map(body=>body.overflowTime||0))/OVERFLOW_SECONDS);
     this.onDanger(this.danger);
     return true;
   }
@@ -319,7 +321,7 @@ export class FruitWorld {
     this.tick++;
     for (let step = 0; step < steps && this.state === 'playing'; step++) this.step(h);
     if (this.state !== 'playing') return;
-    if (!this.finishIfOverflowing()) this.onDanger(0);
+    this.finishIfOverflowing();
   }
 
   step(dt) {
@@ -471,7 +473,8 @@ export class FruitWorld {
     if(this.blast){const {x,y}=this.blast,radius=Number.isFinite(this.blast.radius)?Math.max(0,Math.min(1200,this.blast.radius)):250;const removed=this.bodies.filter(b=>Math.hypot(b.x-x,b.y-y)<=radius+b.r);this.bodies=this.bodies.filter(b=>!removed.includes(b));this.blast=null;this.protect(2,'revive');if(removed.length)this.onBlast(removed);}
     for(const body of this.bodies) body.overflowTime = !this.overflowProtected && this.crossesMax(body) ? (body.overflowTime||0)+dt : 0;
     const warning = Math.max(0,...this.bodies.map(body=>(body.overflowTime||0)/OVERFLOW_SECONDS));
-    this.onDanger(Math.min(1,warning));
+    this.danger=Math.min(1,warning);
+    this.onDanger(this.danger);
     this.finishIfOverflowing();
   }
 
