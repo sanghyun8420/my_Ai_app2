@@ -44,6 +44,62 @@ body main .game-layout .tool-effects-status:not(:empty){min-height:0;margin:3px 
 body main .current-score #garden-buddy{right:2px;left:auto;bottom:calc(100% - 29px);width:70px;height:80px}
 body main .current-score .buddy-bubble{right:-75px;bottom:74px;max-width:210px}
 
+/* Named, reachable entry points replace icon-only navigation and hidden logo taps. */
+body .site-header{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:7px 12px;padding:8px 16px;min-height:0}
+body .site-header .brand-wrap{padding:0;min-width:0}
+body .site-header .brand{font-size:22px;gap:6px;letter-spacing:-1px}
+body .site-header .brand img{width:32px;height:32px}
+body .site-header .header-right{grid-column:2;grid-row:1;gap:6px}
+body .site-header .header-right .account-button{display:inline-flex;max-width:140px;min-height:34px;padding:6px 9px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body .site-header .header-right .friends-button{min-width:68px;height:34px;min-height:34px;padding:0 7px;font-size:11px}
+body .site-header .header-right .friends-button svg{width:20px;height:20px;min-width:20px}
+body .site-header .header-right .menu-button{width:34px;height:34px;min-height:34px}
+.discovery-nav{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;width:100%}
+.discovery-nav .shortcut-button{position:relative;display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;min-height:44px;width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:11px;background:var(--card);color:var(--ink);font-size:13px;font-weight:750;white-space:nowrap}
+.discovery-nav .shortcut-button svg{display:block;width:21px;height:21px;min-width:21px;fill:none;color:var(--green)}
+.discovery-nav .shortcut-button small{display:inline-grid;place-items:center;border-radius:5px;background:var(--green);color:var(--card);font-size:9px;min-width:14px;height:16px}
+.discovery-nav .shop-button{background:var(--orange-soft);border-color:var(--orange)}
+.discovery-nav .games-button{background:var(--card-soft)}
+.discovery-nav .shortcut-button:hover{border-color:var(--green);filter:brightness(.98)}
+.rank-me{background:var(--card-soft);border-radius:9px;padding:8px}
+#ranking-mine{padding:10px 12px;margin:12px 0;border:1px solid var(--line);border-radius:10px;background:var(--card-soft);font-size:12px;font-weight:700}
+.rank-games button[aria-pressed=true]{background:var(--green);color:var(--card)}
+@media(max-width:640px){
+ body .site-header{padding:6px 9px;gap:6px}
+ body .site-header .brand{font-size:18px;gap:4px}
+ body .site-header .brand img{width:27px;height:27px}
+ body .site-header .header-right{gap:4px}
+ body .site-header .header-right .account-button{max-width:100px;font-size:10px;padding:5px 7px}
+ .discovery-nav{gap:5px}
+ .discovery-nav .shortcut-button{flex-direction:column;gap:3px;min-height:51px;padding:5px 3px;font-size:11px;border-radius:9px}
+ .discovery-nav .shortcut-button svg{width:19px;height:19px;min-width:19px}
+ .discovery-nav .shortcut-button small{position:absolute;top:5px;right:6px;min-width:12px;height:13px;font-size:8px}
+}
+@media(min-width:960px){
+ body .site-header{grid-template-columns:auto minmax(0,1fr) auto;gap:24px;min-height:66px}
+ body .site-header .header-right{grid-column:3}
+ .discovery-nav{grid-row:1;grid-column:2;max-width:640px;justify-self:center}
+}
+@media(max-width:360px){
+ body .site-header .brand{font-size:16px}
+ body .site-header .brand img{width:24px;height:24px}
+ body .site-header .brand-chevron{font-size:11px}
+ body .site-header .header-right .friends-button{min-width:57px;font-size:10px;padding:0 4px;gap:3px}
+ body .site-header .header-right .account-button{max-width:80px;padding:5px;font-size:9px}
+}
+@media(max-height:480px) and (orientation:landscape){
+ body .site-header{padding-top:3px;padding-bottom:3px;gap:3px}
+ .discovery-nav .shortcut-button{min-height:34px;font-size:11px;padding:3px 7px}
+}
+@media(max-height:640px) and (orientation:portrait){
+ body main .game-layout .play-column{padding-top:24px}
+ body main .game-layout .score-cell{height:44px;min-height:44px;max-height:44px}
+ body main .current-score #garden-buddy{width:60px;height:68px;bottom:calc(100% - 25px)}
+ body main .game-layout .tool-slot{min-height:66px}
+ body main .game-layout .tool-slot .tool-action{min-height:40px}
+ body main .game-layout .tool-foot{min-height:26px}
+}
+
 body main .game-layout[data-arrangement=wide] .play-column{grid-template-columns:minmax(0,1fr) var(--tools-width)!important;grid-template-areas:'score tools' 'status tools' 'next tools' 'room tools' 'basket tools';column-gap:12px!important}
 body main .game-layout[data-arrangement=wide] .toolbelt{margin-top:0}
 body main .game-layout[data-arrangement=wide] .toolbelt-grid{grid-template-columns:1fr!important;gap:8px}

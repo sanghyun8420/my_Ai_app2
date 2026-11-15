@@ -5,7 +5,7 @@ const ITERATIONS = 100000;
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const MAX_SCORE = 100000000;
 const GAMES = new Set(['suika','apple','blocks']);
-const MODES = new Set(['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge', 'science']);
+const MODES = new Set(['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge', 'science', 'zoo']);
 const EXTERNAL_GAME_ORIGINS = new Set(['https://sanghyun8420.github.io']);
 const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), {
   status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers },
@@ -164,9 +164,20 @@ async function route(request, env) {
   if(path==='/api/leaderboard'&&method==='GET'){
     const game=new URL(request.url).searchParams.get('game')||'suika';
     if(!GAMES.has(game))fail(400,'INVALID_GAME','게임을 확인해 주세요.');
-    const scores=game==='suika'?await rows(stmt(db,'SELECT a.id,a.display_name AS displayName,MAX(a.best_score,COALESCE(g.best_score,0)) AS score FROM garden_accounts a LEFT JOIN garden_game_scores g ON g.account_id=a.id AND g.game=? WHERE MAX(a.best_score,COALESCE(g.best_score,0))>0 ORDER BY score DESC,a.id LIMIT 50',game)):
-      await rows(stmt(db,'SELECT a.id,a.display_name AS displayName,g.best_score AS score FROM garden_game_scores g JOIN garden_accounts a ON a.id=g.account_id WHERE g.game=? AND g.best_score>0 ORDER BY g.best_score DESC,a.id LIMIT 50',game));
-    return json({game,scores,notice:'클라이언트 제출 기록 · 기기 점수는 검증되지 않습니다.'});
+    // Accounts participate automatically, including zero scores. Keep positive
+    // guest records, but never fill the board with auto-created empty guests.
+    const recordKey={suika:'suika-garden-profile-v3',apple:'garden-arcade-apple-v1',blocks:'garden-arcade-blocks-v1'}[game];
+    const scoreField=game==='suika'?'bestScore':'best';
+    const canonicalScore=`COALESCE(json_extract(json_extract(c.payload,'$.values."garden-economy-v1"'),'$.records."${recordKey}".${scoreField}'),0)`;
+    const legacyText=`json_extract(c.payload,'$.values."${game==='suika'?'suika-garden-best':recordKey}"')`;
+    const legacyScore=game==='suika'?`COALESCE(${legacyText},0)`:`CASE WHEN json_valid(${legacyText}) THEN COALESCE(json_extract(${legacyText},'$.best'),0) ELSE 0 END`;
+    const cloudScore=`MIN(${MAX_SCORE},MAX(0,CAST(${canonicalScore} AS INTEGER),CAST(${legacyScore} AS INTEGER)))`;
+    const base=`SELECT a.id,a.display_name AS displayName,MAX(${game==='suika'?'a.best_score':'0'},COALESCE(g.best_score,0),${cloudScore}) AS score,NOT EXISTS(SELECT 1 FROM garden_guest_keys k WHERE k.account_id=a.id) AS registered FROM garden_accounts a LEFT JOIN garden_game_scores g ON g.account_id=a.id AND g.game=? LEFT JOIN garden_cloud_saves c ON c.account_id=a.id`;
+    const ranked=`SELECT id,displayName,score,ROW_NUMBER() OVER(ORDER BY score DESC,id) AS rank FROM (${base}) WHERE score>0 OR registered=1`;
+    const scores=await rows(stmt(db,`SELECT * FROM (${ranked}) ORDER BY rank LIMIT 50`,game));
+    const viewer=await optionalAccount(request,db);
+    const me=viewer?(scores.find(row=>row.id===viewer.id)||await stmt(db,`SELECT * FROM (${ranked}) WHERE id=?`,game,viewer.id).first()):null;
+    return json({game,scores,me:me||null,notice:'계정은 자동 참여 · 기본 게임 최고점수 · 플레이어 제출 기록'});
   }
   if (method === 'POST') checkOrigin(request);
   if(path==='/api/guest'&&method==='POST'){

@@ -1,3 +1,4 @@
+import {ZOO_STAGES,drawAnimal} from './zoo.js';
 import { mountPromotion } from './promotion.js';
 import { SCIENCE_STAGES, drawScience, drawScienceBackground, drawSupernova } from './science.js';
 import { FRUITS, drawFruit, APPLE_LEVEL,PEAR_LEVEL, WATERMELON_LEVEL, SECRET_LEVEL } from './fruits.js';
@@ -25,6 +26,7 @@ const canvas = $('game-canvas');
 const ctx = canvas.getContext('2d');
 const WIDTH = 600, HEIGHT = 720;
 const MODES = [
+  {id:'zoo',name:'동물원',icon:'🐹',description:'햄스터 + 햄스터 → 고양이 → 강아지! 15단계 고래까지 합쳐요.'},
   {id:'science',name:'과학 정원',icon:'⚗️',description:'2H + O → H₂O. 물 이후는 우주 테마 성장! 마지막은 초신성 폭발.'},
   {id:'watermelon',name:'수박 파티',icon:'🍉',description:'수박부터 시작해 비밀 과일까지!'},
   {id:'timed',name:'120초 정원',icon:'⏱',description:'120초 동안 가장 높은 점수에 도전해요.'},
@@ -99,6 +101,7 @@ const world = new FruitWorld({
     updateScore();
     const { x, y, level, points, combo, specialMerged } = event;
     if(activeMode==='science'){scienceMerge(event);return;}
+    if(activeMode==='zoo'){zooMerge(event);return;}
     if(currentSkin==='royalGem'){const coinBonus=level>=10?10:1;progressStore.creditGemMerge(event.mergeId,coinBonus).then(credited=>{if(credited)floaters.push({x,y:y-65,text:'🪙 +'+coinBonus,life:1.2});}).catch(error=>toast(error.message));}
     if(level===FRUITS.length-1){world.blast={x,y};for(let i=0;i<60;i++){const a=i*Math.PI/30;particles.push({x,y,vx:Math.cos(a)*240,vy:Math.sin(a)*240,life:1.5,maxLife:1.5,color:`hsl(${i*6} 75% 62%)`,r:3+i%5});}}
     const celebrate=level>=WATERMELON_LEVEL&&!celebratedLevels.has(level);
@@ -166,9 +169,16 @@ const world = new FruitWorld({
     if (social?.user && activeMode==='classic') social.saveScore(world.score,activeMode).catch(error=>toast(error.message));
   },
 });
-function definitions(){return activeMode==='science'?SCIENCE_STAGES:FRUITS;}
-function tokenName(level){return activeMode==='science'?SCIENCE_STAGES[level].name:skinFruitName(level,currentSkin);}
-function drawToken(c,level,x,y,r,angle=0,alpha=1,special=false,time=0){if(activeMode==='science')drawScience(c,level,x,y,r,angle,alpha,time);else drawSkinnedFruit(c,level,x,y,r,angle,alpha,special,time,currentSkin);}
+function definitions(){return activeMode==='science'?SCIENCE_STAGES:activeMode==='zoo'?ZOO_STAGES:FRUITS;}
+function tokenName(level){return activeMode==='science'?SCIENCE_STAGES[level].name:activeMode==='zoo'?ZOO_STAGES[level].name:skinFruitName(level,currentSkin);}
+function drawToken(c,level,x,y,r,angle=0,alpha=1,special=false,time=0){if(activeMode==='science')drawScience(c,level,x,y,r,angle,alpha,time);else if(activeMode==='zoo')drawAnimal(c,level,x,y,r,angle,alpha);else drawSkinnedFruit(c,level,x,y,r,angle,alpha,special,time,currentSkin);}
+function zooMerge(event){
+  const {level,x,y,points,combo}=event,animal=ZOO_STAGES[level];maxLevel=Math.max(maxLevel,level);renderEvolution();
+  floaters.push({x,y:y-animal.radius,text:combo>1?`+${points} · ${combo} COMBO`:`${animal.name} +${points}`,life:1.2});
+  playSound(level===14?'special':'merge',level);$('game-status').textContent=animal.name+' 친구가 왔어요';
+  if(!reducedMotion)for(let i=0;i<14;i++){const a=i*Math.PI/7;particles.push({x,y,vx:Math.cos(a)*85,vy:Math.sin(a)*85-40,life:.9,maxLife:.9,color:animal.color,r:2+i%3});}
+  if(level===14&&!celebratedLevels.has(14)){celebratedLevels.add(14);toast('15단계 고래 완성! 동물원의 가장 큰 친구를 만났어요 🐋',4000);}
+}
 function scienceMerge(event){
   const {level,x,y,points,combo}=event;scienceDiscovered.add(level);maxLevel=Math.max(maxLevel,level);renderEvolution();
   const stage=SCIENCE_STAGES[level];floaters.push({x,y:y-stage.radius,text:stage.label.replaceAll('₂','2')+' +'+points,life:1.2});playSound(level===13?'special':'merge',level);
@@ -197,7 +207,7 @@ function fruitIcon(level, size = 64, special = false) {
 function renderEvolution() {
   $('evolution-grid').replaceChildren();
   definitions().forEach((fruit, level) => {
-  const locked=activeMode==='science'?level>1&&!scienceDiscovered.has(level):level>=10&&!discoveredLevels.has(level);
+  const locked=activeMode==='science'?level>1&&!scienceDiscovered.has(level):activeMode==='zoo'?false:level>=10&&!discoveredLevels.has(level);
   const cell = document.createElement('div');
   cell.className = 'evo-fruit';
   if (level === maxLevel && maxLevel > 0) cell.classList.add('active');
@@ -209,18 +219,19 @@ function renderEvolution() {
   cell.append(number,label);
   $('evolution-grid').append(cell);
   });
-  document.querySelector('.evolution-rail .section-heading h2').textContent=activeMode==='science'?'발견한 물질':'발견한 과일';
-  $('evolution-grid').setAttribute('aria-label',activeMode==='science'?'발견한 물질과 별 단계':'발견한 과일 모음');
-  $('goal-label').textContent = activeMode==='science'?'마지막 목표 · 초신성 폭발':secretDiscovered ? '용과 너머 태양의 열매까지' : '수박 다음엔 어떤 과일이?';
+  document.querySelector('.evolution-rail .section-heading h2').textContent=activeMode==='science'?'발견한 물질':activeMode==='zoo'?'동물 15단계':'발견한 과일';
+  $('evolution-grid').setAttribute('aria-label',activeMode==='science'?'발견한 물질과 별 단계':activeMode==='zoo'?'햄스터부터 고래까지 15단계 동물':'발견한 과일 모음');
+  $('goal-label').textContent = activeMode==='science'?'마지막 목표 · 초신성 폭발':activeMode==='zoo'?'햄스터 → 고양이 → 강아지 · 마지막은 고래':secretDiscovered ? '용과 너머 태양의 열매까지' : '수박 다음엔 어떤 과일이?';
 }
 
 function recordDiscovery(level){
+  if(activeMode==='zoo')return;
   if(activeMode==='science'){if(!scienceDiscovered.has(level)){scienceDiscovered.add(level);renderEvolution();}return;}
   if(discoveredLevels.has(level))return;
   discoveredLevels.add(level);checkpointDirty=true;saveDirty=true;renderEvolution();
 }
 
-function runExtras(){return activeMode==='science'?{specialShakeRewards:0,specialPearsCleared:0,discoveredLevels:[]}:{specialShakeRewards,specialPearsCleared,discoveredLevels:[...discoveredLevels]};}
+function runExtras(){return ['science','zoo'].includes(activeMode)?{specialShakeRewards:0,specialPearsCleared:0,discoveredLevels:[]}:{specialShakeRewards,specialPearsCleared,discoveredLevels:[...discoveredLevels]};}
 renderEvolution();
 
 function drawWelcome() {
@@ -340,8 +351,8 @@ function drop() {
     dropCount++;
     activeLevel = nextLevel;
     activeSpecial = nextSpecial;
-    const appleBonus=!['watermelon','science'].includes(activeMode)&&(dropCount+2)%20===0;
-    const pearBonus=!['apple','watermelon','science'].includes(activeMode)&&(dropCount+2)%5===4&&!appleBonus;
+    const appleBonus=!['watermelon','science','zoo'].includes(activeMode)&&(dropCount+2)%20===0;
+    const pearBonus=!['apple','watermelon','science','zoo'].includes(activeMode)&&(dropCount+2)%5===4&&!appleBonus;
     nextSpecial=appleBonus||pearBonus;nextLevel=pearBonus?PEAR_LEVEL:appleBonus?APPLE_LEVEL:randomFruit();
     const radius = definitions()[activeLevel].radius;
     aimX = Math.max(radius + 8, Math.min(WIDTH - radius - 8, aimX));
@@ -523,7 +534,7 @@ function updateGemProgress() {
   const pendingPears=started&&!roundCredited&&!progressStore.pendingRun?.finished?Math.max(0,specialPearsCleared-(progressStore.pendingRun?.creditedSpecialPears||0)):0;
   const pearCount=progressStore.profile.specialPearsCleared+pendingPears;
   $('pear-progress').textContent=`🍐 ${pearCount%3}/3`;
-  $('pear-progress').hidden=activeMode==='science';
+  $('pear-progress').hidden=['science','zoo'].includes(activeMode);
   $('pear-progress').setAttribute('aria-label',`특별 배 ${pearCount%3}개 수집,3개마다 보석 1~5개`);
   $('coin-count').title='수박 동전 · 도구와 이어하기에 사용';
 }
@@ -809,14 +820,15 @@ function updateModeLabel() {
   $('mode-label').textContent = `${mode.icon} ${mode.name}`;
   $('mode-record-note').hidden=activeMode==='classic';
   document.body.dataset.mode = activeMode;
+  document.querySelector('.next-label h2').textContent=activeMode==='science'?'다음 원자':activeMode==='zoo'?'다음 동물':'다음 과일';
   $('science-recipe').hidden=activeMode!=='science';
-  document.querySelector('.next-card').setAttribute('aria-label',activeMode==='science'?'다음 원자':'다음 과일');
+  document.querySelector('.next-card').setAttribute('aria-label',activeMode==='science'?'다음 원자':activeMode==='zoo'?'다음 동물':'다음 과일');
 }
 
 function renderModes() {
   $('mode-grid').replaceChildren();
   MODES.forEach(mode => {
-    const unlocked = ['science','watermelon','timed','challenge'].includes(mode.id)||preferences.unlockedModes.includes(mode.id);
+    const unlocked = ['science','watermelon','timed','challenge','zoo'].includes(mode.id)||preferences.unlockedModes.includes(mode.id);
     const button = document.createElement('button'); button.type = 'button'; button.className = 'mode-card';
     button.classList.toggle('mode-selected', activeMode === mode.id); button.disabled = !unlocked;
     const icon = document.createElement('span'); icon.textContent = mode.icon;
@@ -1258,6 +1270,7 @@ function render(dt) {
 }
 
 function drawModeBackground() {
+  if(activeMode==='zoo'){ctx.save();ctx.globalAlpha=.12;ctx.strokeStyle='#65987c';ctx.lineWidth=2;for(let i=0;i<12;i++){const x=(i*127+46)%WIDTH,y=(i*139+100)%HEIGHT;ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.stroke();for(const [dx,dy]of[[-9,-11],[0,-15],[9,-11]]){ctx.beginPath();ctx.arc(x+dx,y+dy,3,0,Math.PI*2);ctx.stroke();}}ctx.restore();}
   if(activeMode==='science')drawScienceBackground(ctx,WIDTH,HEIGHT,reducedMotion?0:animationTime);
   if (activeMode==='space') {
     ctx.save();

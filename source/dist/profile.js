@@ -8,8 +8,8 @@ const PRICES = Object.freeze(Object.fromEntries(SKIN_CATALOG.map(item => [item.i
 const ITEM_LIMIT = 999;
 const RECEIPT_LIMIT = 32;
 const REVIVAL_COST = 10;
-const RUN_MODES = new Set(['classic','apple','free','water','space','watermelon','timed','challenge','science']);
-const SPECIAL_MODES = ['apple','free','water','space','watermelon','timed','challenge','science'];
+const RUN_MODES = new Set(['classic','apple','free','water','space','watermelon','timed','challenge','science','zoo']);
+const SPECIAL_MODES = ['apple','free','water','space','watermelon','timed','challenge','science','zoo'];
 const REMOVED_TOOL_PRICES = { magnet: 10, swap: 6, freeze: 8 };
 
 export const ACHIEVEMENTS = Object.freeze([
@@ -298,7 +298,8 @@ export class GardenProgress {
     }
     const { specialShakeRewards,specialPearsCleared, discoveredLevels } = runExtras(extras);
     const run = this.pendingRun;
-    if(specialPearsCleared>mergedFruits||(run.mode==='science'&&specialPearsCleared>0)||specialPearsCleared-(run.creditedSpecialPears||0)>300000)throw progressError('특별 배 기록을 확인해 주세요.','INVALID_RUN');
+    if(run.mode==='zoo'&&(specialShakeRewards||specialPearsCleared||discoveredLevels.length))throw progressError('동물원 기록에 과일 보상을 섞을 수 없어요.','INVALID_RUN');
+    if(specialPearsCleared>mergedFruits||(['science','zoo'].includes(run.mode)&&specialPearsCleared>0)||specialPearsCleared-(run.creditedSpecialPears||0)>300000)throw progressError('특별 배 기록을 확인해 주세요.','INVALID_RUN');
     // A restored board can be older than the durable wallet checkpoint. Keep
     // its high-water mark so those same fruit never count twice.
     const consumed = Math.max(run.creditedFruits, mergedFruits);

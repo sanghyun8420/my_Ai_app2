@@ -1,5 +1,6 @@
+import {ZOO_STAGES} from './zoo.js';
 import { SCIENCE_STAGES, scienceReaction } from './science.js';
-const WORLD_MODES=new Set(['classic','apple','free','water','space','watermelon','timed','challenge','science']);
+const WORLD_MODES=new Set(['classic','apple','free','water','space','watermelon','timed','challenge','science','zoo']);
 
 /** Small, deterministic circle solver used by the orchard game. */
 export const OVERFLOW_SECONDS = 5;
@@ -12,7 +13,7 @@ export class FruitWorld {
     this.maxLine = 90;
     this.baseFruits = fruits;
     this.mode = WORLD_MODES.has(mode) ? mode : 'classic';
-    this.fruits = this.mode==='science'?SCIENCE_STAGES:fruits;
+    this.fruits = this.mode==='science'?SCIENCE_STAGES:this.mode==='zoo'?ZOO_STAGES:fruits;
     this.random = typeof random === 'function' ? random : Math.random;
     this.onMerge = onMerge || (() => {});
     this.onBlast = onBlast || (() => {});
@@ -82,7 +83,7 @@ export class FruitWorld {
       const legacy = snapshot.version === 1;
       if (legacy ? snapshot.width !== 520 || snapshot.height !== 650 : snapshot.width !== this.width || snapshot.height !== this.height) return false;
       const mode = legacy ? 'classic' : snapshot.mode;
-      const fruits=mode==='science'?SCIENCE_STAGES:this.baseFruits;
+      const fruits=mode==='science'?SCIENCE_STAGES:mode==='zoo'?ZOO_STAGES:this.baseFruits;
       if (!WORLD_MODES.has(mode) ||
           !finite(snapshot.time, 0, 1e9) || !counter(snapshot.score) || !counter(snapshot.combo) || !counter(snapshot.tick) || !counter(snapshot.nextId, 1) ||
           !['playing', 'paused', 'over'].includes(snapshot.state) || !Array.isArray(snapshot.bodies) || snapshot.bodies.length > 300 ||
@@ -99,7 +100,7 @@ export class FruitWorld {
         if (!record(body) || !counter(body.id, 1) || ids.has(body.id) || !Number.isInteger(body.level) || body.level < 0 || body.level >= fruits.length || !fruits[body.level] ||
             typeof body.incoming !== 'boolean' || typeof body.entered !== 'boolean' || (body.incoming && body.entered) ||
             (body.landed!==undefined&&typeof body.landed!=='boolean') ||
-            typeof body.special !== 'boolean' || (body.special && (mode==='science'||!(['apple','pear'].includes(fruits[body.level]?.id)||/사과|apple|^배$|pear/i.test(fruits[body.level]?.name||'')))) ||
+            typeof body.special !== 'boolean' || (body.special && (['science','zoo'].includes(mode)||!(['apple','pear'].includes(fruits[body.level]?.id)||/사과|apple|^배$|pear/i.test(fruits[body.level]?.name||'')))) ||
             !finite(body.age, 0, 1e9) || !finite(body.overflowTime, 0, OVERFLOW_SECONDS) ||
             (!legacy && !finite(body.squash, 0, 1)) ||
             !finite(body.vx, -700, 700) || !finite(body.vy, -700, 1100) ||
@@ -172,7 +173,7 @@ export class FruitWorld {
 
   setMode(id) {
     if (!WORLD_MODES.has(id)) return false;
-    const fruits=id==='science'?SCIENCE_STAGES:this.baseFruits;
+    const fruits=id==='science'?SCIENCE_STAGES:id==='zoo'?ZOO_STAGES:this.baseFruits;
     if(this.bodies.some(body=>!fruits[body.level]))return false;
     this.mode = id;this.fruits=fruits;
     for(const body of this.bodies){body.r=fruits[body.level].radius;body.special=(this.isApple(body.level)||this.isPear(body.level))&&body.special===true;this.bound(body,0,false);}
@@ -225,13 +226,13 @@ export class FruitWorld {
   }
 
   isApple(level) {
-    if(this.mode==='science')return false;
+    if(['science','zoo'].includes(this.mode))return false;
     const fruit = this.fruits[level];
     return fruit?.id === 'apple' || /사과|apple/i.test(fruit?.name || '');
   }
 
   isPear(level) {
-    if(this.mode==='science')return false;
+    if(['science','zoo'].includes(this.mode))return false;
     const fruit=this.fruits[level];return fruit?.id==='pear'||/^배$|pear/i.test(fruit?.name||'');
   }
 

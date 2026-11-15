@@ -1,7 +1,7 @@
 const SAVE_KEY = 'suika-garden-run-v1';
 const SAVE_VERSION = 2;
 const READ_VERSIONS = new Set([1, 2]);
-const MODES = new Set(['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge', 'science']);
+const MODES = new Set(['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge', 'science', 'zoo']);
 const MAX_BYTES = 512 * 1024;
 const MAX_COUNTER = 10_000_000;
 const MAX_DATE = 8_640_000_000_000_000;
@@ -56,28 +56,30 @@ function knownRecord(value, savedAt) {
   if (!required.every(key => Object.hasOwn(value, key))) throw saveError('저장된 게임 정보가 부족해요.');
   if (typeof value.runId !== 'string' || !value.runId.trim() || value.runId.length > 128) throw saveError('저장된 게임 번호가 올바르지 않아요.');
   if (!integer(savedAt, 0, MAX_DATE)) throw saveError('저장된 게임 시간이 올바르지 않아요.');
+  const mode=value.mode===undefined?'classic':value.mode;
+  const maximum=mode==='zoo'?14:13;
   const world = value.world;
   if (!plainObject(world) || !READ_VERSIONS.has(world.version) || !Array.isArray(world.bodies) || world.bodies.length > 300 ||
       !integer(world.score) || !finiteNumber(world.time) || !['playing', 'paused', 'over'].includes(world.state)) {
     throw saveError('저장된 게임판 정보가 올바르지 않아요.');
   }
   if (!finiteNumber(value.aimX, 8, 592) || !integer(value.shakes, 0, 5) || !finiteNumber(value.shakeReadyAt)) throw saveError('저장된 조작 정보가 올바르지 않아요.');
-  if (!COUNTERS.every(key => integer(value[key], 0, MAX_COUNTER)) || !FLAGS.every(key => typeof value[key] === 'boolean') || !LEVELS.every(key => integer(value[key], 0, 13))) throw saveError('저장된 게임 진행 정보가 올바르지 않아요.');
+  if (!COUNTERS.every(key => integer(value[key], 0, MAX_COUNTER)) || !FLAGS.every(key => typeof value[key] === 'boolean') || !LEVELS.every(key => integer(value[key], 0, maximum))) throw saveError('저장된 게임 진행 정보가 올바르지 않아요.');
   if ((value.activeSpecial && ![4,5].includes(value.activeLevel)) || (value.nextSpecial && ![4,5].includes(value.nextLevel))) throw saveError('저장된 특별 과일 정보가 올바르지 않아요.');
-  const mode = value.mode === undefined ? 'classic' : value.mode;
   const seedState = value.seedState === undefined ? 0 : value.seedState;
   const totalShakes = value.totalShakes === undefined ? 0 : value.totalShakes;
   if (!MODES.has(mode) || !integer(seedState, 0, 0xffffffff) || !integer(totalShakes, 0, MAX_COUNTER)) throw saveError('저장된 게임 모드 정보가 올바르지 않아요.');
   const specialShakeRewards = value.specialShakeRewards === undefined ? 0 : value.specialShakeRewards;
   const specialPearsCleared=value.specialPearsCleared??0;
   if(!integer(specialPearsCleared,0,MAX_COUNTER)||specialPearsCleared>value.roundCleared)throw saveError('저장된 특별 배 정보가 올바르지 않아요.');
+  if(mode==='zoo'&&(value.activeSpecial||value.nextSpecial||specialPearsCleared||specialShakeRewards))throw saveError('동물원에는 특별 과일을 저장할 수 없어요.');
   const discovered = value.discoveredLevels === undefined ? [] : value.discoveredLevels;
   if (!integer(specialShakeRewards, 0, MAX_COUNTER) || !Array.isArray(discovered) || !Array.from(discovered).every(level => integer(level, 0, 13))) throw saveError('저장된 과일 발견 정보가 올바르지 않아요.');
   const discoveredLevels = [...new Set(discovered)].sort((a, b) => a - b);
   // Older rounds already showed each milestone they reached. Keep that history
   // within this round; a fresh round supplies an empty list instead.
-  const celebrated=value.celebratedLevels===undefined?Array.from({length:Math.max(0,value.maxLevel-8)},(_,i)=>i+9):value.celebratedLevels;
-  if(!Array.isArray(celebrated)||celebrated.length>5||!celebrated.every(level=>integer(level,9,13)))throw saveError('저장된 과일 축하 기록이 올바르지 않아요.');
+  const celebrated=value.celebratedLevels===undefined&&mode==='zoo'?[]:value.celebratedLevels===undefined?Array.from({length:Math.max(0,value.maxLevel-8)},(_,i)=>i+9):value.celebratedLevels;
+  if(!Array.isArray(celebrated)||celebrated.length>(mode==='zoo'?15:5)||!celebrated.every(level=>integer(level,mode==='zoo'?0:9,maximum)))throw saveError('저장된 과일 축하 기록이 올바르지 않아요.');
   const celebratedLevels=[...new Set(celebrated)].sort((a,b)=>a-b);
   const deadlines = value.toolReadyAt === undefined ? {} : value.toolReadyAt;
   if (!plainObject(deadlines)) throw saveError('저장된 아이템 대기시간이 올바르지 않아요.');

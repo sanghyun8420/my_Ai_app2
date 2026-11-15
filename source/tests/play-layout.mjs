@@ -3,8 +3,8 @@ import { fitBasketSize, playArrangement, mountPlayLayout } from '../dist/play-la
 
 const viewports=[[320,568],[360,640],[390,700],[390,844],[430,932],[768,1024],[820,1180],[1024,768],[1280,720],[1440,900],[1920,1080],[568,320],[667,375],[844,390],[1024,500]];
 for (const [width,height] of viewports) {
-  const mode=playArrangement(width,height),header=mode==='landscape'?54:64;
-  const overhead=mode==='stack'?46+48+18+34+94+20:mode==='wide'?46+48+18+34+16:0;
+  const mode=playArrangement(width,height),header=mode==='landscape'?80:width>=960?66:104;
+  const overhead=mode==='stack'?(height<=640?24+44+18+34+90+20:46+48+18+34+94+20):mode==='wide'?46+48+18+34+16:0;
   const tools=mode==='wide'?180:mode==='landscape'?232:0;
   const rail=mode==='stack'?(width<=640?38:54):mode==='wide'?54:36;
   const room=mode==='landscape'?0:32;
@@ -31,7 +31,7 @@ const rows=new Map([['.score-band',score],['.board-top',status],['.next-card',ne
 const main={clientWidth:390,computed:{paddingLeft:'10px',paddingRight:'10px'}};
 const play={computed:{paddingTop:'46px',rowGap:'4px'},querySelector:key=>rows.get(key)};
 const properties=new Map(),layout={parentElement:main,hidden:false,dataset:{},querySelector:()=>play,style:{getPropertyValue:key=>properties.get(key)||'',setProperty:(key,value)=>properties.set(key,value)}};
-const header=element(64);
+const header=element(104);
 globalThis.document={documentElement:{clientWidth:390},body:{dataset:{game:'suika'}},querySelector:key=>key==='.game-layout'?layout:header};
 globalThis.innerHeight=844;
 globalThis.visualViewport={height:700,addEventListener:(key,fn)=>viewportEvents.set(key,fn)};

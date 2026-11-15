@@ -1,5 +1,5 @@
 import {createSessionFetcher} from './api-session.js';
-const MODES = new Set(['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge', 'science']);
+const MODES = new Set(['classic', 'apple', 'free', 'water', 'space', 'watermelon', 'timed', 'challenge', 'science', 'zoo']);
 const ROOM_CODE = /^[A-Z0-9]{6,10}$/;
 const USERNAME = /^[A-Za-z0-9_]{3,20}$/;
 
