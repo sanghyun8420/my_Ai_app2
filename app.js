@@ -65,6 +65,7 @@ let started = false, activeLevel = 0, nextLevel = 0, aimX = WIDTH / 2;
 let shakeReadyAt = 0, danger = 0, lastFrame = 0;
 let specialShakeRewards=0,specialPearsCleared=0;
 const discoveredLevels=new Set();
+const celebratedLevels=new Set();
 const TOOL_COOLDOWNS = { eraser:1, calm:5 };
 let toolReadyAt = Object.fromEntries(Object.keys(TOOL_COOLDOWNS).map(id => [id, 0]));
 let activeSpecial = false, nextSpecial = false, dropCount = 0, itemCount = 0;
@@ -101,7 +102,9 @@ const world = new FruitWorld({
     if(activeMode==='science'){scienceMerge(event);return;}
     if(currentSkin==='royalGem'){const coinBonus=level>=10?10:1;progressStore.creditGemMerge(event.mergeId,coinBonus).then(credited=>{if(credited)floaters.push({x,y:y-65,text:'🪙 +'+coinBonus,life:1.2});}).catch(error=>toast(error.message));}
     if(level===FRUITS.length-1){world.blast={x,y};for(let i=0;i<60;i++){const a=i*Math.PI/30;particles.push({x,y,vx:Math.cos(a)*240,vy:Math.sin(a)*240,life:1.5,maxLife:1.5,color:`hsl(${i*6} 75% 62%)`,r:3+i%5});}}
-    hub?.merge(event);
+    const celebrate=level>=WATERMELON_LEVEL&&!celebratedLevels.has(level);
+    if(celebrate)celebratedLevels.add(level);
+    hub?.merge({...event,celebrate});
     if(world.score>=10000&&world.score-points<10000)setTimeout(()=>hub?.share(canvas,'10,000점 돌파!',world.score,level),180);
     recordDiscovery(level);
     unlockAchievement('firstMerge');
@@ -300,6 +303,7 @@ async function startGame(options = {}) {
   seedState = Number.isInteger(options.seed) ? options.seed >>> 0 : social?.room ? social.room.seed >>> 0 : (Date.now() >>> 0) || 1;
   started = true;
   world.reset();
+  celebratedLevels.clear();
   world.setMode(activeMode);
   activeLevel = activeMode === 'apple' ? APPLE_LEVEL : activeMode==='watermelon'?WATERMELON_LEVEL:activeMode==='challenge'?3:0; nextLevel = activeLevel; aimX = WIDTH / 2;
   specialShakeRewards=0;specialPearsCleared=0;shakeReadyAt = 0; maxLevel = 0; watermelonMade = false;
@@ -943,7 +947,7 @@ function gameRecord() {
     runId:progressStore.pendingRun.id,world:world.serialize(),
     activeLevel,nextLevel,activeSpecial,nextSpecial,aimX,
     shakes:0,shakeReadyAt,dropCount,itemCount,roundCleared,
-    maxLevel,watermelonMade,secretDiscovered,
+    maxLevel,watermelonMade,secretDiscovered,celebratedLevels:[...celebratedLevels],
     mode:activeMode,seedState,totalShakes,toolReadyAt,...runExtras(),
   };
 }
@@ -999,6 +1003,7 @@ async function prepareSavedGame() {
   ({ activeLevel, nextLevel, activeSpecial, nextSpecial, aimX, shakeReadyAt,
     dropCount, itemCount, roundCleared, maxLevel, watermelonMade, toolReadyAt } = saved);
   specialShakeRewards=saved.specialShakeRewards;specialPearsCleared=saved.specialPearsCleared;
+  celebratedLevels.clear();for(const level of saved.celebratedLevels)celebratedLevels.add(level);
   for(const level of saved.discoveredLevels)discoveredLevels.add(level);
   for(const body of world.bodies)discoveredLevels.add(body.level);
   if(maxLevel>0)discoveredLevels.add(maxLevel);

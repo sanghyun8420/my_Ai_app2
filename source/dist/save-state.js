@@ -74,6 +74,11 @@ function knownRecord(value, savedAt) {
   const discovered = value.discoveredLevels === undefined ? [] : value.discoveredLevels;
   if (!integer(specialShakeRewards, 0, MAX_COUNTER) || !Array.isArray(discovered) || !Array.from(discovered).every(level => integer(level, 0, 13))) throw saveError('저장된 과일 발견 정보가 올바르지 않아요.');
   const discoveredLevels = [...new Set(discovered)].sort((a, b) => a - b);
+  // Older rounds already showed each milestone they reached. Keep that history
+  // within this round; a fresh round supplies an empty list instead.
+  const celebrated=value.celebratedLevels===undefined?Array.from({length:Math.max(0,value.maxLevel-8)},(_,i)=>i+9):value.celebratedLevels;
+  if(!Array.isArray(celebrated)||celebrated.length>5||!celebrated.every(level=>integer(level,9,13)))throw saveError('저장된 과일 축하 기록이 올바르지 않아요.');
+  const celebratedLevels=[...new Set(celebrated)].sort((a,b)=>a-b);
   const deadlines = value.toolReadyAt === undefined ? {} : value.toolReadyAt;
   if (!plainObject(deadlines)) throw saveError('저장된 아이템 대기시간이 올바르지 않아요.');
   const toolReadyAt = {};
@@ -106,6 +111,7 @@ function knownRecord(value, savedAt) {
     specialShakeRewards,
     specialPearsCleared,
     discoveredLevels,
+    celebratedLevels,
     toolReadyAt,
   };
 }

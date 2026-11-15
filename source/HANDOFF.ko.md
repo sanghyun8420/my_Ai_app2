@@ -181,3 +181,9 @@ node scripts/export-github-pages.mjs /absolute/empty/output
 - API 세션 저장 키는 기존 `suika-garden-api-session-v1:<API 원본>`을 유지합니다. 기억 설정이 false면 탭 저장, 기본은 기기 저장이며 로그아웃하면 지웁니다. 세션은 기존30일 만료를 따릅니다.
 - 두 주소의 클라이언트가 같은 세션 모듈을 사용합니다. 편집 원본의 Pages 어댑터는 ../../dist/api-session.js를 가져오고 내보내기에서 ./api-session.js로 바꿉니다. 늦은401·늦은 게스트 인증 응답과 초기 me 응답은 새 계정을 덮어쓰지 않습니다.
 - `tests/auth-persistence.mjs`는 모든 쿠키를 버리는 전송으로 실제 API와 지갑을 사용해 가입→복원→재접속과 다른 기기 로그인을 검사합니다. 이전 쿠키 전용 테스트도 유지합니다. 운영 사용자 계정이나 기록을 테스트용으로 수정하지 않습니다.
+
+## 한 판에 한 번씩 과일 축하 팝업
+
+- `app.js`의 celebratedLevels는 현재 판에서 팝업을 예약한9~13단계 Set입니다. 물리 합치기 콜백에서 즉시 추가하므로 같은 프레임의 중복 합치기도 팝업을 다시 예약하지 않습니다. hub.merge의 celebrate 플래그로 큰 공유 팝업만 제한합니다. 과일 보상·점수·업적·마지막 열매의 폭발 효과는 그대로입니다.
+- startGame이 Set을 비우고, gameRecord와 save-state.js가 celebratedLevels를 보존합니다. 저장에 이 필드가 없던 예전 판은 maxLevel로 이미 표시한 단계를 판단합니다. 이어하기·부활은 같은 판의 기록을 유지합니다. 영구 발견 기록 discoveredLevels와 섞지 않습니다.
+- 팝업을 예약한 판의 runId와 모드가 유지될 때만 지연 콜백을 실행하므로 다시 시작 직후 이전 판의 팝업이 나오지 않습니다.
