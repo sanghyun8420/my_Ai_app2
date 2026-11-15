@@ -187,3 +187,10 @@ node scripts/export-github-pages.mjs /absolute/empty/output
 - `app.js`의 celebratedLevels는 현재 판에서 팝업을 예약한9~13단계 Set입니다. 물리 합치기 콜백에서 즉시 추가하므로 같은 프레임의 중복 합치기도 팝업을 다시 예약하지 않습니다. hub.merge의 celebrate 플래그로 큰 공유 팝업만 제한합니다. 과일 보상·점수·업적·마지막 열매의 폭발 효과는 그대로입니다.
 - startGame이 Set을 비우고, gameRecord와 save-state.js가 celebratedLevels를 보존합니다. 저장에 이 필드가 없던 예전 판은 maxLevel로 이미 표시한 단계를 판단합니다. 이어하기·부활은 같은 판의 기록을 유지합니다. 영구 발견 기록 discoveredLevels와 섞지 않습니다.
 - 팝업을 예약한 판의 runId와 모드가 유지될 때만 지연 콜백을 실행하므로 다시 시작 직후 이전 판의 팝업이 나오지 않습니다.
+
+## 야식정원과 기아 로고 수정
+
+- `dist/food-art.js`가 서로 다른14개 음식 그림과 FOOD_NAMES를 제공합니다. 숫자·과일의 실제 물리 반경은 바꾸지 않습니다. `skins.js`에서 food 렌더러와 이름을 연결하고 기존 food ID·가격75·보유 기록을 유지합니다.
+- 음식은 Canvas로 조리 재료·질감·그릇을 그리고 skin-details.js의 공유 LRU 캐시에512px로 저장합니다. 음식 그림을 매 프레임 다시 만들거나 외부 이미지를 런타임에 다운로드하지 않습니다. 회전·선택·특별 사과/배의 효과는 기존 공통 렌더링을 사용합니다.
+- 기아 로고는 Simple Icons의 CC0 KIA SVG 도형을 skin-details.js에 포함했습니다. 출처는 코드 주석에 있습니다. 같은 각진 선으로 임의로 대체하지 않습니다. Path2D는 브라우저 기본 API이며 Node 미리보기에서는 @napi-rs/canvas의 Path2D를 등록합니다.
+- `node scripts/render-skin-refresh.cjs /tmp/skin-refresh.png`로 자동차·행성·3D과일·음식56개를 비교할 수 있습니다. skin-art 검사는 음식14단계가 서로 다른 이미지인지도 확인합니다.

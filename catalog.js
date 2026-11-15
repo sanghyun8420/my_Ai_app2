@@ -16,7 +16,7 @@ export const SKIN_CATALOG = catalog([
   { id: 'mystery', name: '???', price: 999, description: '999개의 반짝임 뒤에 숨은 특별한 모습을 만나보세요.', icon: '❔' },
   { id: 'cars', name: '차고의 전설', price: 100, description: '기아부터 부가티까지, 14가지 자동차 브랜드 배지.', icon: '🏎️' },
   { id: 'fruit3d', name: '3D 과일', price: 80, description: '빛과 그림자, 껍질의 질감이 살아 있는 입체 과일.', icon: '🍒' },
-  { id: 'food', name: '야식 정원', price: 75, description: '도넛·초밥·피자·햄버거로 차리는 한 상.', icon: '🍔' },
+  { id: 'food', name: '야식 정원', price: 75, description: '김밥부터 떡볶이·치킨·피자·보쌈까지, 서로 다른 14가지 야식.', icon: '🍜' },
   { id: 'royalGem', name: '보석 광산', price: 9999, description: '합칠 때마다 수박 동전 +1. 10단계 이상 보석을 합치면 동전 +10.', icon: '💠' },
 ]);
 

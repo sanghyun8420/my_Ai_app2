@@ -15,6 +15,10 @@ function cached(c,family,level,painter){
  }
  if(surface)c.drawImage(surface,-64,-64,128,128);else painter(c,level);
 }
+export {cached as drawCachedSkin};
+// Kia's modern wordmark geometry, from Simple Icons (CC0): https://simpleicons.org/?q=kia
+const KIA_WORDMARK='M13.923 14.175c0 .046.015.072.041.072a.123.123 0 0 0 .058-.024l7.48-4.854a.72.72 0 0 1 .432-.13h1.644c.252 0 .422.168.422.42v3.139c0 .38-.084.6-.42.801l-1.994 1.2a.137.137 0 0 1-.067.024c-.024 0-.048-.019-.048-.088v-3.663c0-.043-.012-.071-.041-.071a.113.113 0 0 0-.058.024l-5.466 3.551a.733.733 0 0 1-.42.127h-3.624c-.254 0-.422-.168-.422-.422V9.757c0-.033-.015-.064-.044-.064a.118.118 0 0 0-.057.024L7.732 11.88c-.036.024-.046.041-.046.058 0 .014.008.029.032.055l2.577 2.575c.034.034.058.06.058.089 0 .024-.039.043-.084.043H7.94c-.183 0-.324-.026-.423-.125l-1.562-1.56a.067.067 0 0 0-.048-.024.103.103 0 0 0-.048.015l-2.61 1.57a.72.72 0 0 1-.423.122H.425C.168 14.7 0 14.53 0 14.279v-3.08c0-.38.084-.6.422-.8L2.43 9.192a.103.103 0 0 1 .052-.016c.032 0 .048.03.048.1V13.4c0 .043.01.063.041.063a.144.144 0 0 0 .06-.024L9.407 9.36a.733.733 0 0 1 .446-.124h3.648c.252 0 .422.168.422.42l-.002 4.518z';
+let kiaWordmark;
 const chrome=c=>gradient(c,['#fafcfd','#8b969f','#ffffff','#59656f','#dde2e5']);
 function disc(c){ellipse(c,0,0,44,44,radial(c,['#ffffff','#f4f6f8','#c3cbd2']), '#aeb8c1',.8);ellipse(c,0,0,41.5,41.5,null,'#ffffffba',.6);}
 function crest(c,fill,stroke='#bc963b'){c.beginPath();c.moveTo(-32,-39);c.quadraticCurveTo(0,-46,32,-39);c.lineTo(28,11);c.quadraticCurveTo(20,32,0,43);c.quadraticCurveTo(-20,32,-28,11);c.closePath();c.fillStyle=fill;c.fill();c.strokeStyle=stroke;c.lineWidth=2;c.stroke();}
@@ -25,8 +29,8 @@ function bull(c){c.fillStyle='#d4ae53';c.beginPath();c.moveTo(-26,4);c.bezierCur
 function paintCar(c,level){
  c.save();c.lineCap='round';c.lineJoin='round';const metal=chrome(c);
  if(![4,8,9,10,11,13].includes(level))disc(c);
- if(level===0){ // The connected strokes of the modern KIA wordmark.
-  c.strokeStyle='#15202b';c.lineWidth=6;c.lineJoin='miter';c.lineCap='butt';c.beginPath();c.moveTo(-35,11);c.lineTo(-35,-9);c.moveTo(-34,7);c.lineTo(-16,-9);c.lineTo(-16,11);c.lineTo(11,-9);c.lineTo(11,11);c.lineTo(34,-9);c.lineTo(34,11);c.stroke();
+ if(level===0){
+  if(typeof Path2D==='function'){kiaWordmark??=new Path2D(KIA_WORDMARK);c.save();c.translate(-36,-36);c.scale(3,3);c.fillStyle='#05141f';c.fill(kiaWordmark);c.restore();}else text(c,'KIA',0,0,25,'#05141f');
  }else if(level===1){
   c.save();c.rotate(-.14);ellipse(c,0,0,36,21,null,metal,3.4);c.transform(1,0,-.25,1,0,0);poly(c,[[-19,-12],[-10,-15],[-14,14],[-23,13]],metal);poly(c,[[11,-14],[20,-12],[17,12],[8,15]],metal);c.strokeStyle=metal;c.lineWidth=7;c.beginPath();c.moveTo(-15,4);c.quadraticCurveTo(0,-5,15,-5);c.stroke();c.restore();
  }else if(level===2){

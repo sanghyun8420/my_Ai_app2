@@ -1,3 +1,4 @@
+import {drawFood,FOOD_NAMES} from './food-art.js';
 import { FRUITS, drawFruit, drawSpecialAppleEffect, APPLE_LEVEL, PEAR_LEVEL } from './fruits.js';
 import { SKIN_CATALOG } from './catalog.js';
 import { drawCarLogo, drawPlanet, drawFruit3D, PLANET_NAMES } from './skin-details.js';
@@ -402,15 +403,7 @@ function mysteryBall(ctx, level, color, time = 0) {
 }
 
 const CAR_LABELS=['기아','현대','제네시스','테슬라','랜드로버','벤츠','BMW','아우디','포르셰','페라리','람보르기니','코닉세그','파가니','부가티'];
-export function skinFruitName(level,skin='classic'){return skin==='cars'?CAR_LABELS[level]:skin==='galaxy'?PLANET_NAMES[level]:FRUITS[level].name;}
-function foodBall(ctx,level){
-  ctx.save();
-  if(level%4===0){ball(ctx,'#b76d3f');ctx.fillStyle='#e8a3af';circle(ctx,33);ctx.fill();ctx.fillStyle='#473b30';circle(ctx,12);ctx.fill();for(let i=0;i<10;i++){ctx.save();ctx.rotate(i*TAU/10);ctx.fillStyle=i%2?'#e2c760':'#6c4e43';ctx.fillRect(21,-2,7,3);ctx.restore();}}
-  else if(level%4===1){ctx.fillStyle='#26392f';ctx.fillRect(-39,-28,78,56);ctx.fillStyle='#eee9d5';ctx.fillRect(-34,-24,68,48);ctx.fillStyle='#c46c59';ctx.fillRect(-27,-18,54,36);ctx.strokeStyle='#f4d3aa';for(let i=-20;i<30;i+=13){ctx.beginPath();ctx.moveTo(i,-17);ctx.lineTo(i+12,17);ctx.stroke();}}
-  else if(level%4===2){polygon(ctx,[[-39,-30],[40,-30],[0,43]],'#e0b54f','#744b31',3);ctx.strokeStyle='#9d5f32';ctx.lineWidth=10;ctx.beginPath();ctx.moveTo(-38,-30);ctx.lineTo(39,-30);ctx.stroke();for(const [x,y]of[[-15,-12],[16,-10],[0,16]]){ctx.fillStyle='#a34034';ctx.beginPath();ctx.arc(x,y,7,0,TAU);ctx.fill();}}
-  else{for(const [y,color,h]of[[-29,'#c3904e',20],[-8,'#547b39',8],[0,'#ddae3f',7],[9,'#603d2e',13],[25,'#be8b49',12]]){ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(0,y,41,h,0,0,TAU);ctx.fill();}ctx.fillStyle='#e8d9a6';for(let i=-25;i<=25;i+=10)ctx.fillRect(i,-35+i%3,3,2);}
-  ctx.restore();
-}
+export function skinFruitName(level,skin='classic'){return skin==='cars'?CAR_LABELS[level]:skin==='galaxy'?PLANET_NAMES[level]:skin==='food'?FOOD_NAMES[level]:FRUITS[level].name;}
 function rottenBall(ctx,level){
   drawFruit(ctx,level,0,0,44,0,1,false,0);ctx.save();
   for(let i=0;i<9;i++){ctx.fillStyle=i%2?'#505336cc':'#5b3929bb';ctx.beginPath();ctx.ellipse(Math.sin(i*4.1)*29,Math.cos(i*2.8)*28,6+i%4,5+i%3,i,0,TAU);ctx.fill();}
@@ -420,7 +413,7 @@ function royalBall(ctx,level){gemBall(ctx,level);ctx.save();ctx.strokeStyle='#f5
 const RENDERERS = {
   numbers:numberBall, candy:candyBall, pastel:pastelBall, pixel:pixelBall,
   cat:catBall, ice:iceBall, neon:neonBall, galaxy:drawPlanet, gem:gemBall, mystery:rottenBall,
-  cars:drawCarLogo,fruit3d:drawFruit3D,food:foodBall,royalGem:royalBall,
+  cars:drawCarLogo,fruit3d:drawFruit3D,food:drawFood,royalGem:royalBall,
 };
 
 /** Draw any skin with the same coordinates and optional lucky-apple state. */

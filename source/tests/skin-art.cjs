@@ -13,5 +13,9 @@ globalThis.Path2D=Path2D;
   assert(c.getImageData(0,0,240,240).data.some((n,i)=>i%4===3&&n>0));count++;
  }
  assert.equal(skinFruitName(0,'cars'),'기아');assert.equal(skinFruitName(13,'cars'),'부가티');
+ const foodImages=new Set();
+ for(let level=0;level<14;level++){const c=createCanvas(160,160),ctx=c.getContext('2d');drawSkinnedFruit(ctx,level,80,80,65,0,1,false,0,'food');foodImages.add(c.toBuffer('image/png').toString('base64'));}
+ assert.equal(foodImages.size,14,'every food stage must have its own artwork');
+ assert.equal(skinFruitName(0,'food'),'김밥');assert.equal(skinFruitName(4,'food'),'떡볶이');assert.equal(skinFruitName(11,'food'),'피자');
  console.log('PASS native Canvas artwork:',count,'skin/level combinations, balanced state, nonempty images, and car-stage labels.');
 })().catch(e=>{console.error(e);process.exitCode=1});
