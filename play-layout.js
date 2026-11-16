@@ -27,6 +27,8 @@ export function mountPlayLayout() {
   let queued = false;
   function update() {
     queued = false;
+    const headerHeight=boxHeight(header);
+    document.documentElement.style?.setProperty?.('--garden-header-height',headerHeight+'px');
     if (layout.hidden || document.body.dataset.game && document.body.dataset.game !== 'suika') return;
     const height = globalThis.visualViewport?.height || globalThis.innerHeight;
     const width = document.documentElement.clientWidth || globalThis.innerWidth;
@@ -39,7 +41,7 @@ export function mountPlayLayout() {
     const panel = arrangement === 'wide' ? 180 : arrangement === 'landscape' ? 232 : 0;
     const padding = px(style.paddingTop) + px(style.paddingBottom);
     const overhead = arrangement === 'landscape' ? 0 : padding + boxHeight(score) + boxHeight(status) + boxHeight(next) + boxHeight(room) + (arrangement === 'stack' ? boxHeight(tools) : 0) + px(style.rowGap) * (arrangement === 'stack' ? 5 : 4);
-    const result = fitBasketSize({ width:availableWidth, height, header:boxHeight(header) + px(mainStyle.paddingTop), overhead, rail, tools:panel });
+    const result = fitBasketSize({ width:availableWidth, height, header:headerHeight + px(mainStyle.paddingTop), overhead, rail, tools:panel });
     const values = { '--play-width':result.width, '--board-width':result.board, '--rail-width':rail, '--tools-width':panel };
     for (const [key, value] of Object.entries(values)) if (layout.style.getPropertyValue(key) !== value + 'px') layout.style.setProperty(key, value + 'px');
   }

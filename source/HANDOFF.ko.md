@@ -244,3 +244,12 @@ currency-art.js는 KRW_STAGES, USD_STAGES 각14단계와 Canvas 그림을 제공
 
 
 정적 자산 빌드는 scripts/bundle-assets.mjs의 embedStaticAssets로 처리합니다. JSON을 문자열 치환의 두 번째 인수로 직접 넣으면 달러+따옴표 등의 문자열이 특수 치환 기호로 해석됩니다. 반드시 콜백을 유지하고 tests/bundle-assets.mjs로 문자 보존을 검사합니다.
+
+
+## 순위 읽기와 점수 전송 분리 · 화면 크기
+
+LiveLeaderboard.open은 공개 순위를 바로 읽고 별도로 synchronize를 시작합니다. 전체 cloud-save/restore나 connectTask를 순위 조회 전에 기다리지 않습니다. 목록12초·점수 전송8초 제한, 닫기/계정/탭 전환 취소, 실패 시 기존 목록 유지, 전송 완료 후 재조회,5초 폴링을 유지합니다. status는 부분 갱신 객체이므로 화면에서 합쳐 사용합니다. 동일 사용자 garden-user 이벤트는 목록을 초기화하지 않습니다.
+
+PlayerCloud.syncLeaderboard는 beforeScoreCapture(진행 큐 반영)와 최고점수 import만 사용합니다. 지갑 캡처용 beforeCapture/서버 복원/CAS 저장을 거치지 않습니다. 알려진 다른 계정의 기록 전송은 막습니다. 기본/모드 최고점수 분리는 유지합니다. ranking-device는 기기/서버 값을 비교하고 optional me가 없을 때 현재 계정 ID와 공개 행으로 본인 순위를 찾습니다.
+
+play-layout.js는 현재 게임과 관계없이 --garden-header-height를 측정합니다. 레이싱의 data-race-view=play는 제목을 접고 그 높이를 도로에 사용하며 화면과헤더에 맞춘5:6 비율로 표시합니다. 너무 낮은 창은 최소 너비를 유지하고 세로 스크롤로 접근할 수 있습니다. 블록정원은1000px 이상 화면에서 보드+오른쪽 세 블록/도구 배치입니다. 드래그 좌표는 canvas 실제 바운드 기준을 유지하며 표시 크기 변경으로 셀 위치가 달라지면 안 됩니다.

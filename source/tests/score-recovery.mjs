@@ -43,5 +43,10 @@ try{
  assert.equal(JSON.stringify(saved.snapshot),remoteText,'merging never mutates the remote snapshot');assert.deepEqual(localScores(store(merged.values)),{suika:24000,apple:4321,blocks:7654});assert.equal(JSON.parse(merged.values[ECONOMY_KEY]).gems,557);
  legacy.values['suika-garden-best']='NaN';assert.equal(localScores(store(legacy.values)).suika,22000,'unreadable score values cannot poison other valid highs');
  assert.deepEqual(preserveHighScores(saved.snapshot,saved.snapshot),saved.snapshot,'no-op restores do not create extra save versions');
- console.log('PASS score recovery: real same-account two-device CAS restore, higher offline records, post-reload upload/rank, guest claim, foreign-account isolation, separate mode highs, legacy records, no-op dedupe and authoritative wallets.');
+ const cloudBefore=await claimed.social._request('/api/cloud-save');claimed.profile._profile.bestScore=29000;claimed.profile._save();
+ claimed.cloud.syncTask=new Promise(()=>{});claimed.cloud.connectTask=new Promise(()=>{});claimed.cloud.saveTask=new Promise(()=>{});
+ await claimed.cloud.syncLeaderboard();assert.equal((await claimed.social._request('/api/leaderboard')).me.score,29000,'dedicated rank uploads cannot wait on stuck wallet tasks');
+ const cloudAfter=await claimed.social._request('/api/cloud-save');assert.equal(cloudAfter.version,cloudBefore.version);assert.equal(JSON.parse(cloudAfter.snapshot.values[ECONOMY_KEY]).gems,557,'rank refresh never downloads or rewrites the wallet');
+ assert.equal(claimed.reloads(),0,'opening rankings cannot reload the game');
+ console.log('PASS score recovery: real same-account two-device CAS restore, higher offline records, post-reload upload/rank, guest claim, foreign-account isolation, separate mode highs, legacy records, no-op dedupe, authoritative wallets and independent rank submission despite stuck wallet tasks.');
 }finally{for(const c of clients)c.dispose();app.close();}

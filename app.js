@@ -1387,7 +1387,7 @@ hub=createHub({
 let walletRefreshPending=false;
 globalThis.addEventListener('garden-wallet-change',()=>{if(!progressReady||walletRefreshPending)return;walletRefreshPending=true;queueMicrotask(()=>{walletRefreshPending=false;if(progressReady)renderProfile();});});
 mountPlayLayout();
-playerCloud = new PlayerCloud({social,openDialog,beforeCapture:async()=>{
+playerCloud = new PlayerCloud({social,openDialog,beforeScoreCapture:async()=>{checkpointRound();await progressStore._queue;},beforeCapture:async()=>{
   await progressStore._queue;
   saveGame();hub?.arcade.save();hub?.growth.save();hub?.racing.save();
 }});

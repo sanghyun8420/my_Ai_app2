@@ -39,10 +39,10 @@ export function mountRacing(root,api){
  $('race-categories').onclick=e=>{const b=e.target.closest('[data-category]');if(b)safe(()=>{garage.select('selectedCategory',b.dataset.category);renderGarage();});};
  function start(fresh=false){
   if(!garage)return;resetInputs();engine.unlock();const next=!fresh&&garage.data.activeRace?RaceSimulation.restore(garage.data.activeRace):null;
-  const candidate=next||new RaceSimulation({car:garage.car,difficulty:garage.data.selectedDifficulty,stage:garage.data.stage});garage.checkpoint(candidate);race=candidate;settled=null;hasResult=false;manualPause=false;last=0;autosave=0;$('race-garage').hidden=true;$('race-play').hidden=false;$('race-result').hidden=true;$('race-paused').hidden=true;
+  const candidate=next||new RaceSimulation({car:garage.car,difficulty:garage.data.selectedDifficulty,stage:garage.data.stage});garage.checkpoint(candidate);race=candidate;settled=null;hasResult=false;manualPause=false;last=0;autosave=0;root.dataset.raceView='play';$('race-garage').hidden=true;$('race-play').hidden=false;$('race-result').hidden=true;$('race-paused').hidden=true;
   $('race-track').querySelectorAll('.race-rival-marker').forEach(e=>e.remove());for(let i=0;i<6;i++){const marker=document.createElement('span');marker.className='race-rival-marker';marker.id='race-rival-'+i;marker.textContent=['😈','👾','👹','🤖','👽','💀'][i];$('race-track').append(marker);}canvas.focus({preventScroll:true});updateHud();api.active(true);
  }
- function toGarage(){save();resetInputs();race=null;manualPause=false;$('race-play').hidden=true;$('race-garage').hidden=false;renderGarage();api.active(false);}
+ function toGarage(){save();resetInputs();race=null;manualPause=false;root.dataset.raceView='garage';$('race-play').hidden=true;$('race-garage').hidden=false;renderGarage();api.active(false);}
  function pause(){resetInputs();if(race&&['countdown','racing'].includes(race.phase)){manualPause=true;$('race-paused').hidden=false;}safe(save);}
  function settle(){if(settled)return settled;settled=garage.finish(race.result);return settled;}
  function showResult(){
@@ -69,7 +69,7 @@ export function mountRacing(root,api){
   }else engine.mute();requestAnimationFrame(frame);
  }
  requestAnimationFrame(frame);
- const select=()=>{garage||=new RacingGarage();garage.save();if(!race){$('race-garage').hidden=false;$('race-play').hidden=true;renderGarage();}else pause();};
+ const select=()=>{garage||=new RacingGarage();garage.save();if(!race){root.dataset.raceView='garage';$('race-garage').hidden=false;$('race-play').hidden=true;renderGarage();}else pause();};
  function openLocker(){if(!garage)select();if(race)toGarage();$('race-garage').hidden=false;$('race-car-grid').scrollIntoView?.({behavior:'smooth',block:'center'});}
  const records=document.createElement('dialog');records.id='race-records-dialog';records.className='wide-dialog';records.innerHTML='<button type="button" class="dialog-close" aria-label="레이싱 기록 닫기">×</button><p class="eyebrow">SPEED GARDEN RECORDS</p><h2>나의 레이싱 기록</h2><dl></dl><p class="race-records-note"></p>';document.body.append(records);records.querySelector('button').onclick=()=>records.close();records.addEventListener('close',api.resume);
  function openRecords(){if(!garage)select();const p=garage.data,list=records.querySelector('dl');list.replaceChildren();for(const [name,value]of [['현재 스테이지',p.stage],['완주한 레이스',p.completedRaces+'회'],['우승',p.wins+'회'],['최고 순위',p.completedRaces?p.bestRank+'위':'아직 없음'],['누적 획득 동전',money(p.earnedCoins)],['주행 시간',money(p.seconds)+'초'],['보유 차량',p.unlockedCars.length+' / 18']]){const row=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=name;dd.textContent=value;row.append(dt,dd);list.append(row);}records.querySelector('.race-records-note').textContent=`5회 완주마다 공용 보석 5개 · 다음 보상까지 ${5-p.completedRaces%5}회`;api.open(records.id);}

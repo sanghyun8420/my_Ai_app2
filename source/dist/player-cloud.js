@@ -58,8 +58,8 @@ function newKey(){const bytes=crypto.getRandomValues(new Uint8Array(32));return 
 
 /** Automatic private server saves; accounts and recoverable guest identities share one backend. */
 export class PlayerCloud {
- constructor({social,storage,document:doc=globalThis.document,openDialog,beforeCapture=()=>{},reload=()=>globalThis.location.reload(),onError=()=>{},autoGuest=true,autoRestore=true,intervalMs=5000,clock=()=>Date.now()}={}){
-  this.social=social;try{this.storage=storage??globalThis.localStorage;}catch{this.storage=null;}this.document=doc;this.openDialog=openDialog;this.beforeCapture=beforeCapture;this.reload=reload;this.onError=onError;this.autoGuest=autoGuest;this.autoRestore=autoRestore;this.intervalMs=intervalMs;this.clock=clock;this.capturing=false;this.needsLogin=false;this.lastRemoteCheck=0;
+ constructor({social,storage,document:doc=globalThis.document,openDialog,beforeCapture=()=>{},beforeScoreCapture=()=>{},reload=()=>globalThis.location.reload(),onError=()=>{},autoGuest=true,autoRestore=true,intervalMs=5000,clock=()=>Date.now()}={}){
+  this.social=social;try{this.storage=storage??globalThis.localStorage;}catch{this.storage=null;}this.document=doc;this.openDialog=openDialog;this.beforeCapture=beforeCapture;this.beforeScoreCapture=beforeScoreCapture;this.reload=reload;this.onError=onError;this.autoGuest=autoGuest;this.autoRestore=autoRestore;this.intervalMs=intervalMs;this.clock=clock;this.capturing=false;this.needsLogin=false;this.lastRemoteCheck=0;
   this.ready=false;this.busy=false;this.conflict=false;this.connected=false;this.restoring=false;this.version=0;this.userId=null;this.lastHash='';this.lastScores='';this.epoch=0;this.timer=null;
   this.build();this.userListener=e=>{if(!this.ready||this.busy)return;if(!e.detail){this.userId=null;this.connected=false;this.status('기기 기록을 보존했어요. 서버 연결을 확인하고 있어요.');return;}if(this.social._authBusy)return;if(e.detail.id!==this.userId)this.connect().catch(error=>this.status(error.message));else this.render();};
   globalThis.addEventListener?.('garden-user',this.userListener);
@@ -148,7 +148,16 @@ export class PlayerCloud {
   await this.adoptRemote(remote,{restore,includeGuestScores});if(this.restoring||this.conflict)return;
   await this.submitScores();await this.save({quiet:true});this.render();
  }
- async submitScores(){if(!this.social.user)return;const scores=localScores(this.storage),encoded=JSON.stringify(scores);if(encoded===this.lastScores)return;await this.social._request('/api/profile/import',{method:'POST',body:{scores}});this.lastScores=encoded;}
+ async submitScores(){if(!this.social.user)return;const userId=this.social.user.id,epoch=this.epoch,scores=localScores(this.storage),encoded=JSON.stringify(scores);if(encoded===this.lastScores)return;await this.social._request('/api/profile/import',{method:'POST',body:{scores}});if(this.social.user?.id===userId&&this.epoch===epoch)this.lastScores=encoded;}
+ async syncLeaderboard(){
+  if(!this.ready||!this.social.user)throw Error('서버 연결을 확인하거나 로그인한 뒤 다시 눌러 주세요.');
+  const userId=this.social.user.id,epoch=this.epoch,meta=this.meta();
+  if(this.restoring||meta?.userId&&meta.userId!==userId)throw Error('계정 기록을 연결하고 있어요. 잠시 후 다시 눌러 주세요.');
+  await this.beforeScoreCapture();
+  if(this.social.user?.id!==userId||this.epoch!==epoch)throw Error('계정이 바뀌었어요. 현재 계정으로 다시 확인해 주세요.');
+  // Rank submission is independent of wallet downloads/CAS saves and cannot reload the game.
+  await this.submitScores();return localScores(this.storage);
+ }
  async save(options={}){
   if(!this.social.user||this.restoring)return;
   if(!this.connected){await this.connect();return;}

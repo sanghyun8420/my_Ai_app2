@@ -27,3 +27,5 @@
 - 서버 복원 시 같은 계정의 더 높은 기본/모드별 최고점수만 보존하고 지갑은 합산하지 않습니다. 복원 메타 hash는 원본 서버 값을 유지해 병합된 최고기록을 재업로드합니다. 리더보드의5초 갱신/오래된 응답 차단을 유지합니다.
 
 - racing은 `racing-model.js`/`racing-art.js`/`racing.js`/`racing.css`로 구성합니다. 기존 GAME_KEYS는 다섯 레거시 키로 유지하고, 새 레이싱 레코드 RACING_KEY는 canonical records 안에 선택적으로 저장합니다. 주행/차고는 서버 백업에 함께 들어가며 보상 run ID 중복 방지·실패 롤백·60Hz 고정 간격·메뉴/숨김/포인터 취소 입력 해제를 유지합니다.
+
+- 리더보드 공개 목록 읽기는 점수/지갑 동기화와 독립적으로 즉시 시작해야 합니다. beforeScoreCapture와 syncLeaderboard를 사용하고 syncTask/connectTask/전체 beforeCapture를 목록 앞에서 기다리지 않습니다. 같은 사용자 이벤트 재초기화 금지, 목록/전송 타임아웃과 기존 행 보존을 유지합니다.

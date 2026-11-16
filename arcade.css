@@ -18,3 +18,21 @@ html[data-theme=dark] .arcade-stats>span{border-color:var(--line)}html[data-them
 
 .arcade-stage{position:relative;isolation:isolate}#arcade-end{border-radius:15px;z-index:5}#arcade-end .start-button,#arcade-end .secondary-button{flex-shrink:0}
 @media(max-width:540px){.arcade-stats>span{min-width:0}.arcade-stats>span:not(#arcade-clock){flex-direction:column;align-items:flex-start;justify-content:center;gap:3px}.arcade-stats b{font-size:clamp(16px,5vw,20px);line-height:1.1}.arcade-stats #arcade-clock{justify-content:center}}
+
+/* Bigger block desk, with the three pieces beside it on wide screens. */
+body[data-game=blocks] main{max-width:1400px;padding-inline:12px}
+#arcade-root[data-arcade=blocks]{max-width:880px;margin:15px auto 30px}
+#arcade-root[data-arcade=blocks] .arcade-heading{margin-bottom:9px}
+#arcade-root[data-arcade=blocks] .arcade-stats{margin:10px 0}
+@media(min-width:1000px){
+ #arcade-root[data-arcade=blocks]{max-width:1200px;display:grid;grid-template-columns:minmax(0,1fr) 210px;column-gap:22px;align-items:start}
+ #arcade-root[data-arcade=blocks]>.arcade-heading,#arcade-root[data-arcade=blocks]>.arcade-stats,#arcade-root[data-arcade=blocks]>.arcade-board-bar,#arcade-root[data-arcade=blocks]>.arcade-timer{grid-column:1/-1}
+ #arcade-root[data-arcade=blocks]>.arcade-stage{grid-column:1;grid-row:5/span 5;min-width:0}
+ #arcade-root[data-arcade=blocks]>#block-tray{grid-column:2;grid-row:5;grid-template-columns:1fr;margin:0;gap:12px}
+ #arcade-root[data-arcade=blocks] .tray-piece{height:118px}
+ #arcade-root[data-arcade=blocks]>#arcade-feedback{grid-column:2;grid-row:6}
+ #arcade-root[data-arcade=blocks]>#arcade-hint{grid-column:2;grid-row:7}
+ #arcade-root[data-arcade=blocks]>.arcade-actions{grid-column:2;grid-row:8;display:grid;grid-template-columns:1fr}
+ #arcade-root[data-arcade=blocks]>#arcade-locker{grid-column:1/-1;grid-row:10}
+}
+@media(max-width:600px){body[data-game=blocks] main{padding-inline:6px}#arcade-root[data-arcade=blocks]{margin-top:10px}#arcade-root[data-arcade=blocks] .arcade-heading h1{font-size:26px}#arcade-root[data-arcade=blocks] .arcade-stats>span{padding:8px}#arcade-root[data-arcade=blocks] .arcade-wrap{border-width:4px}#arcade-root[data-arcade=blocks] .block-tray{margin-top:12px;gap:7px}#arcade-root[data-arcade=blocks] .tray-piece{height:94px}#arcade-root[data-arcade=blocks] .tray-piece canvas{max-height:88px}}

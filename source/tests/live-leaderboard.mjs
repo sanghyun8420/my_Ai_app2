@@ -1,18 +1,21 @@
 import assert from 'node:assert/strict';
 import {LiveLeaderboard} from '../dist/leaderboard-live.js';
-let tick,clears=0,visible=true,user='first',calls=[],rendered=[],statuses=[],syncs=0,failSync=false;
-const waiting=[];
-const board=new LiveLeaderboard({setTimer:fn=>{tick=fn;return 1;},clearTimer:()=>clears++,visible:()=>visible,context:()=>user,sync:async()=>{syncs++;if(failSync)throw Error('오프라인 기록 보존');},read:game=>{calls.push(game);return new Promise((resolve,reject)=>waiting.push({resolve,reject}));},render:(value,game)=>rendered.push({value,game}),status:value=>statuses.push(value)});
-const turn=()=>new Promise(resolve=>setImmediate(resolve));
+let tick,clears=0,visible=true,user='first',calls=[],rendered=[],statuses=[],syncs=0,deadlineId=0;
+const reads=[],uploads=[],deadlines=new Map();
+const board=new LiveLeaderboard({setTimer:fn=>{tick=fn;return 1;},clearTimer:()=>clears++,setDeadline:(fn,ms)=>{const id=++deadlineId;deadlines.set(id,{fn,ms});return id;},clearDeadline:id=>deadlines.delete(id),visible:()=>visible,context:()=>user,sync:()=>{syncs++;return new Promise((resolve,reject)=>uploads.push({resolve,reject}));},read:game=>{calls.push(game);return new Promise((resolve,reject)=>reads.push({resolve,reject}));},render:(value,game)=>rendered.push({value,game}),status:value=>statuses.push(value)});
+const turn=()=>new Promise(resolve=>setImmediate(resolve)),rows=score=>({scores:[{id:'person',displayName:'정원사',score,rank:1}],me:null});
+const expire=ms=>{const entry=[...deadlines.values()].find(x=>x.ms===ms);assert(entry,'expected active deadline');entry.fn();};
 try{
- const first=board.open('suika');await turn();assert.equal(syncs,1);assert.deepEqual(calls,['suika']);assert.equal(board.refresh(),first,'same request coalesces');
- waiting.shift().resolve({scores:[{score:100}]});await first;assert.equal(rendered.length,1);assert(statuses.at(-1).updatedAt);
- visible=false;tick();await turn();assert.equal(calls.length,1,'background tabs do not poll');visible=true;tick();await turn();assert.equal(calls.length,2);
- const poll=waiting.shift(),apple=board.open('apple');await turn();poll.resolve({scores:[{score:9999}]});await turn();assert.equal(rendered.length,1,'old game response cannot overwrite the selected game');
- waiting.shift().resolve({scores:[{score:20}]});await apple;assert.equal(rendered.at(-1).game,'apple');
- const stale=board.refresh();await turn();const pending=waiting.shift();user='second';pending.resolve({me:{id:'first'}});await stale;assert.equal(rendered.length,2,'old account response cannot expose its own-rank panel after account switch');
- failSync=true;const retry=board.refresh({sync:true});await turn();waiting.shift().resolve({scores:[]});await retry;assert(statuses.at(-1).warning.includes('오프라인'));
- const failed=board.refresh();await turn();waiting.shift().reject(Error('network'));await failed;assert.equal(statuses.at(-1).error,'network');assert.equal(rendered.length,3,'failed refresh keeps the last displayed ranking');
- const closing=board.refresh();await turn();const late=waiting.shift();board.close();late.resolve({scores:[{score:1}]});await closing;assert.equal(rendered.length,3);assert.equal(board.timer,null);assert(clears>=3);await board.refresh();assert.equal(waiting.length,0);
- console.log('PASS live leaderboard: five-second visible polling, request coalescing, tab/account race guards, manual sync, retained rows on failure, warnings and timer cleanup.');
+ const first=board.open('suika');await turn();assert.equal(syncs,1);assert.deepEqual(calls,['suika'],'a pending score upload must not delay the leaderboard request');assert.equal(board.refresh(),first,'duplicate public reads coalesce');
+ reads.shift().resolve(rows(100));await first;assert.equal(rendered.length,1,'records appear while sync is still unresolved');assert(statuses.some(s=>s.loading===false));assert(board.syncOperation);
+ visible=false;tick();await turn();assert.equal(calls.length,1);visible=true;tick();await turn();assert.equal(calls.length,2,'polling continues while cloud sync is stalled');reads.shift().resolve(rows(200));await turn();
+ const manual=board.refresh({sync:true});await turn();assert.equal(syncs,1,'manual refresh shares the current upload');reads.shift().resolve(rows(210));expire(8000);await manual;assert(statuses.some(s=>s.warning?.includes('전송')));assert.equal(rendered.at(-1).value.scores[0].score,210);assert.equal(board.syncOperation,null);
+ const retry=board.refresh({sync:true});await turn();assert.equal(syncs,2);reads.shift().resolve(rows(220));uploads.at(-1).resolve();await turn();assert.equal(reads.length,1,'successful upload triggers a fresh server read');reads.shift().resolve(rows(300));await retry;assert.equal(rendered.at(-1).value.scores[0].score,300);
+ const old=board.refresh();await turn();const late=reads.shift(),apple=board.open('apple');await turn();late.resolve(rows(9999));await old;reads.shift().resolve(rows(20));await apple;assert.equal(rendered.at(-1).game,'apple');assert.equal(rendered.at(-1).value.scores[0].score,20);
+ const account=board.refresh();await turn();const accountResponse=reads.shift(),count=rendered.length;user='second';accountResponse.resolve({scores:[],me:{id:'first'}});await account;assert.equal(rendered.length,count,'late account responses never replace the new account view');
+ const failed=board.refresh();await turn();reads.shift().reject(Error('network'));await failed;assert.equal(rendered.length,count,'read errors keep existing rows');assert(statuses.at(-1).error);
+ const stuck=board.refresh();await turn();const timedOut=reads.shift();expire(12000);await stuck;assert.equal(board.pending,null);assert.equal(statuses.at(-1).loading,false);assert(statuses.at(-1).error.includes('새로고침'));timedOut.resolve(rows(999));await turn();assert.equal(rendered.length,count,'a late timed-out response cannot overwrite displayed records');
+ const malformed=board.refresh();await turn();reads.shift().resolve({unexpected:true});await malformed;assert.equal(rendered.length,count);assert(statuses.at(-1).error);
+ const closing=board.refresh();await turn();const closingResponse=reads.shift();board.close();await closing;closingResponse.resolve(rows(1));await turn();assert.equal(rendered.length,count);assert.equal(board.timer,null);assert.equal(deadlines.size,0);assert(clears>=3);await board.refresh();assert.equal(reads.length,0);
+ console.log('PASS live leaderboard: immediate rows during stuck uploads, independent polling, bounded sync/read retries, coalescing, post-upload refresh, game/account races, malformed/error row retention and cancellation cleanup.');
 }finally{board.close();}
