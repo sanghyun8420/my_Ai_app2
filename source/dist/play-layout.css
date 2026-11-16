@@ -1,4 +1,5 @@
 /* The game, its shop entry, and all three tools share one viewport. */
+body main .game-layout[hidden]{display:none!important}
 body .site-header{min-height:64px;padding-top:4px;padding-bottom:4px}
 body .brand-wrap{padding-top:3px;padding-bottom:17px}
 body main{padding-top:0;padding-bottom:10px}

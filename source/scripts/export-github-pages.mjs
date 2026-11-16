@@ -24,7 +24,7 @@ await writeFile(path.join(output,'remote-api.js'),(await readFile(path.join(root
 const htmlPath = path.join(output, 'index.html');
 let html = await readFile(htmlPath, 'utf8');
 html=html.replace(/<meta[^>]+(?:property="og:[^"]+"|name="twitter:[^"]+")[^>]*>\s*/g,'');
-html = html.replace('</head>', `  <link rel="canonical" href="${publicUrl}">\n  <meta name="robots" content="index,follow">\n  <meta property="og:title" content="수박정원 · 네 가지 작은 게임">\n  <meta property="og:description" content="수박·사과·블록 퍼즐, 과일 원정대. 친구와 놀고 나만의 정원을 키우는 네 가지 게임.">\n  <meta property="og:url" content="${publicUrl}">\n  <meta property="og:type" content="website">\n  <meta property="og:image" content="${publicUrl}share-card.png">\n  <meta name="twitter:card" content="summary_large_image">\n</head>`);
+html = html.replace('</head>', `  <link rel="canonical" href="${publicUrl}">\n  <meta name="robots" content="index,follow">\n  <meta property="og:title" content="수박정원 · 다섯 가지 작은 게임">\n  <meta property="og:description" content="수박·사과·블록 퍼즐, 과일 원정대와 스피드 정원 레이싱. 친구와 놀고 나만의 정원을 키우는 다섯 가지 게임.">\n  <meta property="og:url" content="${publicUrl}">\n  <meta property="og:type" content="website">\n  <meta property="og:image" content="${publicUrl}share-card.png">\n  <meta name="twitter:card" content="summary_large_image">\n</head>`);
 await writeFile(htmlPath, html);
 await writeFile(path.join(output, '.nojekyll'), '');
 await writeFile(path.join(output, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${publicUrl}</loc></url></urlset>\n`);

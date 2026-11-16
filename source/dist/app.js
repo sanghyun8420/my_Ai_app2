@@ -531,7 +531,7 @@ function updateGemProgress() {
   const saved = progressStore.profile.mergedFruits;
   const pending = started && !roundCredited ? Math.max(0, roundCleared - (progressStore.pendingRun?.creditedFruits || 0)) : 0;
   const progress = (saved + pending) % GEM_INTERVALS.suika;
-  $('gem-balance').title=`네 게임 공용 보석 · 과일 ${GEM_INTERVALS.suika-progress}개 더 정리하면 보석 ${GEM_REWARD}개`;
+  $('gem-balance').title=`다섯 게임 공용 보석 · 과일 ${GEM_INTERVALS.suika-progress}개 더 정리하면 보석 ${GEM_REWARD}개`;
   const pendingPears=started&&!roundCredited&&!progressStore.pendingRun?.finished?Math.max(0,specialPearsCleared-(progressStore.pendingRun?.creditedSpecialPears||0)):0;
   const pearCount=progressStore.profile.specialPearsCleared+pendingPears;
   $('pear-progress').textContent=`🍐 ${pearCount%3}/3`;
@@ -1192,6 +1192,7 @@ document.addEventListener('keydown', event => {
     }
   }
   if (event.code==='Escape' && !document.querySelector('dialog[open]')) { event.preventDefault();openDialog('menu-dialog');return; }
+  if(selectedGame!=='suika')return;
   if (!started || world.state !== 'playing' || document.querySelector('dialog[open]')) return;
   if (event.target instanceof HTMLButtonElement && event.code === 'Space') return;
   if (['ArrowLeft', 'ArrowRight', 'Space', 'KeyS', 'KeyD', 'KeyP'].includes(event.code)) event.preventDefault();
@@ -1335,7 +1336,7 @@ social = new GardenSocial({
   onBeforeAccountChange:async({mode}={})=>{
     await playerInitialization;
     await playerCloud?.syncTask;await playerCloud?.connectTask;
-    await progressStore._queue;saveGame();hub?.arcade.save();hub?.growth.save();
+    await progressStore._queue;saveGame();hub?.arcade.save();hub?.growth.save();hub?.racing.save();
     if(social.user){await playerCloud.save({quiet:true});if(playerCloud.restoring)throw Error('최신 서버 기록을 불러오고 있어요. 잠시 후 다시 시도해 주세요.');}
     if(mode==='register'){
       if(playerCloud.conflict)throw Error('서버 기록을 확인하지 못했어요. 내 기록에서 다시 연결해 주세요.');
@@ -1365,7 +1366,7 @@ $('records-menu').addEventListener('click',()=>{playerCloud?.open();$('menu-dial
 $('signup-offer-button').addEventListener('click',()=>{social.openAccount('register');$('menu-dialog').close();});
 hub=createHub({
   state:()=>({world,mode:selectedGame==='suika'?activeMode:hub?.controller().mode()||'classic',skin:currentSkin,game:selectedGame,canvas}),store:()=>progressStore,social:()=>social,player:()=>playerCloud,
-  toast,open:openDialog,cosmetics:()=>openShop('skins'),effect:playSound,achievements:renderAchievements,arcadeActive:value=>{arcadePlaying=value;},
+  settings:()=>preferences,toggleSound:()=>setSound(!soundEnabled),toast,open:openDialog,cosmetics:()=>openShop('skins'),effect:playSound,achievements:renderAchievements,arcadeActive:value=>{arcadePlaying=value;},
   resume:()=>{if(selectedGame==='suika'&&started&&world.state==='paused'&&pausedByDialog&&!document.querySelector('dialog[open]')){world.state='playing';pausedByDialog=false;}},
   switchGame:game=>{
     if(game===selectedGame)return;saveGame();
@@ -1386,7 +1387,7 @@ globalThis.addEventListener('garden-wallet-change',()=>{if(!progressReady||walle
 mountPlayLayout();
 playerCloud = new PlayerCloud({social,openDialog,beforeCapture:async()=>{
   await progressStore._queue;
-  saveGame();hub?.arcade.save();hub?.growth.save();
+  saveGame();hub?.arcade.save();hub?.growth.save();hub?.racing.save();
 }});
 function resumeAfterDialog(){
   if(!document.querySelector('dialog[open]')&&pausedByDialog&&!starting&&!resumeAvailable&&!eraseMode){
@@ -1397,7 +1398,7 @@ function resumeAfterDialog(){
 globalThis.addEventListener('garden-player-close',resumeAfterDialog);
 const gardenInstall = new GardenInstall({openDialog,onClose:resumeAfterDialog,
   isPlaying:()=>selectedGame==='suika'?started&&world.state==='playing':arcadePlaying,
-  beforeInstall:()=>{saveGame();hub?.arcade.save();hub?.growth.save();},
+  beforeInstall:()=>{saveGame();hub?.arcade.save();hub?.growth.save();hub?.racing.save();},
   onInstalled:()=>toast('홈 화면에 수박정원을 추가했어요.'),
 }).init();
 const playerInitialization = Promise.all([progressInitialization,social.init()]).then(()=>playerCloud.init()).then(()=>{

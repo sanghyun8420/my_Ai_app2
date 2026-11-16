@@ -1,3 +1,4 @@
+import { mountRacing } from './racing.js';
 import { mountArcade } from './arcade.js';
 import { drawSkinnedFruit } from './skins.js';
 import { mountGrowthGames, isGrowthGame } from './growth-games.js';
@@ -23,6 +24,7 @@ export function createHub(api){
  picker.innerHTML='<button class="dialog-close" type="button" aria-label="게임 선택 닫기">×</button><p class="eyebrow">SUIKA GARDEN · GAME ROOM</p><h2 id="game-picker-title">오늘은 무슨 게임?</h2><nav class="game-switcher" aria-label="게임 선택"><button data-game="suika" class="active" type="button"><span class="game-card-art watermelon-art" aria-hidden="true">🍉</span><span class="game-card-title">수박정원</span><small>같은 과일을 합쳐 더 크게</small><span class="game-card-go">이어 하기 <b>↗</b></span></button><button data-game="apple" type="button"><span class="game-card-art apple-art" aria-hidden="true">🍎</span><span class="game-card-title">사과모아</span><small>네모 안 사과의 합을 10으로</small><span class="game-card-go">플레이 <b>↗</b></span></button><button data-game="blocks" type="button"><span class="game-card-art block-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="game-card-title">블록정원</span><small>한 줄씩 채우는 작은 퍼즐</small><span class="game-card-go">플레이 <b>↗</b></span></button></nav>';
  document.body.append(picker);const nav=picker.querySelector('.game-switcher'),brand=$('brand-easter');
  nav.insertAdjacentHTML('beforeend','<button data-game="quest" type="button"><span class="game-card-art quest-art" aria-hidden="true"><canvas width="180" height="170"></canvas></span><span class="game-card-title">과일 원정대</span><small>썩은 과일을 물리치는 성장 RPG</small><span class="game-card-go">플레이 <b>↗</b></span></button>');
+ nav.insertAdjacentHTML('beforeend','<button data-game="racing" type="button"><span class="game-card-art race-art" aria-hidden="true">🏎️</span><span class="game-card-title">스피드 정원</span><small>차량18종 · 튜닝 · AI 레이스</small><span class="game-card-go">플레이 <b>↗</b></span></button>');
  const heroArt=nav.querySelector('.quest-art canvas').getContext('2d');heroArt.scale(2,2);drawHero(heroArt,0,43,46,.72,0,'fork');
  for(const b of nav.children)b.setAttribute('aria-pressed',String(b.dataset.game==='suika'));
  const closePicker=()=>{picker.close();brand.setAttribute('aria-expanded','false');$('games-open').setAttribute('aria-expanded','false');};
@@ -33,12 +35,28 @@ export function createHub(api){
  $('games-open').onclick=()=>brand.onclick();
  const arcadeRoot=document.createElement('section');arcadeRoot.id='arcade-root';arcadeRoot.hidden=true;document.querySelector('main').append(arcadeRoot);
  const growthRoot=document.createElement('section');growthRoot.id='growth-root';growthRoot.hidden=true;document.querySelector('main').append(growthRoot);
+ const racingRoot=document.createElement('section');racingRoot.id='racing-root';racingRoot.hidden=true;document.querySelector('main').append(racingRoot);
+ const racing=mountRacing(racingRoot,{...api,current:()=>api.state().game,active:api.arcadeActive});
  const open=(id)=>api.open(id),safe=fn=>Promise.resolve().then(fn).catch(e=>api.toast(e.message));
  const arcade=mountArcade(arcadeRoot,{...api,current:()=>api.state().game,social:()=>api.social(),rank:game=>rank(game),share:(c,t,s)=>share(c,t,s),active:api.arcadeActive});
  const growth=mountGrowthGames(growthRoot,{...api,current:()=>api.state().game,active:api.arcadeActive});
  let selectedHubGame='suika';
- const controller=()=>isGrowthGame(selectedHubGame)?growth:arcade;
- function select(game,seed,mode){if(!['suika','apple','blocks','quest'].includes(game))return;if(api.social()?.room&&api.social().room.game!==game)safe(()=>api.social().leaveRoom());const previous=api.state().game,changed=game!==previous;if(changed&&previous==='apple')arcade.leave();api.switchGame(game);selectedHubGame=game;document.body.dataset.game=game;document.querySelector('.game-layout').hidden=game!=='suika';arcadeRoot.hidden=!['apple','blocks'].includes(game);growthRoot.hidden=!isGrowthGame(game);for(const b of nav.children){const active=b.dataset.game===game;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));b.querySelector('.game-card-go').firstChild.textContent=active?'이어서 플레이 ':'플레이 ';}if(changed||seed!==undefined){if(isGrowthGame(game))growth.select(game);else if(game!=='suika')arcade.select(game,seed,mode);}const special=isGrowthGame(game);$('restart-menu').querySelector('span').textContent=game==='quest'?'전투 다시 출발':'새 정원 시작';$('achievements-open').querySelector('span').textContent=special?'기록과 성장 목표':'나의 업적';$('modes-open').querySelector('span').textContent=game==='quest'?'난이도 선택':'플레이 모드';$('modes-header-open').querySelector('span').textContent=game==='quest'?'난이도':'게임 모드';$('ranking-open').querySelector('span').textContent=special?'기록':'순위';$('modes-header-open').setAttribute('aria-label',game==='quest'?'원정 난이도 선택':'플레이 모드 열기');}
+ const controller=()=>selectedHubGame==='racing'?racing:isGrowthGame(selectedHubGame)?growth:arcade;
+ function select(game,seed,mode){
+  if(!['suika','apple','blocks','quest','racing'].includes(game))return;
+  if(api.social()?.room&&api.social().room.game!==game)safe(()=>api.social().leaveRoom());
+  const previous=api.state().game,changed=game!==previous;
+  if(changed&&previous==='apple')arcade.leave();if(changed&&previous==='racing')racing.leave();
+  api.switchGame(game);selectedHubGame=game;document.body.dataset.game=game;
+  document.querySelector('.game-layout').hidden=game!=='suika';arcadeRoot.hidden=!['apple','blocks'].includes(game);growthRoot.hidden=!isGrowthGame(game);racingRoot.hidden=game!=='racing';
+  for(const b of nav.children){const active=b.dataset.game===game;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));b.querySelector('.game-card-go').firstChild.textContent=active?'이어서 플레이 ':'플레이 ';}
+  if(changed||seed!==undefined){if(game==='racing')racing.select();else if(isGrowthGame(game))growth.select(game);else if(game!=='suika')arcade.select(game,seed,mode);}
+  const special=isGrowthGame(game)||game==='racing';
+  $('restart-menu').querySelector('span').textContent=game==='racing'?'새 레이스 출발':game==='quest'?'전투 다시 출발':'새 정원 시작';
+  $('achievements-open').querySelector('span').textContent=game==='racing'?'나의 레이싱 기록':special?'기록과 성장 목표':'나의 업적';
+  $('modes-open').querySelector('span').textContent=special?'난이도 선택':'플레이 모드';$('modes-header-open').querySelector('span').textContent=special?'난이도':'게임 모드';
+  $('ranking-open').querySelector('span').textContent=special?'기록':'순위';$('modes-header-open').setAttribute('aria-label',game==='racing'?'레이스 난이도 선택':game==='quest'?'원정 난이도 선택':'플레이 모드 열기');
+ }
  nav.onclick=e=>{const b=e.target.closest('[data-game]');if(b){select(b.dataset.game);closePicker();}};
  globalThis.addEventListener('garden-room',e=>{const room=e.detail;if(room.game!=='suika')select(room.game,room.seed,room.mode);else select('suika');});
  function dialog(id,content){const d=document.createElement('dialog');d.id=id;d.className='hub-dialog';d.innerHTML=`<button class="dialog-close" aria-label="닫기">×</button>${content}`;d.querySelector('.dialog-close').onclick=()=>d.close();d.addEventListener('close',api.resume);document.body.append(d);return d;}
@@ -57,6 +75,7 @@ export function createHub(api){
   }
  });
  function rank(game=api.state().game){
+  if(game==='racing'){racing.openRecords();return;}
   if(isGrowthGame(game)){growth.openRecords();return;}
   if(!['suika','apple','blocks'].includes(game))game='suika';
   open('ranking-dialog');$('menu-dialog').close();$('ranking-list').textContent='기록을 불러오고 있어요…';$('ranking-mine').hidden=true;
@@ -95,7 +114,7 @@ export function createHub(api){
  async function loadFriends(){if(!api.social()?.user){$('chat-status').textContent='이름을 정한 뒤 친구와 대화할 수 있어요.';return;}try{const data=await api.social()._request('/api/friends');const s=$('chat-friend');s.replaceChildren();const empty=document.createElement('option');empty.value='';empty.textContent='친구 선택';s.append(empty);for(const f of data.friends.filter(f=>f.status==='accepted')){const o=document.createElement('option');o.value=f.id;o.textContent=f.displayName||f.username;s.append(o);}s.value=friendId;await messages();}catch(e){$('chat-status').textContent=e.message;}}
  async function messages(body){if(!friendId||chatBusy)return;chatBusy=true;try{const requestFriend=friendId;const result=await api.social()._request('/api/messages'+(body?'':'?friend='+encodeURIComponent(friendId)),body?{method:'POST',body:{friendId,...body}}:{});if(requestFriend!==friendId)return;const list=$('chat-messages'),nearBottom=list.scrollHeight-list.scrollTop-list.clientHeight<80;list.replaceChildren();for(const m of result.messages){const row=document.createElement('div');row.className=m.senderId===api.social().user?.id?'chat-bubble mine':'chat-bubble';const text=document.createElement('p');text.textContent=m.text;row.append(text);if(m.roomCode){const b=document.createElement('button');b.textContent='대결 방 입장 →';b.onclick=()=>safe(()=>api.social().joinRoom(m.roomCode));row.append(b);}const time=document.createElement('small');time.textContent=new Date(m.createdAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});row.append(time);list.append(row);}if(nearBottom||body)list.scrollTop=list.scrollHeight;$('chat-status').textContent='';return true;}catch(e){$('chat-status').textContent=e.message;return false;}finally{chatBusy=false;}}
  $('chat-friend').onchange=e=>{friendId=e.target.value;$('chat-messages').replaceChildren();messages();};$('chat-form').onsubmit=async e=>{e.preventDefault();const input=$('chat-input'),text=input.value.trim();if(!friendId){$('chat-status').textContent='먼저 친구를 선택해 주세요.';return;}if(text&&await messages({text}))input.value='';};
- $('chat-challenge').onclick=()=>safe(async()=>{if(isGrowthGame(api.state().game)){friends.close();brand.onclick();api.toast('대전할 수박·사과·블록 게임을 선택해 주세요.');return;}if(!friendId)throw Error('친구를 먼저 선택해 주세요.');await api.social().createRoom(api.state().mode);await messages({text:'같이 한 판! 대결 신청이 도착했어요.',roomCode:api.social().room.code});api.toast('대결 신청을 보냈어요.');});
+ $('chat-challenge').onclick=()=>safe(async()=>{if(isGrowthGame(api.state().game)||api.state().game==='racing'){friends.close();brand.onclick();api.toast('대전할 수박·사과·블록 게임을 선택해 주세요.');return;}if(!friendId)throw Error('친구를 먼저 선택해 주세요.');await api.social().createRoom(api.state().mode);await messages({text:'같이 한 판! 대결 신청이 도착했어요.',roomCode:api.social().room.code});api.toast('대결 신청을 보냈어요.');});
  for(const id of ['friends-open','friends-menu'])$(id).addEventListener('click',()=>socialTab(chatTab));
  socialTab('chat');
  // Visible password requirements and persistent login preference.
@@ -107,5 +126,5 @@ export function createHub(api){
  function frame(now){const dt=last?Math.min(.1,(now-last)/1000):0;last=now;const s=api.state();if(s.game==='suika'&&s.world.state==='playing'&&s.mode==='classic'&&!document.hidden&&!document.querySelector('dialog[open]'))seconds+=dt;
    if(seconds>=15){const n=Math.floor(seconds);seconds-=n;safe(()=>api.store().recordHub(n));}
    if(!document.hidden){bc.clearRect(0,0,140,160);drawBuddy(bc,api.store().profile.equippedHat,70,85,1.7,0);if(now>speechUntil)bubble.hidden=true;beat+=dt;if(beat>2&&friends.open&&chatTab==='chat'){beat=0;if(now-chatAt>2200){chatAt=now;messages();}}}requestAnimationFrame(frame);}
- requestAnimationFrame(frame);return {merge,rank,share,renderTiers,arcade,growth,controller,select,say};
+ requestAnimationFrame(frame);return {merge,rank,share,renderTiers,arcade,growth,racing,controller,select,say};
 }
