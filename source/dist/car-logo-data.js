@@ -26,15 +26,16 @@ export const CAR_LOGO_DATA=[
   },
   {
     "level": 3,
-    "brand": "tesla",
-    "file": "car-tesla.png",
+    "brand": "volkswagen",
+    "file": "car-volkswagen.svg",
     "bounds": [
-      144,
-      38,
-      352,
-      350
+      0,
+      0,
+      512,
+      512
     ],
-    "source": "https://www.carlogos.org/car-logos/tesla-logo-2007.png"
+    "source": "https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/volkswagen.svg",
+    "license": "CC0-1.0 (Simple Icons)"
   },
   {
     "level": 4,

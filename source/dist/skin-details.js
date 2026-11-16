@@ -27,7 +27,7 @@ function paintCar(c,level){
  else{const asset=getCarLogo(level);if(asset){const [x,y,w,h]=asset.bounds,scale=Math.min(82/w,82/h);c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';c.drawImage(asset.image,x,y,w,h,-w*scale/2,-h*scale/2,w*scale,h*scale);}}
  c.restore();
 }
-const CAR_LOADING_NAMES=['KIA','HYUNDAI','GENESIS','TESLA','LAND ROVER','Mercedes','BMW','Audi','PORSCHE','FERRARI','LAMBORGHINI','KOENIGSEGG','PAGANI','BUGATTI'];
+const CAR_LOADING_NAMES=['KIA','HYUNDAI','GENESIS','Volkswagen','LAND ROVER','Mercedes','BMW','Audi','PORSCHE','FERRARI','LAMBORGHINI','KOENIGSEGG','PAGANI','BUGATTI'];
 export function drawCarLogo(c,level){
  if(level===0||getCarLogo(level))cached(c,'car-original',level,paintCar);
  else{preloadCarLogos();c.save();disc(c);text(c,CAR_LOADING_NAMES[level],0,0,level===10||level===11?6.8:9,'#1b2b32');c.restore();}
