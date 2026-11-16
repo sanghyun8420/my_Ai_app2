@@ -30,3 +30,4 @@
 
 - 리더보드 공개 목록 읽기는 점수/지갑 동기화와 독립적으로 즉시 시작해야 합니다. 수동 동기화 버튼을 다시 추가하지 않습니다. 열린 창의5초 폴링은 전송도 자동 재시도하고, PlayerCloud.flushScores는 창을 열지 않아도 소유권이 확인된 기기 최고점수를 자동 전송합니다. syncTask/connectTask/전체 beforeCapture를 기다리지 않습니다. 같은 사용자 이벤트 재초기화 금지, 목록/전송 타임아웃과 기존 행 보존을 유지합니다.
 - saveScore의 성공 응답은 요청 당시 사용자 ID·_userVersion과 현재 상태가 일치하고 인증 변경 중이 아닐 때만 _acceptUser로 적용합니다. 지연된 게스트 점수 응답으로 로그인 계정을 되돌리면 안 됩니다. native/Pages 실제 API 지연 재현은 auth-persistence.mjs에 있습니다.
+- Window의 타이머 함수를 인스턴스 메서드로 직접 보관/호출하지 않습니다. LiveLeaderboard와 PlayerCloud의 기본 타이머는 전역 호출 래퍼를 유지하고 browser-timers.mjs를 실행합니다. Node에서는 통과하지만 브라우저에서는 순위 요청 전에 Illegal invocation이 발생할 수 있습니다.

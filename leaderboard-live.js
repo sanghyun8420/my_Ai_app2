@@ -1,7 +1,8 @@
 const CANCELLED=Symbol('closed leaderboard');
 /** Public rows load immediately; score uploads never hold the visible board hostage. */
 export class LiveLeaderboard {
- constructor({read,render,status=()=>{},sync=async()=>{},context=()=>'',visible=()=>true,intervalMs=5000,syncTimeoutMs=8000,readTimeoutMs=12000,setTimer=setInterval,clearTimer=clearInterval,setDeadline=setTimeout,clearDeadline=clearTimeout}={}){
+ constructor({read,render,status=()=>{},sync=async()=>{},context=()=>'',visible=()=>true,intervalMs=5000,syncTimeoutMs=8000,readTimeoutMs=12000,setTimer=(fn,ms)=>globalThis.setInterval(fn,ms),clearTimer=id=>globalThis.clearInterval(id),setDeadline=(fn,ms)=>globalThis.setTimeout(fn,ms),clearDeadline=id=>globalThis.clearTimeout(id)}={}){
+  // Window timer methods need the global receiver, not this controller.
   Object.assign(this,{read,render,status,sync,context,visible,intervalMs,syncTimeoutMs,readTimeoutMs,setTimer,clearTimer,setDeadline,clearDeadline});this.epoch=0;this.active=false;
  }
  limit(run,ms,message){
