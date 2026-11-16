@@ -52,7 +52,7 @@ export class RacingGarage {
   if(this.data.receipts.includes(result.id))return {awarded:false,total:0};
   if(this.data.activeRace?.id!==result.id)throw Error('진행 중인 레이스의 기록을 확인해 주세요.');
   const bonus=Math.round(DIFFICULTIES[result.difficulty].reward*(1+(result.stage-1)*.15)*[0,1,.7,.5,.35,.25,.2,.15][result.rank]),total=result.trackCoins+bonus;
-  return this.transaction(()=>{if(!Number.isSafeInteger(total)||!Number.isSafeInteger(this.data.coins+total))throw Error('동전 한도를 확인해 주세요.');this.data.coins+=total;this.data.earnedCoins+=total;this.data.completedRaces++;if(result.rank===1)this.data.wins++;this.data.seconds+=Math.floor(result.seconds);this.data.bestRank=Math.min(this.data.bestRank,result.rank);this.data.stage=Math.max(this.data.stage,result.stage+1);this.data.receipts.unshift(result.id);this.data.receipts.length=Math.min(32,this.data.receipts.length);this.data.activeRace=null;return {awarded:true,total,bonus};});
+  return this.transaction(()=>{if(!Number.isSafeInteger(total)||!Number.isSafeInteger(this.data.coins+total))throw Error('동전 한도를 확인해 주세요.');this.data.coins+=total;this.data.earnedCoins+=total;this.data.completedRaces++;if(result.rank===1)this.data.wins++;this.data.seconds+=Math.floor(result.seconds);this.data.bestRank=Math.min(this.data.bestRank,result.rank);if(result.rank<=3)this.data.stage=Math.max(this.data.stage,result.stage+1);this.data.receipts.unshift(result.id);this.data.receipts.length=Math.min(32,this.data.receipts.length);this.data.activeRace=null;return {awarded:true,total,bonus,qualified:result.rank<=3,nextStage:this.data.stage};});
  }
 }
 export class RaceSimulation {

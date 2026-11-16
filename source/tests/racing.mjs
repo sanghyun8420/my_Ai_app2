@@ -21,3 +21,11 @@ for(let i=0;i<5;i++){const race=new RaceSimulation({car,difficulty:'easy',stage:
 assert.equal(g.data.completedRaces,5);assert.equal(g.data.gems,5);assert.equal(p.profile.gems,5,'five completions award shared gems without sharing race coins');assert.equal(p.profile.coins,20);assert.equal(g.data.activeRace,null);assert(JSON.parse(s.getItem(ECONOMY_KEY)).records[RACING_KEY]);
 const race=new RaceSimulation({car,id:'retry'});g.checkpoint(race);const result={id:race.id,difficulty:'easy',stage:g.data.stage,rank:2,seconds:22,trackCoins:40},coins=g.data.coins;s.fail=true;assert.throws(()=>g.finish(result));assert.equal(g.data.coins,coins);assert(!g.data.receipts.includes('retry'));s.fail=false;assert(g.finish(result).awarded);assert(!g.finish(result).awarded);
 assert.equal(new RacingGarage({storage:s}).data.coins,g.data.coins);assert(before);console.log('PASS racing:18 vehicles, tuning/reload and rollback, isolated/shared wallets,60/120Hz physics, acceleration/braking/nitro/steering, jumps, traffic immunity, police, bounded save restore, server snapshot continuation, exact ranked rewards, idempotency and milestone gems.');
+for(let rank=1;rank<=7;rank++){
+ const isolated=storage(),garage=new RacingGarage({storage:isolated}),race=new RaceSimulation({car,id:'rank-'+rank,stage:1});garage.save();garage.checkpoint(race);
+ const result={id:race.id,difficulty:'easy',stage:1,rank,seconds:23,trackCoins:10},coins=garage.data.coins,outcome=garage.finish(result);
+ assert.equal(garage.data.stage,rank<=3?2:1,`${rank}th place progression`);assert.equal(outcome.qualified,rank<=3);assert(garage.data.coins>coins,'all finishers retain coins for upgrades');
+ assert.equal(new RacingGarage({storage:isolated}).data.stage,rank<=3?2:1,'qualification gate survives reload');assert.equal(garage.finish(result).awarded,false);assert.equal(garage.data.stage,rank<=3?2:1);
+ const next=new RaceSimulation({car,stage:garage.data.stage,id:'next-'+rank});assert.equal(next.stage,rank<=3?2:1,'retry must use the current unlocked stage');
+}
+console.log('PASS podium gate:1st/2nd/3rd advance,4th–7th retry the same stage, rewards retained, persisted gates and replay protection.');

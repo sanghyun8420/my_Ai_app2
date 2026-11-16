@@ -16,6 +16,8 @@ export const SKIN_CATALOG = catalog([
   { id: 'cars', name: '차고의 전설', price: 100, description: '기아부터 부가티까지, 14가지 자동차 브랜드 배지.', icon: '🏎️' },
   { id: 'fruit3d', name: '3D 과일', price: 80, description: '빛과 그림자, 껍질의 질감이 살아 있는 입체 과일.', icon: '🍒' },
   { id: 'food', name: '야식 정원', price: 75, description: '김밥부터 떡볶이·치킨·피자·보쌈까지, 서로 다른 14가지 야식.', icon: '🍜' },
+  { id: 'krw', name: '원화 금고', price: 80, description: '10원 동전부터 5만원권까지, 동전과 지폐 묶음으로 모으는 14단계.', icon: '🪙' },
+  { id: 'usd', name: '달러 금고', price: 80, description: '1달러부터 100달러까지, 초록빛 지폐와 묶음으로 모으는 14단계.', icon: '💵' },
   { id: 'royalGem', name: '보석 광산', price: 9999, description: '합칠 때마다 수박 동전 +1. 10단계 이상 보석을 합치면 동전 +10.', icon: '💠' },
 ]);
 

@@ -31,3 +31,10 @@ const retiredAgain=new GardenProgress({storage:retiredStorage});await retiredAga
 assert.equal(skinFruitName(2,'galaxy'),'지구');assert.equal(skinFruitName(5,'galaxy'),'토성');assert.equal(skinFruitName(13,'galaxy'),'태양');
 assert.equal(skinFruitName(0,'cars'),'기아');assert.equal(skinFruitName(13,'cars'),'부가티');assert.equal(skinFruitName(9,'fruit3d'),'수박');
 console.log('PASS refreshed skins: catalog removal, legacy ownership conversion, purchase/equip persistence, one-time shared-wallet refunds and reference stage names.');
+const moneyValues=new Map([['suika-garden-profile-v3',JSON.stringify({gems:200,ownedSkins:['classic','cars']})]]),moneyStorage={getItem:k=>moneyValues.get(k)||null,setItem:(k,v)=>moneyValues.set(k,String(v))};
+const money=new GardenProgress({storage:moneyStorage});await money.init();
+for(const id of ['krw','usd']){assert.equal(SKIN_CATALOG.find(s=>s.id===id).price,80);await money.buySkin(id);await money.equipSkin(id);assert.equal(money.profile.equippedSkin,id);}
+assert.equal(money.profile.gems,40);assert(money.profile.ownedSkins.includes('cars'));await money.buySkin('krw');assert.equal(money.profile.gems,40,'owned money skins cannot charge again');
+const savedMoney=new GardenProgress({storage:moneyStorage});await savedMoney.init();assert.equal(savedMoney.profile.equippedSkin,'usd');assert(savedMoney.profile.ownedSkins.includes('krw'));assert.equal(savedMoney.profile.gems,40);
+assert.equal(skinFruitName(0,'krw'),'10원');assert.equal(skinFruitName(13,'krw'),'5만원');assert.equal(skinFruitName(0,'usd'),'1달러');assert.equal(skinFruitName(13,'usd'),'100달러');
+console.log('PASS money skins: both purchases/equip/reload, existing ownership and gem balances, duplicate purchase protection and denomination labels.');

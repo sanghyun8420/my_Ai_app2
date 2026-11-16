@@ -1,4 +1,5 @@
 import {drawFood,FOOD_NAMES} from './food-art.js';
+import {drawWon,drawDollar,KRW_STAGES,USD_STAGES} from './currency-art.js';
 import { FRUITS, drawFruit, drawSpecialAppleEffect, APPLE_LEVEL, PEAR_LEVEL } from './fruits.js';
 import { SKIN_CATALOG } from './catalog.js';
 import { drawCarLogo, drawPlanet, drawFruit3D, drawRottenFruit, PLANET_NAMES } from './skin-details.js';
@@ -403,12 +404,13 @@ function mysteryBall(ctx, level, color, time = 0) {
 }
 
 const CAR_LABELS=['기아','현대','제네시스','폭스바겐','랜드로버','벤츠','BMW','아우디','포르셰','페라리','람보르기니','코닉세그','파가니','부가티'];
-export function skinFruitName(level,skin='classic'){return skin==='cars'?CAR_LABELS[level]:skin==='galaxy'?PLANET_NAMES[level]:skin==='food'?FOOD_NAMES[level]:FRUITS[level].name;}
+export function skinFruitName(level,skin='classic'){return skin==='krw'?KRW_STAGES[level].name:skin==='usd'?USD_STAGES[level].name:skin==='cars'?CAR_LABELS[level]:skin==='galaxy'?PLANET_NAMES[level]:skin==='food'?FOOD_NAMES[level]:FRUITS[level].name;}
 function royalBall(ctx,level){gemBall(ctx,level);ctx.save();ctx.strokeStyle='#f5da7c';ctx.lineWidth=3;polygon(ctx,[[-20,-32],[-27,-43],[-8,-37],[0,-49],[9,-37],[27,-43],[20,-32]],'#bf963f','#f2dfa3',1);ctx.restore();}
 const RENDERERS = {
   numbers:numberBall, candy:candyBall, pastel:pastelBall, pixel:pixelBall,
   cat:catBall, ice:iceBall, neon:neonBall, galaxy:drawPlanet, mystery:drawRottenFruit,
   cars:drawCarLogo,fruit3d:drawFruit3D,food:drawFood,royalGem:royalBall,
+  krw:drawWon,usd:drawDollar,
 };
 
 /** Draw any skin with the same coordinates and optional lucky-apple state. */

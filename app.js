@@ -616,9 +616,9 @@ function renderShop(force = false) {
       const basket=shopCategory==='baskets'?item.id:currentBasket;
       drawCosmeticBackdrop(c,background,200,115,0,preferences.theme);
       const skin=shopCategory==='skins'?item.id:currentSkin;
-      if(isHat){drawBuddy(c,item.id,90,66,1.45);}else if(item.id==='mystery'&&!owned){c.font='bold 46px sans-serif';c.fillStyle='#6d6254';c.fillText('???',65,80);}else{drawSkinnedFruit(c,1,48,77,24,-.1,1,false,0,skin);
-      drawSkinnedFruit(c,4,107,66,34,0,1,false,0,skin);
-      drawSkinnedFruit(c,2,158,78,24,.1,1,false,0,skin);}
+      if(isHat){drawBuddy(c,item.id,90,66,1.45);}else if(item.id==='mystery'&&!owned){c.font='bold 46px sans-serif';c.fillStyle='#6d6254';c.fillText('???',65,80);}else{const previewLevels=['krw','usd'].includes(skin)?[0,13,7]:[1,4,2];drawSkinnedFruit(c,previewLevels[0],48,77,24,-.1,1,false,0,skin);
+      drawSkinnedFruit(c,previewLevels[1],107,66,34,0,1,false,0,skin);
+      drawSkinnedFruit(c,previewLevels[2],158,78,24,.1,1,false,0,skin);}
       drawBasketFrame(c,basket,200,115,0);card.append(art);
     }
     const title=document.createElement('h3');title.textContent=item.id==='mystery'&&owned?'문드러진 열매':item.name;
