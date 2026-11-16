@@ -231,6 +231,10 @@ node scripts/export-github-pages.mjs /absolute/empty/output
 
 `racing-model.js`는 사용자가 제공한18종 차량/난이도 구성을 따르는 순수 모델입니다. `racing-art.js`는 차량과 도로의 Canvas 렌더러, `racing.js`는 차고·HUD·키보드/포인터·오디오·선택 화면 연결입니다. 외부 Tailwind/Tone CDN에 의존하지 않습니다. 테스트용 동전 충전 버튼은 공개 화면에 노출하지 않습니다.
 
+현재 레이싱은 body[data-game=racing]에서 fixed 전체 화면을 사용합니다. 차고/상점/튜닝은 body의 native dialog로 열고 게임 선택 복귀 버튼을 제공합니다. drawFrontCar는 정면 차량 미리보기이며 실제 주행은 탑뷰입니다. canvas는 실제 화면 비율로 크기를 조절하고 drawRaceScene의 viewHeight 카메라로 세로 공간을 확장하여 차량 비율을 보존합니다. 기존 제한된5:6 race-play 규칙은 더 이상 사용하지 않습니다.
+
+RaceSimulation.mode는 race/drive이며 구버전은 race로 복원합니다. drive는 라이벌0대·경찰/결승선 없음, finishDrive 결과를 RacingGarage.finish에서 모은 trackCoins만 한 번 정산합니다. completedDrives는 별도이며 race의 completedRaces/승수/스테이지/5회 보석 보상을 올리지 않습니다. selectedDriveMode와 진행 중 주행을 canonical 레코드에 저장합니다. 순위 경기의3위 이내 진출 규칙은 유지합니다. 니트로는 requestNitro로 켜서 소진까지 nitroActive를 저장하며 키 반복으로 재충전하지 않습니다. UI 입력은 countdown에서도 받아 출발 즉시 엑셀이 적용되고, 브레이크 UI/키는 없습니다. 메뉴·포커스 상실·포인터 취소의 입력 해제는 유지합니다.
+
 `RACING_KEY= garden-racing-v1` 레코드는 canonical 경제 저장의 records 안에 선택적으로 생성합니다. 기존 GAME_KEYS 다섯 항목은 옛 백업 호환을 위해 그대로 두며 새 기기 백업 키를 추가하지 않습니다. 클라우드는 경제 저장 전체를 포함하므로 추가 서버 테이블 없이 레이싱도 백업/복원됩니다. 동전500개로 처음 시작하고 차량·튜닝은 레이싱 동전으로만 구매합니다.5회 완주당 공용 보석5개는 경제 milestone으로 한 번만 지급합니다. 사과 키우기 기록은 재사용하거나 삭제하지 않습니다.
 
 주행은60Hz 고정 간격이며 새로고침/기기 프레임 속도 차이를 보정합니다. activeRace에 주행 스냅샷을 저장하고 완주 결과는 run ID 영수증과 원자적으로 지급합니다. 차고에 갔다가 이어갈 수 있으며 새 레이스를 누르면 진행 중 레이스만 교체합니다. 메뉴/다른 게임/백그라운드/수동 정지 중에는 입력과 엔진음을 끄고 시뮬레이션을 멈춥니다. 스피드 정원의 순위 버튼은 개인 기록 창을 엽니다.6명 상대는 AI이며 친구 실시간 대전 API에 레이싱을 추가한 것은 아닙니다.
@@ -256,4 +260,4 @@ LiveLeaderboard.open은 공개 순위를 바로 읽고 별도로 synchronize를 
 
 PlayerCloud.syncLeaderboard는 beforeScoreCapture(진행 큐 반영)와 최고점수 import만 사용합니다. 준비 중·계정 변경 중이면 false를 반환하고 다음 자동 갱신을 기다립니다. 지갑 캡처용 beforeCapture/서버 복원/CAS 저장을 거치지 않습니다. 별도로 flushScores가 이미 커밋된 기기 최고점수를5초 타이머·포커스/온라인 복귀·지갑 변경600ms 후 자동 전송합니다. busy/syncTask/connectTask/saveTask나 캡처 큐를 기다리지 않고, canPublishScores로 확인된 소유권·인증 변경·복원 중 상태를 보호합니다. submitScores의 사용자+epoch별 요청 공유와 성공 후 lastScores 갱신, 실패 후 재시도를 유지합니다. 기본/모드 최고점수 분리는 유지합니다. optional me가 없을 때 현재 계정 ID와 공개 행으로 본인 순위를 찾습니다.
 
-play-layout.js는 현재 게임과 관계없이 --garden-header-height를 측정합니다. 레이싱의 data-race-view=play는 제목을 접고 그 높이를 도로에 사용하며 화면과헤더에 맞춘5:6 비율로 표시합니다. 너무 낮은 창은 최소 너비를 유지하고 세로 스크롤로 접근할 수 있습니다. 블록정원은1000px 이상 화면에서 보드+오른쪽 세 블록/도구 배치입니다. 드래그 좌표는 canvas 실제 바운드 기준을 유지하며 표시 크기 변경으로 셀 위치가 달라지면 안 됩니다.
+play-layout.js는 현재 게임과 관계없이 --garden-header-height를 측정합니다. 레이싱의 data-race-view=play는 제목을 접고 전체 viewport에 도로/HUD/조작을 표시합니다. 레이싱은 고정5:6 패널을 사용하지 않으며 위의 viewHeight 카메라 규칙을 따릅니다. 블록정원은1000px 이상 화면에서 보드+오른쪽 세 블록/도구 배치입니다. 드래그 좌표는 canvas 실제 바운드 기준을 유지하며 표시 크기 변경으로 셀 위치가 달라지면 안 됩니다.

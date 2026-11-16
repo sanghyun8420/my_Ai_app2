@@ -38,41 +38,46 @@ export class RacingGarage {
  constructor({storage=globalThis.localStorage}={}){
   this.economy=new GameEconomy(storage,RACING_KEY);const old=this.economy.read();
   const unlockedCars=[...new Set(['c_class',...(Array.isArray(old.unlockedCars)?old.unlockedCars.filter(id=>CARS.some(c=>c.id===id)):[])])];
-  this.data=this.economy.bind({coins:whole(old.coins,500),stage:Math.max(1,whole(old.stage,1)),unlockedCars,selectedCarId:unlockedCars.includes(old.selectedCarId)?old.selectedCarId:'c_class',selectedCategory:['all','luxury','supercar'].includes(old.selectedCategory)?old.selectedCategory:'all',selectedDifficulty:DIFFICULTIES[old.selectedDifficulty]?old.selectedDifficulty:'easy',upgrades:Object.fromEntries(CARS.map(car=>[car.id,Object.fromEntries(['speed','handling','nitro'].map(k=>[k,clamp(whole(old.upgrades?.[car.id]?.[k],1),1,5)]))])),completedRaces:whole(old.completedRaces),wins:whole(old.wins),earnedCoins:whole(old.earnedCoins),seconds:whole(old.seconds),bestRank:clamp(whole(old.bestRank,7),1,7),receipts:Array.isArray(old.receipts)?old.receipts.filter(id=>typeof id==='string').slice(0,32):[],activeRace:RaceSimulation.restore(old.activeRace)?.serialize()||null});
+  this.data=this.economy.bind({coins:whole(old.coins,500),stage:Math.max(1,whole(old.stage,1)),unlockedCars,selectedDriveMode:old.selectedDriveMode==='drive'?'drive':'race',completedDrives:whole(old.completedDrives),selectedCarId:unlockedCars.includes(old.selectedCarId)?old.selectedCarId:'c_class',selectedCategory:['all','luxury','supercar'].includes(old.selectedCategory)?old.selectedCategory:'all',selectedDifficulty:DIFFICULTIES[old.selectedDifficulty]?old.selectedDifficulty:'easy',upgrades:Object.fromEntries(CARS.map(car=>[car.id,Object.fromEntries(['speed','handling','nitro'].map(k=>[k,clamp(whole(old.upgrades?.[car.id]?.[k],1),1,5)]))])),completedRaces:whole(old.completedRaces),wins:whole(old.wins),earnedCoins:whole(old.earnedCoins),seconds:whole(old.seconds),bestRank:clamp(whole(old.bestRank,7),1,7),receipts:Array.isArray(old.receipts)?old.receipts.filter(id=>typeof id==='string').slice(0,32):[],activeRace:RaceSimulation.restore(old.activeRace)?.serialize()||null});
  }
  get car(){return effectiveCar(carById(this.data.selectedCarId),this.data.upgrades[this.data.selectedCarId]);}
  save(){this.economy.commit(this.data);}
  transaction(change){const before=clone(this.data),delta=this.economy.delta;try{const value=change();this.save();return value;}catch(error){this.data=this.economy.restore(before,delta);throw error;}}
  chooseCar(id){const car=CARS.find(c=>c.id===id);if(!car)throw Error('차량을 확인해 주세요.');return this.transaction(()=>{if(!this.data.unlockedCars.includes(id)){if(this.data.coins<car.price)throw Error(`레이싱 동전 ${(car.price-this.data.coins).toLocaleString()}개가 부족해요.`);this.data.coins-=car.price;this.data.unlockedCars.push(id);}this.data.selectedCarId=id;});}
  upgrade(key){if(!['speed','handling','nitro'].includes(key))throw Error('튜닝 항목을 확인해 주세요.');return this.transaction(()=>{const u=this.data.upgrades[this.data.selectedCarId],level=u[key];if(level>=5)throw Error('이미 최고 레벨이에요.');const price=UPGRADE_COSTS[level];if(this.data.coins<price)throw Error('레이싱 동전이 부족해요.');this.data.coins-=price;u[key]++;});}
- select(key,value){if(key==='selectedDifficulty'&&!DIFFICULTIES[value]||key==='selectedCategory'&&!['all','luxury','supercar'].includes(value)||!['selectedDifficulty','selectedCategory'].includes(key))throw Error('선택을 확인해 주세요.');this.transaction(()=>{this.data[key]=value;});}
+ select(key,value){if(key==='selectedDifficulty'&&!DIFFICULTIES[value]||key==='selectedCategory'&&!['all','luxury','supercar'].includes(value)||key==='selectedDriveMode'&&!['drive','race'].includes(value)||!['selectedDifficulty','selectedCategory','selectedDriveMode'].includes(key))throw Error('선택을 확인해 주세요.');this.transaction(()=>{this.data[key]=value;});}
  checkpoint(race){this.transaction(()=>{this.data.activeRace=race&&['countdown','racing'].includes(race.phase)?race.serialize():null;});}
  finish(result){
   if(!result||typeof result.id!=='string'||!DIFFICULTIES[result.difficulty]||!Number.isSafeInteger(result.stage)||result.stage<1||!Number.isInteger(result.rank)||result.rank<1||result.rank>7||!Number.isSafeInteger(result.trackCoins)||result.trackCoins<0||!Number.isFinite(result.seconds)||result.seconds<0)throw Error('레이스 결과를 확인해 주세요.');
   if(this.data.receipts.includes(result.id))return {awarded:false,total:0};
   if(this.data.activeRace?.id!==result.id)throw Error('진행 중인 레이스의 기록을 확인해 주세요.');
-  const bonus=Math.round(DIFFICULTIES[result.difficulty].reward*(1+(result.stage-1)*.15)*[0,1,.7,.5,.35,.25,.2,.15][result.rank]),total=result.trackCoins+bonus;
-  return this.transaction(()=>{if(!Number.isSafeInteger(total)||!Number.isSafeInteger(this.data.coins+total))throw Error('동전 한도를 확인해 주세요.');this.data.coins+=total;this.data.earnedCoins+=total;this.data.completedRaces++;if(result.rank===1)this.data.wins++;this.data.seconds+=Math.floor(result.seconds);this.data.bestRank=Math.min(this.data.bestRank,result.rank);if(result.rank<=3)this.data.stage=Math.max(this.data.stage,result.stage+1);this.data.receipts.unshift(result.id);this.data.receipts.length=Math.min(32,this.data.receipts.length);this.data.activeRace=null;return {awarded:true,total,bonus,qualified:result.rank<=3,nextStage:this.data.stage};});
+  const driving=result.mode==='drive';if((this.data.activeRace.mode==='drive')!==driving)throw Error('주행 종류를 확인해 주세요.');
+  const bonus=driving?0:Math.round(DIFFICULTIES[result.difficulty].reward*(1+(result.stage-1)*.15)*[0,1,.7,.5,.35,.25,.2,.15][result.rank]),total=result.trackCoins+bonus;
+  return this.transaction(()=>{if(!Number.isSafeInteger(total)||!Number.isSafeInteger(this.data.coins+total))throw Error('동전 한도를 확인해 주세요.');this.data.coins+=total;this.data.earnedCoins+=total;if(driving)this.data.completedDrives++;else{this.data.completedRaces++;if(result.rank===1)this.data.wins++;this.data.bestRank=Math.min(this.data.bestRank,result.rank);if(result.rank<=3)this.data.stage=Math.max(this.data.stage,result.stage+1);}this.data.seconds+=Math.floor(result.seconds);this.data.receipts.unshift(result.id);this.data.receipts.length=Math.min(32,this.data.receipts.length);this.data.activeRace=null;return {awarded:true,total,bonus,qualified:!driving&&result.rank<=3,nextStage:this.data.stage};});
  }
 }
 export class RaceSimulation {
- constructor({car=CARS[0],difficulty='easy',stage=1,random=Math.random,id}={}){
+ constructor({car=CARS[0],difficulty='easy',stage=1,mode='race',random=Math.random,id}={}){
   this.id=id||`race-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;this.car=car.nitroDrainRate?{...car}:effectiveCar(car);this.difficulty=DIFFICULTIES[difficulty]?difficulty:'easy';this.stage=Math.max(1,whole(stage,1));this.phase='countdown';this.countdown=2.25;this.elapsed=0;this.tick=0;this.distance=0;this.speed=0;this.x=-.72;this.tilt=0;this.jump=0;this.jumpVelocity=0;this.nitro=55;this.boosting=false;this.invulnerable=0;this.trackCoins=0;this.policeLeft=0;this.nextPolice=this.diff.police;this.traffic=[];this.coins=[];this.ramps=[];this.zones=[];this.police=[];this.events=[];this.accumulator=0;this.random=random;
-  this.rivals=this.diff.ids.map((id,i)=>({id,lane:[-.44,-.15,.15,.44,.72,-.72][i],target:[-.44,-.15,.15,.44,.72,-.72][i],distance:(i+1)*7,speed:this.diff.speeds[i]*(1+(this.stage-1)*.065),phase:i*1.45}));
+  this.mode=mode==='drive'?'drive':'race';this.x=0;this.nitroActive=false;this.nitroHeld=false;
+  this.rivals=this.mode==='drive'?[]:this.diff.ids.map((id,i)=>({id,lane:[-.44,-.15,.15,.44,.72,-.72][i],target:[-.44,-.15,.15,.44,.72,-.72][i],distance:(i+1)*7,speed:this.diff.speeds[i]*(1+(this.stage-1)*.065),phase:i*1.45}));
  }
  get diff(){return DIFFICULTIES[this.difficulty];}
  get length(){return Math.round(this.diff.length*(1+(this.stage-1)*.1));}
  get rank(){return 1+this.rivals.filter(r=>r.distance>this.distance).length;}
- curve(distance){const amp=this.diff.curve*(1+(this.stage-1)*.08);return Math.sin(distance*.0018)*amp+Math.sin(distance*.0044)*amp*.42;}
+ curve(distance){const amp=this.diff.curve*(this.mode==='drive'?.45:1+(this.stage-1)*.08);return Math.sin(distance*.0018)*amp+Math.sin(distance*.0044)*amp*.42;}
+ requestNitro(){if(!['countdown','racing'].includes(this.phase)||this.nitro<=1||this.nitroActive)return false;this.nitroActive=true;return true;}
+ finishDrive(){if(this.mode!=='drive'||this.phase==='finished')return false;this.phase='finished';this.boosting=false;this.nitroActive=false;this.result={id:this.id,mode:'drive',stage:this.stage,difficulty:this.difficulty,rank:1,seconds:this.elapsed,trackCoins:this.trackCoins};this.emit('finish');return true;}
  screenX(lane,y){return 300+this.curve(this.distance+(533-y)/1.45)-this.curve(this.distance)+lane*220;}
  emit(type,extra={}){this.events.push({type,...extra});}
  update(dt,input={}){if(!Number.isFinite(dt)||dt<=0||this.phase==='finished')return;this.accumulator+=Math.min(.25,dt);while(this.accumulator>=1/60){this.accumulator-=1/60;this.step(input);if(this.phase==='finished')break;}}
  step(input){
+  if(input.nitro&&!this.nitroHeld)this.requestNitro();this.nitroHeld=!!input.nitro;
   if(this.phase==='countdown'){this.countdown-=1/60;if(this.countdown<=0){this.phase='racing';this.emit('go');}return;}
   if(this.phase!=='racing')return;this.tick++;this.elapsed+=1/60;const car=this.car,d=this.diff;
-  this.boosting=!!(input.nitro&&this.nitro>1&&this.speed>3);this.nitro=clamp(this.nitro+(this.boosting?-car.nitroDrainRate:.04),0,100);
+  this.boosting=!!(this.nitroActive&&this.nitro>0&&this.speed>3);this.nitro=clamp(this.nitro+(this.boosting?-car.nitroDrainRate:.04),0,100);if(!this.nitro)this.nitroActive=false;
   const top=car.scrollSpeed*(this.boosting?car.nitroPower:1);
-  if(input.brake)this.speed=Math.max(0,this.speed-.36);else if(input.accel||this.boosting)this.speed+=(top-this.speed)*(this.boosting?.24:.14);else this.speed=this.speed<.05?0:this.speed*.985;
+  if(input.accel||this.nitroActive||this.boosting)this.speed+=(top-this.speed)*(this.boosting?.24:.14);else this.speed=this.speed<.05?0:this.speed*.985;
   if(this.invulnerable>0){this.invulnerable--;this.speed=Math.min(this.speed,car.scrollSpeed*.52);}
   this.distance+=this.speed;const ratio=this.speed/car.scrollSpeed,delta=(this.curve(this.distance+45)-this.curve(this.distance))/45;
   if(this.jump===0&&this.speed>4)this.x-=delta*ratio*.032;
@@ -93,10 +98,10 @@ export class RaceSimulation {
   const collide=()=>{this.invulnerable=42;this.speed*=.45;this.emit('hit');};
   for(const t of this.traffic){t.y+=(this.speed-t.speed)*1.45;if(this.jump<12&&!this.invulnerable&&touching(t,28,52))collide();}
   this.coins=this.coins.filter(c=>{c.y+=this.speed*1.45;if(touching(c,34,46)){this.trackCoins+=c.value;this.emit('coin');return false;}return c.y<840;});
-  if(!this.policeLeft&&this.distance>=this.nextPolice&&this.distance<this.length-900){this.policeLeft=540;this.nextPolice+=d.police;this.police=[{lane:-.4,y:810},{lane:.4,y:-110}];this.emit('police');}
+  if(this.mode!=='drive'&&!this.policeLeft&&this.distance>=this.nextPolice&&this.distance<this.length-900){this.policeLeft=540;this.nextPolice+=d.police;this.police=[{lane:-.4,y:810},{lane:.4,y:-110}];this.emit('police');}
   if(this.policeLeft){this.policeLeft--;this.police.forEach((p,i)=>{p.y+=((i?408:621)-p.y)*.04+Math.sin(this.tick*.08+i*2.1)*2.2;p.lane+=(this.x-p.lane)*.024;if(this.jump<14&&!this.invulnerable&&touching(p,30,52)){collide();this.trackCoins=Math.max(0,this.trackCoins-30);this.emit('fine');}});if(!this.policeLeft){this.police=[];this.trackCoins+=150;this.emit('escaped');}}
   for(const key of ['traffic','ramps','zones'])this[key]=this[key].filter(e=>e.y>-280&&e.y<850);
-  if(this.distance>=this.length){this.phase='finished';this.boosting=false;this.result={id:this.id,stage:this.stage,difficulty:this.difficulty,rank:this.rank,seconds:this.elapsed,trackCoins:this.trackCoins};this.emit('finish');}
+  if(this.mode!=='drive'&&this.distance>=this.length){this.phase='finished';this.boosting=false;this.result={id:this.id,mode:'race',stage:this.stage,difficulty:this.difficulty,rank:this.rank,seconds:this.elapsed,trackCoins:this.trackCoins};this.emit('finish');}
  }
  serialize(){const {random,events,accumulator,...state}=this;return clone({version:1,...state});}
  static restore(value){
@@ -104,7 +109,8 @@ export class RaceSimulation {
    for(const k of ['countdown','elapsed','tick','distance','speed','x','tilt','jump','jumpVelocity','nitro','invulnerable','trackCoins','policeLeft','nextPolice'])if(!Number.isFinite(value[k])||Math.abs(value[k])>1e12)return null;
    if(!CARS.some(c=>c.id===value.car?.id)||!['scrollSpeed','handling','maxSpeed','nitroPower','nitroDrainRate','nitroPadGain'].every(k=>Number.isFinite(value.car[k])&&value.car[k]>0)||value.nitro<0||value.nitro>100||value.trackCoins<0)return null;
    for(const k of ['rivals','traffic','coins','ramps','zones','police']){if(!Array.isArray(value[k])||value[k].length>60)return null;for(const e of value[k]){if(!e||typeof e!=='object'||!Number.isFinite(e.lane)||Math.abs(e.lane)>2)return null;for(const [key,n]of Object.entries(e))if(typeof n==='number'&&(!Number.isFinite(n)||Math.abs(n)>1e12))return null;}}
-   if(value.rivals.length!==6||value.rivals.some(r=>!CARS.some(c=>c.id===r.id)||!['target','distance','speed','phase'].every(k=>Number.isFinite(r[k])))||value.police.length>2||value.traffic.some(e=>!Number.isFinite(e.y)||!Number.isFinite(e.speed))||[...value.coins,...value.ramps,...value.zones,...value.police].some(e=>!Number.isFinite(e.y))||value.coins.some(e=>!Number.isSafeInteger(e.value)||e.value<0))return null;
+   if(value.mode!==undefined&&!['race','drive'].includes(value.mode)||value.nitroActive!==undefined&&typeof value.nitroActive!=='boolean'||value.nitroHeld!==undefined&&typeof value.nitroHeld!=='boolean')return null;
+   if(value.rivals.length!==(value.mode==='drive'?0:6)||value.rivals.some(r=>!CARS.some(c=>c.id===r.id)||!['target','distance','speed','phase'].every(k=>Number.isFinite(r[k])))||value.police.length>2||value.traffic.some(e=>!Number.isFinite(e.y)||!Number.isFinite(e.speed))||[...value.coins,...value.ramps,...value.zones,...value.police].some(e=>!Number.isFinite(e.y))||value.coins.some(e=>!Number.isSafeInteger(e.value)||e.value<0))return null;
    const race=new RaceSimulation({car:effectiveCar(CARS[0]),difficulty:value.difficulty,stage:value.stage,id:value.id});const allowed=Object.keys(race.serialize());for(const key of allowed)if(Object.hasOwn(value,key))race[key]=clone(value[key]);race.random=Math.random;race.events=[];race.accumulator=0;return race;
   }catch{return null;}
  }

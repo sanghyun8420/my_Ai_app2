@@ -2,7 +2,7 @@ const assert=require('node:assert/strict');
 const {createCanvas}=require('@napi-rs/canvas');
 (async()=>{
  const {CARS,RaceSimulation,effectiveCar}=await import('../dist/racing-model.js');
- const {drawRaceCar,drawRaceScene}=await import('../dist/racing-art.js');
+ const {drawRaceCar,drawRaceScene,drawFrontCar}=await import('../dist/racing-art.js');
  const shapes=new Set();for(const car of CARS){const c=createCanvas(130,200),x=c.getContext('2d');drawRaceCar(x,65,100,50,95,.1,car,{boost:true,jump:3,time:1});assert.equal(x.getTransform().a,1);assert.equal(x.globalAlpha,1);assert(x.getImageData(0,0,130,200).data.some((v,i)=>i%4===3&&v));shapes.add(c.toBuffer('image/png').toString('base64'));}assert.equal(shapes.size,18);
  const poster=createCanvas(900,1080),p=poster.getContext('2d');
  for(const [i,difficulty]of ['easy','hard','hell'].entries()){
@@ -11,5 +11,7 @@ const {createCanvas}=require('@napi-rs/canvas');
   drawRaceCar(p,i*300+150,570,95,180,0,CARS[i*6],{boost:true,time:1});p.fillStyle='#1e293b';p.font='bold 17px sans-serif';p.textAlign='center';p.fillText(difficulty,i*300+150,760);
  }
  require('node:fs').writeFileSync('/tmp/garden-racing-preview.png',poster.toBuffer('image/png'));
+ const fronts=new Set();for(const car of CARS){const c=createCanvas(1000,560),x=c.getContext('2d');drawFrontCar(x,car);assert.equal(x.getTransform().a,1);assert.equal(x.getTransform().e,0);fronts.add(c.toBuffer('image/png').toString('base64'));}assert.equal(fronts.size,18);const hero=createCanvas(1000,560);drawFrontCar(hero.getContext('2d'),CARS[0]);require('node:fs').writeFileSync('/tmp/garden-front-car.png',hero.toBuffer('image/png'));
+ for(const height of [500,720,1300]){const c=createCanvas(600,height),x=c.getContext('2d');drawRaceScene(x,new RaceSimulation({mode:'drive'}),0,{},height);assert.equal(x.getTransform().f,0);assert(x.getImageData(300,0,1,1).data[3]>0);assert(x.getImageData(300,height-1,1,1).data[3]>0);}
  console.log('PASS racing art:18 distinct vehicle drawings, three complete road scenes, boost/jump/police, nonempty pixels and balanced Canvas state.');
 })().catch(error=>{console.error(error);process.exitCode=1;});
