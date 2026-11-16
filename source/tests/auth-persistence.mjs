@@ -10,7 +10,10 @@ import {ECONOMY_KEY,GAME_KEYS} from '../dist/economy.js';
 const origin='https://garden.example',app=await createLocalApp({databasePath:':memory:'}),clients=[];
 const store=initial=>{const map=new Map(Object.entries(initial||{}));return {map,getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,String(v)),removeItem:k=>map.delete(k)};};
 const raw=async(path,init={})=>{const headers=new Headers(init.headers);headers.set('Origin',origin);headers.delete('Cookie');return app(new Request(new URL(path,origin),{...init,headers}));};
-function socialFor(storage){return new GardenSocial({document:null,location:new URL(origin),fetcher:createSessionFetcher({origin,storage,fetcher:raw})});}
+function socialFor(storage,kind='native'){
+ if(kind==='pages')return new GardenSocial({document:null,location:new URL('https://sanghyun8420.github.io/my_Ai_app2/'),fetcher:createApiFetcher(origin,{storage,fetcher:async(url,init)=>{const headers=new Headers(init.headers);headers.set('Origin','https://sanghyun8420.github.io');headers.delete('Cookie');return app(new Request(url,{...init,headers}));}})});
+ return new GardenSocial({document:null,location:new URL(origin),fetcher:createSessionFetcher({origin,storage,fetcher:raw})});
+}
 async function cloudFor(social,storage){const cloud=new PlayerCloud({social,storage,document:null,reload:()=>{}});clients.push(cloud);await cloud.init();return cloud;}
 const post=(social,path,body)=>social._request(path,{method:'POST',body});
 try{
@@ -42,6 +45,24 @@ try{
  let release;const raced=new GardenSocial({document:null,fetcher:()=>new Promise(r=>release=()=>r(new Response(JSON.stringify({code:'SIGN_IN_REQUIRED',error:'old guest'}),{status:401})))});
  raced._acceptUser({user:{id:'guest',username:'guest',isGuest:true}});const request=raced._request('/api/cloud-save').catch(e=>e);raced._acceptUser({user:{id:'member',username:'member42'}});release();const error=await request;
  const guard=new PlayerCloud({social:raced,storage:local,document:null});clients.push(guard);guard.expired(error);assert.equal(raced.user.id,'member');
+ // A successful score response is also an old-session response. Hold a real
+ // guest score response while another account logs in and restores its wallet.
+ for(const kind of ['native','pages']){
+  const score=kind==='pages'?22000:20000,scoreStore=store(),scoreProgress=new GardenProgress({storage:scoreStore});await scoreProgress.init();
+  const scoreSocial=socialFor(scoreStore,kind);await scoreSocial.init();const scoreCloud=await cloudFor(scoreSocial,scoreStore),guestId=scoreSocial.user.id;
+  await scoreProgress.startRun();await scoreProgress.checkpointRun(score,2);
+  const transport=scoreSocial.fetcher;let releaseScore,scoreAccepted;
+  const accepted=new Promise(resolve=>scoreAccepted=resolve);
+  scoreSocial.fetcher=async(path,init)=>{const response=await transport(path,init);if(path==='/api/profile/stats'){scoreAccepted();await new Promise(resolve=>releaseScore=resolve);}return response;};
+  const pendingScore=scoreSocial.saveScore(score);await accepted;
+  const signedIn=await post(scoreSocial,'/api/auth/login',{username:'Persistent42',password:'GardenPass42'});scoreSocial._acceptUser(signedIn);
+  await scoreCloud.connect({includeGuestScores:true});assert(scoreCloud.restoring);assert(applyPendingRestore(scoreStore).restored);scoreCloud.dispose();
+  releaseScore();await pendingScore;assert.notEqual(scoreSocial.user.id,guestId);assert.equal(scoreSocial.user.id,signedIn.user.id,kind+': late successful guest scores cannot replace the logged-in account');
+  const linked=await cloudFor(scoreSocial,scoreStore);assert(linked.canPublishScores());assert.equal((await scoreSocial._request('/api/leaderboard')).me.score,score,kind+': the preserved guest high reaches the signed-in account automatically');
+ }
+ // A reply arriving after explicit logout must not resurrect the old account.
+ let releaseLogout;const late=new GardenSocial({document:null,fetcher:()=>new Promise(resolve=>releaseLogout=resolve)});late._acceptUser(signed);const beforeLogout=late.saveScore(23000);late.user=null;late._userVersion++;releaseLogout(Response.json(signed));await beforeLogout;assert.equal(late.user,null);
+ let releaseOld;const fresh=new GardenSocial({document:null,fetcher:()=>new Promise(resolve=>releaseOld=resolve)});fresh._acceptUser({user:{id:'same',username:'same42',bestScore:100}});const oldProfile=fresh.saveScore(100);fresh._acceptUser({user:{id:'same',username:'same42',bestScore:200}});releaseOld(Response.json({user:{id:'same',username:'same42',bestScore:100}}));await oldProfile;assert.equal(fresh.user.bestScore,200,'stale replies cannot roll back a newer profile of the same account');
  let initRelease;const initializing=new GardenSocial({document:null,fetcher:()=>new Promise(r=>initRelease=()=>r(Response.json({user:null})))});const initial=initializing.init();initializing._acceptUser({user:{id:'member',username:'member42'}});initRelease();await initial;assert.equal(initializing.user.id,'member','a delayed initial guest check cannot erase a completed login');
- console.log('PASS auth persistence: native cookie-loss reproduction, guest saves, signup/restore reload, cross-device login/latest wallet, retained skins/high scores, explicit logout, rejected passwords, native/Pages stale responses and delayed initialization.');
+ console.log('PASS auth persistence: cookie-loss recovery, guest/signup/cross-device saves, retained records, real delayed guest score during account restore, logout guard, native/Pages stale responses and delayed initialization.');
 }finally{for(const c of clients)c.dispose();app.close();}

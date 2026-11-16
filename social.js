@@ -566,8 +566,14 @@ export class GardenSocial {
 
   async saveScore(score, mode = 'classic', game='suika') {
     if (!this.user || mode !== 'classic' || !Number.isSafeInteger(score) || score < 0) return null;
+    const userId=this.user.id,userVersion=this._userVersion;
     const payload = await this._request('/api/profile/stats', { method: 'POST', body: { score, mode, game } });
-    if (payload.user) this._acceptUser(payload);
+    // A score response belongs to the identity that sent it. A delayed guest
+    // response must never undo a login, logout or a newer profile response.
+    if (payload.user&&this.user?.id===userId&&this._userVersion===userVersion&&!this._authBusy) {
+      if(payload.user.id!==userId)throw socialError('점수 응답의 계정을 확인하지 못했어요.','INVALID_RESPONSE');
+      this._acceptUser(payload);
+    }
     return this.user;
   }
 

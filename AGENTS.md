@@ -29,3 +29,4 @@
 - racing은 `racing-model.js`/`racing-art.js`/`racing.js`/`racing.css`로 구성합니다. 기존 GAME_KEYS는 다섯 레거시 키로 유지하고, 새 레이싱 레코드 RACING_KEY는 canonical records 안에 선택적으로 저장합니다. 주행/차고는 서버 백업에 함께 들어가며 보상 run ID 중복 방지·실패 롤백·60Hz 고정 간격·메뉴/숨김/포인터 취소 입력 해제를 유지합니다.
 
 - 리더보드 공개 목록 읽기는 점수/지갑 동기화와 독립적으로 즉시 시작해야 합니다. 수동 동기화 버튼을 다시 추가하지 않습니다. 열린 창의5초 폴링은 전송도 자동 재시도하고, PlayerCloud.flushScores는 창을 열지 않아도 소유권이 확인된 기기 최고점수를 자동 전송합니다. syncTask/connectTask/전체 beforeCapture를 기다리지 않습니다. 같은 사용자 이벤트 재초기화 금지, 목록/전송 타임아웃과 기존 행 보존을 유지합니다.
+- saveScore의 성공 응답은 요청 당시 사용자 ID·_userVersion과 현재 상태가 일치하고 인증 변경 중이 아닐 때만 _acceptUser로 적용합니다. 지연된 게스트 점수 응답으로 로그인 계정을 되돌리면 안 됩니다. native/Pages 실제 API 지연 재현은 auth-persistence.mjs에 있습니다.

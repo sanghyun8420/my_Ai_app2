@@ -248,6 +248,8 @@ currency-art.js는 KRW_STAGES, USD_STAGES 각14단계와 Canvas 그림을 제공
 
 ## 순위 읽기와 점수 전송 분리 · 화면 크기
 
+GardenSocial.saveScore의 성공 응답도 로그인·로그아웃 경계를 넘을 수 있습니다. 요청 당시 userId와 _userVersion을 저장하고, 현재 사용자·버전이 같으며 _authBusy가 아닐 때만 응답 프로필을 적용합니다. 응답의 사용자 ID도 일치해야 합니다. 이전 게스트의 늦은 성공 응답이 계정 로그인/서버 복원 이후 도착하는 실제 API 재현을 auth-persistence.mjs에서 native와 Pages 양쪽으로 검사합니다. 인증 토큰만 보호하고 화면 사용자 상태를 무조건 덮어쓰면 안 됩니다.
+
 LiveLeaderboard.open은 공개 순위를 바로 읽고 별도로 synchronize를 시작합니다. 전체 cloud-save/restore나 connectTask를 순위 조회 전에 기다리지 않습니다. 목록12초·점수 전송8초 제한, 닫기/계정/탭 전환 취소, 실패 시 기존 목록 유지, 전송 완료 후 재조회,5초 폴링을 유지합니다. 폴링과 탭 복귀는 refresh({sync:true})로 실패한 전송도 자동 재시도합니다. status는 부분 갱신 객체이므로 화면에서 합쳐 사용합니다. 동일 사용자 garden-user 이벤트는 목록을 초기화하지 않습니다. 수동 기록 동기화 버튼과 기기/서버 비교 문구는 제거됐습니다.
 
 PlayerCloud.syncLeaderboard는 beforeScoreCapture(진행 큐 반영)와 최고점수 import만 사용합니다. 준비 중·계정 변경 중이면 false를 반환하고 다음 자동 갱신을 기다립니다. 지갑 캡처용 beforeCapture/서버 복원/CAS 저장을 거치지 않습니다. 별도로 flushScores가 이미 커밋된 기기 최고점수를5초 타이머·포커스/온라인 복귀·지갑 변경600ms 후 자동 전송합니다. busy/syncTask/connectTask/saveTask나 캡처 큐를 기다리지 않고, canPublishScores로 확인된 소유권·인증 변경·복원 중 상태를 보호합니다. submitScores의 사용자+epoch별 요청 공유와 성공 후 lastScores 갱신, 실패 후 재시도를 유지합니다. 기본/모드 최고점수 분리는 유지합니다. optional me가 없을 때 현재 계정 ID와 공개 행으로 본인 순위를 찾습니다.
