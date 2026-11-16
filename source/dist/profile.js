@@ -146,7 +146,7 @@ function cleanRevivalRecovery(value, activeRun) {
   } catch { return null; }
 }
 
-/** Scores, gems, and purchased skins are saved only on this device. */
+/** Device progress and wallet, also captured by automatic private server saves. */
 export class GardenProgress {
   constructor({ onChange = () => {}, onError = () => {}, storage } = {}) {
     this.onChange = typeof onChange === 'function' ? onChange : () => {};
@@ -155,6 +155,7 @@ export class GardenProgress {
     this.economy=new GameEconomy(this.storage,STORAGE_KEY);this.storage=this.economy.storage;
     const loaded = this._load();
     this._profile = this.economy.bind(loaded.profile);
+    this.economy.delta += loaded.refundedCrystalGems;
     this.pendingRun = loaded.activeRun;
     this._settledRuns = loaded.settledRuns;
     this._migrations = loaded.migrations;
@@ -178,6 +179,8 @@ export class GardenProgress {
     const refund = alreadyRefunded ? 0 : Object.entries(REMOVED_TOOL_PRICES).reduce((sum, [id, price]) => sum + Math.min(ITEM_LIMIT, whole(value?.inventory?.[id])) * price, 0);
     const refundedToolGems = Math.min(refund, Number.MAX_SAFE_INTEGER - profile.gems);
     profile.gems += refundedToolGems;
+    const refundedCrystalGems=value?.migrations?.removedCrystalV45!==true&&value?.ownedSkins?.includes('gem')?Math.min(60,Number.MAX_SAFE_INTEGER-profile.gems):0;
+    profile.gems+=refundedCrystalGems;
     const settledRuns = [];
     const seen = new Set();
     for (const item of Array.isArray(value?.settledRuns) ? value.settledRuns : []) {
@@ -216,7 +219,7 @@ export class GardenProgress {
       const { snapshot, ...receipt } = pendingRevival;
       revivalReceipts.unshift(receipt); revivalReceipts.length = Math.min(revivalReceipts.length, RECEIPT_LIMIT);
     }
-    return { profile, activeRun, settledRuns, migrations: { removedToolsV9: true }, refundedToolGems, revivalReceipts, pendingRevival };
+    return { profile, activeRun, settledRuns, migrations: { ...value?.migrations,removedToolsV9: true,removedCrystalV45:true }, refundedToolGems,refundedCrystalGems, revivalReceipts, pendingRevival };
   }
 
   _save() {

@@ -22,7 +22,7 @@ export function captureDevice(storage=globalThis.localStorage){return validateDe
 export function restoreDevice(snapshot,storage=globalThis.localStorage){
  const next=validateDevice(snapshot),previous=Object.fromEntries(DEVICE_KEYS.map(key=>[key,storage.getItem(key)]));
  // A durable local backup must succeed before replacing any progress.
- storage.setItem(BACKUP_KEY,JSON.stringify({at:Date.now(),values:previous}));
+ storage.setItem(BACKUP_KEY,JSON.stringify({at:Date.now(),ownerId:parse(storage.getItem(CLOUD_META))?.userId||null,values:previous}));
  const write=values=>{for(const key of DEVICE_KEYS){const value=values[key];if(value===null||value===undefined)storage.removeItem(key);else storage.setItem(key,value);}};
  try{write(next.values);}catch(error){try{for(const key of DEVICE_KEYS)storage.removeItem(key);write(previous);}catch{}throw error;}
  return next;
@@ -36,7 +36,24 @@ function snapshotHash(snapshot){
  const board=parse(values['suika-garden-run-v1']);if(board){delete board.savedAt;values['suika-garden-run-v1']=JSON.stringify(board);}
  let h=2166136261;for(const c of JSON.stringify(values))h=Math.imul(h^c.charCodeAt(0),16777619);return (h>>>0).toString(16);
 }
-export function localScores(storage=globalThis.localStorage){const root=parse(storage.getItem(ECONOMY_KEY)),records=root?.records||{};return Object.fromEntries(['suika','apple','blocks'].map(game=>{const raw=records[GAME_KEYS[game]]||parse(storage.getItem(GAME_KEYS[game]),{}),score=game==='suika'?Math.max(raw.bestScore||0,Number(storage.getItem('suika-garden-best'))||0):raw.best||0;return [game,Math.max(0,Math.min(100000000,Math.floor(score)))];}));}
+const scoreNumber=value=>Number.isFinite(Number(value))?Math.max(0,Math.min(100000000,Math.floor(Number(value)))):0;
+const SCORE_GAMES=['suika','apple','blocks'];
+const SCORE_MODES=['apple','free','water','space','watermelon','timed','challenge','science','zoo'];
+function scoresIn(values){
+ const records=parse(values[ECONOMY_KEY])?.records||{};
+ return Object.fromEntries(SCORE_GAMES.map(game=>{const field=game==='suika'?'bestScore':'best',key=GAME_KEYS[game];return [game,Math.max(scoreNumber(records[key]?.[field]),scoreNumber(parse(values[key])?.[field]),game==='suika'?scoreNumber(values['suika-garden-best']):0)];}));
+}
+export function localScores(storage=globalThis.localStorage){return scoresIn(Object.fromEntries(DEVICE_KEYS.map(key=>[key,storage.getItem(key)])));}
+/** Preserve only monotonic records. The server's wallet, purchases and board stay intact. */
+export function preserveHighScores(remote,local){
+ const next=validateDevice(remote),previous=validateDevice(local),root=parse(next.values[ECONOMY_KEY]),localRoot=parse(previous.values[ECONOMY_KEY]);
+ const remoteScores=scoresIn(next.values),deviceScores=scoresIn(previous.values);
+ for(const game of SCORE_GAMES){const field=game==='suika'?'bestScore':'best',key=GAME_KEYS[game],best=Math.max(remoteScores[game],deviceScores[game]);if(best>scoreNumber(root.records[key][field]))root.records[key]={...root.records[key],[field]:best};}
+ const key=GAME_KEYS.suika,serverModes=root.records[key].modeBestScores||{},deviceModes=localRoot.records[key].modeBestScores||{},legacyModes=parse(previous.values[key])?.modeBestScores||{};
+ for(const mode of SCORE_MODES){const best=Math.max(scoreNumber(serverModes[mode]),scoreNumber(deviceModes[mode]),scoreNumber(legacyModes[mode]));if(best>scoreNumber(serverModes[mode]))root.records[key].modeBestScores={...root.records[key].modeBestScores,[mode]:best};}
+ next.values[ECONOMY_KEY]=JSON.stringify(root);if(scoreNumber(root.records[key].bestScore)>scoreNumber(next.values['suika-garden-best']))next.values['suika-garden-best']=String(root.records[key].bestScore);
+ return validateDevice(next);
+}
 function newKey(){const bytes=crypto.getRandomValues(new Uint8Array(32));return btoa(String.fromCharCode(...bytes)).replaceAll('+','-').replaceAll('/','_').replaceAll('=','');}
 
 /** Automatic private server saves; accounts and recoverable guest identities share one backend. */
@@ -85,14 +102,14 @@ export class PlayerCloud {
   if(!this.ready||this.busy||this.social._authBusy||this.restoring||this.syncTask)return;
   this.syncTask=this.action(async()=>{if(!this.social.user)await this.ensurePlayer();if(!this.social.user)return;if(!this.connected)await this.connect();else{const remote=await this.social._request('/api/cloud-save');this.lastRemoteCheck=this.clock();if(remote.version!==this.version)await this.adoptRemote(remote);if(!this.restoring&&!this.conflict)await this.save({quiet:true});}}).finally(()=>{this.syncTask=null;});return this.syncTask;
  }
- async adoptRemote(remote,{restore=false}={}){
-  const meta=this.meta(),snapshot=await this.capture(),hash=snapshotHash(snapshot);this.version=remote.version;this.connected=true;this.conflict=false;
+ async adoptRemote(remote,{restore=false,includeGuestScores=false}={}){
+  const userId=this.social.user?.id,epoch=this.epoch,meta=this.meta(),snapshot=await this.capture();if(!userId||this.social.user?.id!==userId||this.epoch!==epoch)return;const hash=snapshotHash(snapshot);this.version=remote.version;this.connected=true;this.conflict=false;
   if(!remote.snapshot){this.lastHash='';return;}
   let remoteHash;try{remoteHash=snapshotHash(validateDevice(remote.snapshot));}catch(error){this.conflict=true;throw error;}
   const ownPending=meta?.userId===this.social.user.id&&meta.pending?.version+1===remote.version&&meta.pending.hash===remoteHash;
   if(!restore&&(remoteHash===hash||ownPending)){this.lastHash=remoteHash;this.writeMeta(remoteHash);return;}
   if(restore||!meta||meta.userId!==this.social.user.id||meta.version!==remote.version){
-   if(this.autoRestore||restore){try{await this.load(remote,{notice:'최신 서버 기록으로 이어가요.'});}catch(error){this.conflict=true;throw error;}return;}
+   if(this.autoRestore||restore){try{await this.load(remote,{notice:'최신 서버 기록으로 이어가요.',includeGuestScores});}catch(error){this.conflict=true;throw error;}return;}
    this.conflict=true;this.status('다른 기기의 서버 기록이 있어요. 최신 기록 불러오기를 선택해 주세요.');this.open();return;
   }
   this.lastHash=meta.hash||'';
@@ -125,10 +142,10 @@ export class PlayerCloud {
   if(this.connectTask)return this.connectTask;
   this.connectTask=this._connect(options).finally(()=>{this.connectTask=null;});return this.connectTask;
  }
- async _connect({restore=false}={}){
+ async _connect({restore=false,includeGuestScores=false}={}){
   if(!this.social.user)return;const userId=this.social.user.id,epoch=++this.epoch;this.userId=userId;this.connected=false;this.lastScores='';
   const remote=await this.social._request('/api/cloud-save');if(epoch!==this.epoch||this.social.user?.id!==userId)return;this.lastRemoteCheck=this.clock();
-  await this.adoptRemote(remote,{restore});if(this.restoring||this.conflict)return;
+  await this.adoptRemote(remote,{restore,includeGuestScores});if(this.restoring||this.conflict)return;
   await this.submitScores();await this.save({quiet:true});this.render();
  }
  async submitScores(){if(!this.social.user)return;const scores=localScores(this.storage),encoded=JSON.stringify(scores);if(encoded===this.lastScores)return;await this.social._request('/api/profile/import',{method:'POST',body:{scores}});this.lastScores=encoded;}
@@ -151,13 +168,17 @@ export class PlayerCloud {
   }
 
  }
- async load(remote,{notice}={}){
-  if(!this.social.user)return;remote??=await this.social._request('/api/cloud-save');if(!remote.snapshot){this.status('현재 기기의 진행을 서버에 저장하고 있어요.');return;}
-  const snapshot=validateDevice(remote.snapshot);
+ async load(remote,{notice,includeGuestScores=false}={}){
+  const userId=this.social.user?.id,epoch=this.epoch;if(!userId)return;remote??=await this.social._request('/api/cloud-save');if(this.social.user?.id!==userId||this.epoch!==epoch)return;if(!remote.snapshot){this.status('현재 기기의 진행을 서버에 저장하고 있어요.');return;}
+  const meta=this.meta(),identity=this.identity();let snapshot=validateDevice(remote.snapshot);const serverHash=snapshotHash(snapshot);
   try{
    if(this.syncDialog&&!this.syncDialog.open){if(this.openDialog)this.openDialog('sync-dialog');else this.syncDialog.showModal();}
-   const local=await this.capture();this.storage.setItem(BACKUP_KEY,JSON.stringify({at:this.clock(),values:local.values}));
-   this.storage.setItem(PENDING_RESTORE,JSON.stringify({snapshot,meta:{userId:this.social.user.id,kind:this.social.user.isGuest?'guest':'account',version:remote.version,hash:snapshotHash(snapshot),...(notice?{notice}:{})}}));this.restoring=true;this.status('최신 서버 기록을 불러와 이어가요.');this.reload();
+   const local=await this.capture();if(this.social.user?.id!==userId||this.epoch!==epoch){this.syncDialog?.close();return;}
+   const sameOwner=meta?.userId===userId,guestOwner=meta?.kind==='guest'||meta?.kind!=='account'&&identity?.userId===meta?.userId&&!!identity?.key;
+   if(sameOwner||includeGuestScores&&(guestOwner||!meta?.userId))snapshot=preserveHighScores(snapshot,local);
+   this.storage.setItem(BACKUP_KEY,JSON.stringify({at:this.clock(),ownerId:meta?.userId||null,values:local.values}));
+   // Keep the original server hash so a recovered higher score is uploaded after reload.
+   this.storage.setItem(PENDING_RESTORE,JSON.stringify({snapshot,meta:{userId,kind:this.social.user.isGuest?'guest':'account',version:remote.version,hash:serverHash,...(notice?{notice}:{})}}));this.restoring=true;this.status('최신 서버 기록을 불러와 이어가요.');this.reload();
   }catch(error){this.restoring=false;this.syncDialog?.close();throw error;}
  }
  dispose(){clearInterval(this.timer);clearTimeout(this.saveTimer);globalThis.removeEventListener?.('garden-user',this.userListener);this.document?.removeEventListener('visibilitychange',this.visibilityListener);for(const event of ['focus','online'])globalThis.removeEventListener?.(event,this.focusListener);globalThis.removeEventListener?.('garden-wallet-change',this.walletListener);globalThis.removeEventListener?.('pagehide',this.pagehideListener);}

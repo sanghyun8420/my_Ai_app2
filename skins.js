@@ -407,7 +407,7 @@ export function skinFruitName(level,skin='classic'){return skin==='cars'?CAR_LAB
 function royalBall(ctx,level){gemBall(ctx,level);ctx.save();ctx.strokeStyle='#f5da7c';ctx.lineWidth=3;polygon(ctx,[[-20,-32],[-27,-43],[-8,-37],[0,-49],[9,-37],[27,-43],[20,-32]],'#bf963f','#f2dfa3',1);ctx.restore();}
 const RENDERERS = {
   numbers:numberBall, candy:candyBall, pastel:pastelBall, pixel:pixelBall,
-  cat:catBall, ice:iceBall, neon:neonBall, galaxy:drawPlanet, gem:gemBall, mystery:drawRottenFruit,
+  cat:catBall, ice:iceBall, neon:neonBall, galaxy:drawPlanet, mystery:drawRottenFruit,
   cars:drawCarLogo,fruit3d:drawFruit3D,food:drawFood,royalGem:royalBall,
 };
 

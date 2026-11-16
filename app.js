@@ -531,7 +531,7 @@ function updateGemProgress() {
   const saved = progressStore.profile.mergedFruits;
   const pending = started && !roundCredited ? Math.max(0, roundCleared - (progressStore.pendingRun?.creditedFruits || 0)) : 0;
   const progress = (saved + pending) % GEM_INTERVALS.suika;
-  $('gem-balance').title=`다섯 게임 공용 보석 · 과일 ${GEM_INTERVALS.suika-progress}개 더 정리하면 보석 ${GEM_REWARD}개`;
+  $('gem-balance').title=`네 게임 공용 보석 · 과일 ${GEM_INTERVALS.suika-progress}개 더 정리하면 보석 ${GEM_REWARD}개`;
   const pendingPears=started&&!roundCredited&&!progressStore.pendingRun?.finished?Math.max(0,specialPearsCleared-(progressStore.pendingRun?.creditedSpecialPears||0)):0;
   const pearCount=progressStore.profile.specialPearsCleared+pendingPears;
   $('pear-progress').textContent=`🍐 ${pearCount%3}/3`;
@@ -1344,9 +1344,10 @@ social = new GardenSocial({
     }
   },
   onAfterAuthentication:async(payload,mode)=>{
-    localStorage.removeItem(PLAYER_KEY);
-    if(mode==='register'&&payload.cloud)await playerCloud.load(payload.cloud,{notice:'회원가입 완료! 보석 500개를 받았어요.'});
-    else await playerCloud.connect();
+    try{
+      if(mode==='register'&&payload.cloud)await playerCloud.load(payload.cloud,{notice:'회원가입 완료! 보석 500개를 받았어요.'});
+      else await playerCloud.connect({includeGuestScores:true});
+    }finally{localStorage.removeItem(PLAYER_KEY);}
   },
   onNeedPlayer:()=>social.openAccount('login'),
   onLogout:()=>playerCloud?.resetForGuest(),

@@ -24,6 +24,10 @@ const apples=new ArcadeStore('apple',refundStorage);apples.save();assert.equal(a
 assert.equal(new ArcadeStore('apple',refundStorage).data.gems,190,'retired minigame skin refund is paid once');
 assert.equal(new ArcadeStore('blocks',refundStorage).data.gems,190,'refunds join the common wallet');
 assert.equal(again.profile.gems,123);
+const retiredValues=new Map([['suika-garden-profile-v3',JSON.stringify({gems:12,bestScore:2468,coins:77,ownedSkins:['classic','gem','cars'],equippedSkin:'gem'})]]),retiredStorage={getItem:k=>retiredValues.get(k)||null,setItem:(k,v)=>retiredValues.set(k,String(v))};
+const retired=new GardenProgress({storage:retiredStorage});await retired.init();assert(!SKIN_CATALOG.some(s=>s.id==='gem'));assert.equal(retired.profile.gems,72);assert.equal(retired.profile.equippedSkin,'classic');assert(!retired.profile.ownedSkins.includes('gem'));assert(retired.profile.ownedSkins.includes('cars'));assert.equal(retired.profile.bestScore,2468);assert.equal(retired.profile.coins,77);
+await assert.rejects(retired.buySkin('gem'));await assert.rejects(retired.equipSkin('gem'));
+const retiredAgain=new GardenProgress({storage:retiredStorage});await retiredAgain.init();assert.equal(retiredAgain.profile.gems,72,'crystal refund is committed once with ownership removal');
 assert.equal(skinFruitName(2,'galaxy'),'지구');assert.equal(skinFruitName(5,'galaxy'),'토성');assert.equal(skinFruitName(13,'galaxy'),'태양');
 assert.equal(skinFruitName(0,'cars'),'기아');assert.equal(skinFruitName(13,'cars'),'부가티');assert.equal(skinFruitName(9,'fruit3d'),'수박');
 console.log('PASS refreshed skins: catalog removal, legacy ownership conversion, purchase/equip persistence, one-time shared-wallet refunds and reference stage names.');

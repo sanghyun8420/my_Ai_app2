@@ -2,6 +2,7 @@ import { mountArcade } from './arcade.js';
 import { drawSkinnedFruit } from './skins.js';
 import { mountGrowthGames, isGrowthGame } from './growth-games.js';
 import { drawHero } from './growth-art.js';
+import { LiveLeaderboard } from './leaderboard-live.js';
 export function drawBuddy(c,hat='none',x=30,y=30,scale=1,time=0){
  const swing=Math.sin(time*2.6)*2.6,other=Math.sin(time*2.6+.8)*1.8;
  c.save();c.translate(x,y);c.scale(scale,scale);c.strokeStyle='#293a35';c.lineWidth=2.2;c.lineCap='round';c.lineJoin='round';
@@ -21,7 +22,7 @@ export function createHub(api){
  const picker=document.createElement('dialog');picker.id='game-picker-dialog';picker.className='game-picker-dialog';picker.setAttribute('aria-labelledby','game-picker-title');
  picker.innerHTML='<button class="dialog-close" type="button" aria-label="게임 선택 닫기">×</button><p class="eyebrow">SUIKA GARDEN · GAME ROOM</p><h2 id="game-picker-title">오늘은 무슨 게임?</h2><nav class="game-switcher" aria-label="게임 선택"><button data-game="suika" class="active" type="button"><span class="game-card-art watermelon-art" aria-hidden="true">🍉</span><span class="game-card-title">수박정원</span><small>같은 과일을 합쳐 더 크게</small><span class="game-card-go">이어 하기 <b>↗</b></span></button><button data-game="apple" type="button"><span class="game-card-art apple-art" aria-hidden="true">🍎</span><span class="game-card-title">사과모아</span><small>네모 안 사과의 합을 10으로</small><span class="game-card-go">플레이 <b>↗</b></span></button><button data-game="blocks" type="button"><span class="game-card-art block-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="game-card-title">블록정원</span><small>한 줄씩 채우는 작은 퍼즐</small><span class="game-card-go">플레이 <b>↗</b></span></button></nav>';
  document.body.append(picker);const nav=picker.querySelector('.game-switcher'),brand=$('brand-easter');
- nav.insertAdjacentHTML('beforeend','<button data-game="quest" type="button"><span class="game-card-art quest-art" aria-hidden="true"><canvas width="180" height="170"></canvas></span><span class="game-card-title">과일 원정대</span><small>썩은 과일을 물리치는 성장 RPG</small><span class="game-card-go">플레이 <b>↗</b></span></button><button data-game="orchard" type="button"><span class="game-card-art orchard-art" aria-hidden="true">🌳</span><span class="game-card-title">사과 키우기</span><small>씨앗부터 나만의 사과 정원까지</small><span class="game-card-go">플레이 <b>↗</b></span></button>');
+ nav.insertAdjacentHTML('beforeend','<button data-game="quest" type="button"><span class="game-card-art quest-art" aria-hidden="true"><canvas width="180" height="170"></canvas></span><span class="game-card-title">과일 원정대</span><small>썩은 과일을 물리치는 성장 RPG</small><span class="game-card-go">플레이 <b>↗</b></span></button>');
  const heroArt=nav.querySelector('.quest-art canvas').getContext('2d');heroArt.scale(2,2);drawHero(heroArt,0,43,46,.72,0,'fork');
  for(const b of nav.children)b.setAttribute('aria-pressed',String(b.dataset.game==='suika'));
  const closePicker=()=>{picker.close();brand.setAttribute('aria-expanded','false');$('games-open').setAttribute('aria-expanded','false');};
@@ -37,23 +38,35 @@ export function createHub(api){
  const growth=mountGrowthGames(growthRoot,{...api,current:()=>api.state().game,active:api.arcadeActive});
  let selectedHubGame='suika';
  const controller=()=>isGrowthGame(selectedHubGame)?growth:arcade;
- function select(game,seed,mode){if(!['suika','apple','blocks','quest','orchard'].includes(game))return;if(api.social()?.room&&api.social().room.game!==game)safe(()=>api.social().leaveRoom());const previous=api.state().game,changed=game!==previous;if(changed&&previous==='apple')arcade.leave();api.switchGame(game);selectedHubGame=game;document.body.dataset.game=game;document.querySelector('.game-layout').hidden=game!=='suika';arcadeRoot.hidden=!['apple','blocks'].includes(game);growthRoot.hidden=!isGrowthGame(game);for(const b of nav.children){const active=b.dataset.game===game;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));b.querySelector('.game-card-go').firstChild.textContent=active?'이어서 플레이 ':'플레이 ';}if(changed||seed!==undefined){if(isGrowthGame(game))growth.select(game);else if(game!=='suika')arcade.select(game,seed,mode);}const special=isGrowthGame(game);$('restart-menu').querySelector('span').textContent=game==='quest'?'전투 다시 출발':game==='orchard'?'새 사과 키우기':'새 정원 시작';$('achievements-open').querySelector('span').textContent=special?'기록과 성장 목표':'나의 업적';$('modes-open').querySelector('span').textContent=game==='quest'?'난이도 선택':game==='orchard'?'사과 품종 선택':'플레이 모드';$('modes-header-open').querySelector('span').textContent=game==='quest'?'난이도':game==='orchard'?'품종':'게임 모드';$('ranking-open').querySelector('span').textContent=special?'기록':'순위';$('modes-header-open').setAttribute('aria-label',game==='quest'?'원정 난이도 선택':game==='orchard'?'사과 품종 선택':'플레이 모드 열기');}
+ function select(game,seed,mode){if(!['suika','apple','blocks','quest'].includes(game))return;if(api.social()?.room&&api.social().room.game!==game)safe(()=>api.social().leaveRoom());const previous=api.state().game,changed=game!==previous;if(changed&&previous==='apple')arcade.leave();api.switchGame(game);selectedHubGame=game;document.body.dataset.game=game;document.querySelector('.game-layout').hidden=game!=='suika';arcadeRoot.hidden=!['apple','blocks'].includes(game);growthRoot.hidden=!isGrowthGame(game);for(const b of nav.children){const active=b.dataset.game===game;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));b.querySelector('.game-card-go').firstChild.textContent=active?'이어서 플레이 ':'플레이 ';}if(changed||seed!==undefined){if(isGrowthGame(game))growth.select(game);else if(game!=='suika')arcade.select(game,seed,mode);}const special=isGrowthGame(game);$('restart-menu').querySelector('span').textContent=game==='quest'?'전투 다시 출발':'새 정원 시작';$('achievements-open').querySelector('span').textContent=special?'기록과 성장 목표':'나의 업적';$('modes-open').querySelector('span').textContent=game==='quest'?'난이도 선택':'플레이 모드';$('modes-header-open').querySelector('span').textContent=game==='quest'?'난이도':'게임 모드';$('ranking-open').querySelector('span').textContent=special?'기록':'순위';$('modes-header-open').setAttribute('aria-label',game==='quest'?'원정 난이도 선택':'플레이 모드 열기');}
  nav.onclick=e=>{const b=e.target.closest('[data-game]');if(b){select(b.dataset.game);closePicker();}};
  globalThis.addEventListener('garden-room',e=>{const room=e.detail;if(room.game!=='suika')select(room.game,room.seed,room.mode);else select('suika');});
  function dialog(id,content){const d=document.createElement('dialog');d.id=id;d.className='hub-dialog';d.innerHTML=`<button class="dialog-close" aria-label="닫기">×</button>${content}`;d.querySelector('.dialog-close').onclick=()=>d.close();d.addEventListener('close',api.resume);document.body.append(d);return d;}
- const ranking=dialog('ranking-dialog','<p class="eyebrow">GARDEN RECORDS</p><h2>리더보드</h2><div class="rank-games"><button data-rank="suika">수박정원</button><button data-rank="apple">사과모아</button><button data-rank="blocks">블록정원</button></div><p id="ranking-note">가입한 계정은 자동 참여해요.</p><p id="ranking-mine" hidden></p><ol id="ranking-list"></ol>');
- async function rank(game=api.state().game){
+ const ranking=dialog('ranking-dialog','<p class="eyebrow">GARDEN RECORDS</p><h2>리더보드</h2><div class="rank-games"><button data-rank="suika">수박정원</button><button data-rank="apple">사과모아</button><button data-rank="blocks">블록정원</button></div><p id="ranking-note">가입한 계정은 자동 참여해요.</p><div class="ranking-actions"><p id="ranking-identity"></p><button id="ranking-refresh" type="button" class="secondary-button">↻ 내 기록 동기화</button></div><p id="ranking-status" role="status" aria-live="polite"></p><p id="ranking-mine" hidden></p><ol id="ranking-list"></ol>');
+ const liveRanking=new LiveLeaderboard({
+  read:game=>api.social()._request('/api/leaderboard?game='+game),context:()=>api.social().user?.id||'',visible:()=>ranking.open&&!document.hidden,
+  sync:async()=>{const player=api.player();if(!player)return;await player.syncTask;await player.connectTask;await player.synchronize();if(player.conflict)throw Error('내 기록에서 서버 연결을 다시 확인해 주세요.');if(!api.social().user)throw Error('로그인한 뒤 기기 기록을 동기화해 주세요.');if(!player.restoring)await player.save({quiet:true});},
+  status:state=>{const button=$('ranking-refresh');button.disabled=!!state.loading;button.setAttribute('aria-busy',String(!!state.loading));if(state.loading){$('ranking-status').textContent=state.sync?'이 기기의 최고기록을 확인하고 있어요…':'순위 새로고침 중…';return;}const stamp=state.updatedAt?new Date(state.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';$('ranking-status').textContent=state.error?'연결을 확인해 주세요. '+state.error:state.warning?state.warning+' · 표시된 순위는 서버 기록이에요.':`${stamp} 갱신 · 5초마다 자동 새로고침`;},
+  render:(result,game)=>{
+   const user=api.social().user;$('ranking-list').replaceChildren();$('ranking-mine').hidden=!result.me;
+   for(const row of result.scores){const li=document.createElement('li'),name=document.createElement('span'),score=document.createElement('strong');name.textContent=`${row.rank}. ${row.displayName}`;score.textContent=row.score.toLocaleString()+'점';if(row.id===user?.id)li.className='rank-me';li.append(name,score);$('ranking-list').append(li);}
+   if(!result.scores.length)$('ranking-list').textContent='아직 등록된 기록이 없어요.';
+   if(result.me)$('ranking-mine').textContent=`내 순위 ${result.me.rank.toLocaleString()}위 · ${result.me.score.toLocaleString()}점`;
+   $('ranking-identity').textContent=user?`${user.displayName}${user.isGuest?' · 게스트':' · @'+user.username}`:'로그인하면 내 계정 순위를 볼 수 있어요.';
+   $('ranking-note').textContent=`${{suika:'수박정원',apple:'사과모아',blocks:'블록정원'}[game]} · 계정 자동 참여 · 기본 게임 최고기록${game==='suika'?' (동물원·과학 등 모드 기록은 별도)':''}`;
+  }
+ });
+ function rank(game=api.state().game){
   if(isGrowthGame(game)){growth.openRecords();return;}
+  if(!['suika','apple','blocks'].includes(game))game='suika';
   open('ranking-dialog');$('menu-dialog').close();$('ranking-list').textContent='기록을 불러오고 있어요…';$('ranking-mine').hidden=true;
   for(const b of ranking.querySelectorAll('[data-rank]'))b.setAttribute('aria-pressed',String(b.dataset.rank===game));
-  try{
-   const result=await api.social()._request('/api/leaderboard?game='+game);$('ranking-list').replaceChildren();
-   for(const row of result.scores){const li=document.createElement('li'),name=document.createElement('span'),score=document.createElement('strong');name.textContent=`${row.rank}. ${row.displayName}`;score.textContent=row.score.toLocaleString()+'점';if(row.id===api.social().user?.id)li.className='rank-me';li.append(name,score);$('ranking-list').append(li);}
-   if(!result.scores.length)$('ranking-list').textContent='가입하면 자동으로 순위에 참여해요.';
-   if(result.me){$('ranking-mine').hidden=false;$('ranking-mine').textContent=`내 순위 ${result.me.rank.toLocaleString()}위 · ${result.me.score.toLocaleString()}점`;}
-   $('ranking-note').textContent=`${{suika:'수박정원',apple:'사과모아',blocks:'블록정원'}[game]} · 계정 자동 참여 · 기본 게임 최고 기록`;
-  }catch(e){$('ranking-list').textContent=e.message;}
+  return liveRanking.open(game);
  }
+ ranking.addEventListener('close',()=>liveRanking.close());
+ $('ranking-refresh').onclick=()=>liveRanking.refresh({sync:true});
+ document.addEventListener('visibilitychange',()=>{if(ranking.open&&!document.hidden)liveRanking.refresh();});
+ globalThis.addEventListener('garden-user',()=>{if(ranking.open)rank(liveRanking.game);});
  ranking.querySelector('.rank-games').onclick=e=>{if(e.target.dataset.rank)rank(e.target.dataset.rank);};
  $('ranking-open').onclick=()=>rank();
  const rankButton=document.createElement('button');rankButton.className='menu-action';rankButton.textContent='🏆 리더보드';rankButton.onclick=()=>rank();$('menu-dialog').querySelector('.menu-list').append(rankButton);
