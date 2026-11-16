@@ -7,7 +7,7 @@ const BEST_KEY = 'suika-garden-best';
 const PRICES = Object.freeze(Object.fromEntries(SKIN_CATALOG.map(item => [item.id, item.price])));
 const ITEM_LIMIT = 999;
 const RECEIPT_LIMIT = 32;
-const REVIVAL_COST = 10;
+const REVIVAL_COSTS = Object.freeze(Array.from({length:15},(_,i)=>10**(i+1)));
 const RUN_MODES = new Set(['classic','apple','free','water','space','watermelon','timed','challenge','science','zoo']);
 const SPECIAL_MODES = ['apple','free','water','space','watermelon','timed','challenge','science','zoo'];
 const REMOVED_TOOL_PRICES = { magnet: 10, swap: 6, freeze: 8 };
@@ -121,7 +121,9 @@ function cleanActiveRun(value) {
     }
     const lastRevivalTick = value.lastRevivalTick === undefined ? -1 : value.lastRevivalTick;
     if (!Number.isSafeInteger(lastRevivalTick) || lastRevivalTick < -1) return null;
-    return { id: value.id, mode:RUN_MODES.has(value.mode)?value.mode:'classic', finished: false, result: null, creditedFruits: value.creditedFruits ?? 0, earnedGems: value.earnedGems ?? 0, earnedCoins:whole(value.earnedCoins), score: value.score ?? 0, lastRevivalTick, creditedSpecialShakes: value.creditedSpecialShakes ?? 0,creditedSpecialPears:value.creditedSpecialPears??0, gemMergeId:whole(value.gemMergeId) };
+    const revivalCount=value.revivalCount??0;
+    if(!Number.isSafeInteger(revivalCount)||revivalCount<0)return null;
+    return { id: value.id, mode:RUN_MODES.has(value.mode)?value.mode:'classic', finished: false, result: null, creditedFruits: value.creditedFruits ?? 0, earnedGems: value.earnedGems ?? 0, earnedCoins:whole(value.earnedCoins), score: value.score ?? 0, lastRevivalTick,revivalCount, creditedSpecialShakes: value.creditedSpecialShakes ?? 0,creditedSpecialPears:value.creditedSpecialPears??0, gemMergeId:whole(value.gemMergeId) };
   }
   const receipt = cleanReceipt({ ...value.result, id: value.id });
   return receipt ? completedRun(receipt) : null;
@@ -132,8 +134,8 @@ function validRevivalId(id) {
 }
 
 function cleanRevivalReceipt(value) {
-  return value && validRevivalId(value.requestId) && validRunId(value.runId) && value.cost === REVIVAL_COST && Number.isSafeInteger(value.paidAt) && value.paidAt >= 0
-    ? { requestId: value.requestId, runId: value.runId, cost: REVIVAL_COST, paidAt: value.paidAt } : null;
+  return value && validRevivalId(value.requestId) && validRunId(value.runId) && REVIVAL_COSTS.includes(value.cost) && Number.isSafeInteger(value.paidAt) && value.paidAt >= 0
+    ? { requestId: value.requestId, runId: value.runId, cost: value.cost, paidAt: value.paidAt } : null;
 }
 
 function cleanRevivalRecovery(value, activeRun) {
@@ -219,6 +221,7 @@ export class GardenProgress {
       const { snapshot, ...receipt } = pendingRevival;
       revivalReceipts.unshift(receipt); revivalReceipts.length = Math.min(revivalReceipts.length, RECEIPT_LIMIT);
     }
+    if(activeRun&&!activeRun.finished&&value?.activeRun?.revivalCount===undefined)activeRun.revivalCount=revivalReceipts.filter(receipt=>receipt.runId===activeRun.id).length;
     return { profile, activeRun, settledRuns, migrations: { ...value?.migrations,removedToolsV9: true,removedCrystalV45:true }, refundedToolGems,refundedCrystalGems, revivalReceipts, pendingRevival };
   }
 
@@ -289,7 +292,7 @@ export class GardenProgress {
       let id;
       do { id = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}-${++this._nextRun}`; }
       while (this.canResumeRun(id));
-      this.pendingRun = { id, mode, finished: false, result: null, creditedFruits: 0, earnedGems: 0, earnedCoins:0, score: 0, lastRevivalTick: -1, creditedSpecialShakes: 0,creditedSpecialPears:0 };
+      this.pendingRun = { id, mode, finished: false, result: null, creditedFruits: 0, earnedGems: 0, earnedCoins:0, score: 0, lastRevivalTick: -1,revivalCount:0, creditedSpecialShakes: 0,creditedSpecialPears:0 };
       this._save();
       return { runId: id };
     });
@@ -393,6 +396,11 @@ export class GardenProgress {
     return this._pendingRevival ? JSON.parse(JSON.stringify(this._pendingRevival)) : null;
   }
 
+  getRevivalCost() {
+    // A price beyond this range exceeds the largest supported coin balance.
+    return REVIVAL_COSTS[this.pendingRun?.revivalCount??0]??null;
+  }
+
   async purchaseRevival({ requestId, runId, score, mergedFruits, snapshot } = {}) {
     return this._mutate(() => {
       if (!validRevivalId(requestId) || !validRunId(runId)) throw progressError('부활 요청 정보를 확인해 주세요.', 'INVALID_REVIVAL');
@@ -413,10 +421,12 @@ export class GardenProgress {
       const previous = JSON.parse(JSON.stringify({ profile: this._profile, run: this.pendingRun, receipts: this._revivalReceipts, recovery: this._pendingRevival }));
       try {
         this._awardRun(score, mergedFruits, { specialShakeRewards: board.specialShakeRewards,specialPearsCleared:board.specialPearsCleared, discoveredLevels: board.discoveredLevels });
-        if (this._profile.coins < REVIVAL_COST) throw progressError('부활하려면 수박 동전 10개가 필요해요.', 'INSUFFICIENT_GEMS');
-        this._profile.coins -= REVIVAL_COST;
+        const cost=this.getRevivalCost();
+        if(cost===null||this._profile.coins<cost)throw progressError(cost===null?'이어하기 비용이 보유 가능한 동전 수를 넘었어요.':`이어가려면 수박 동전 ${cost.toLocaleString('ko-KR')}개가 필요해요.`, 'INSUFFICIENT_GEMS');
+        this._profile.coins -= cost;
+        this.pendingRun.revivalCount++;
         this.pendingRun.lastRevivalTick = board.world.tick;
-        const payment = { requestId, runId, cost: REVIVAL_COST, paidAt: Date.now() };
+        const payment = { requestId, runId, cost, paidAt: Date.now() };
         this._pendingRevival = { ...payment, snapshot: board };
         this._revivalReceipts.unshift(payment);
         this._revivalReceipts.length = Math.min(this._revivalReceipts.length, RECEIPT_LIMIT);

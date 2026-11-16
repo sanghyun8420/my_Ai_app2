@@ -493,16 +493,17 @@ function showGameOver() {
 }
 
 function updateRevive() {
-  const coins=progressStore.profile.coins;
-  const available=started&&world.state==='over'&&!(activeMode==='timed'&&world.time>=120)&&!roundCredited&&!reviveBusy&&!starting&&world.bodies.length>=3&&coins>=10;
+  const coins=progressStore.profile.coins,cost=progressStore.getRevivalCost();
+  const available=started&&world.state==='over'&&!(activeMode==='timed'&&world.time>=120)&&!roundCredited&&!reviveBusy&&!starting&&world.bodies.length>=3&&cost!==null&&coins>=cost;
   $('revive-button').disabled=!available;
-  $('revive-button').textContent=reviveBusy?'준비 중…':'🪙 10 · 이어하기';
-  $('revive-note').textContent=reviveBusy?'이어갈 정원을 안전하게 저장하고 있어요':world.bodies.length<3?'이어가려면 과일이 3개 이상 필요해요':coins<10?`수박 동전 ${10-coins}개가 더 필요해요 · 보유 ${coins.toLocaleString('ko-KR')}개`:'점수는 그대로 · 이어서 3초 동안 안전해요';
+  $('revive-button').textContent=reviveBusy?'준비 중…':cost===null?'이어하기 불가':`🪙 ${cost.toLocaleString('ko-KR')} · 이어하기`;
+  $('revive-note').textContent=reviveBusy?'이어갈 정원을 안전하게 저장하고 있어요':world.bodies.length<3?'이어가려면 과일이 3개 이상 필요해요':cost===null?'필요한 동전이 지갑 한도를 넘었어요. 새 정원을 시작해 주세요.':coins<cost?`수박 동전 ${(cost-coins).toLocaleString('ko-KR')}개가 더 필요해요 · 보유 ${coins.toLocaleString('ko-KR')}개`:'작은 과일 3개 정리 · 다음 이어하기 비용은 10배';
   if(world.state==='over')$('run-gems').textContent=`이번 판 과일 ${roundCleared}개 정리 · 모은 동전 ${progressStore.pendingRun?.earnedCoins||0}개`;
 }
 
 async function reviveGame() {
-  if(reviveBusy||inventoryBusy||erasingBusy||starting||!started||roundCredited||world.state!=='over'||(activeMode==='timed'&&world.time>=120)||world.bodies.length<3||progressStore.profile.coins<10)return;
+  const cost=progressStore.getRevivalCost();
+  if(reviveBusy||inventoryBusy||erasingBusy||starting||!started||roundCredited||world.state!=='over'||(activeMode==='timed'&&world.time>=120)||world.bodies.length<3||cost===null||progressStore.profile.coins<cost)return;
   reviveBusy=true;updateRevive();
   try {
     const candidate=new FruitWorld({width:WIDTH,height:HEIGHT,fruits:FRUITS});

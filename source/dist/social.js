@@ -106,7 +106,6 @@ export class GardenSocial {
     this._listen('auth-form', 'submit', event => { event.preventDefault(); return this._submitAccount(); }, 'auth-feedback');
     this._listen('account-logout', 'click', () => this._logout(), 'auth-feedback');
     this._listen('friend-form', 'submit', event => { event.preventDefault(); return this._addFriend(); }, 'friend-feedback');
-    this._listen('friend-invite', 'click', () => this.copyInvite({ share: true }), 'friend-feedback');
     this._listen('room-create', 'click', () => this.createRoom(this.getMode()), 'room-feedback');
     this._listen('room-join-form', 'submit', event => {
       event.preventDefault(); return this.joinRoom(this.$('room-join-code')?.value || '');
@@ -596,7 +595,7 @@ export class GardenSocial {
 
   async _share(url, title, useShare, feedback) {
     this._shareUrl = url;
-    const field = this.$('friend-share-link');
+    const field = this.$(feedback==='room-feedback'?'room-share-link':'friend-share-link');
     if (field) { field.value = url; field.hidden = false; field.readOnly = true; }
     if (useShare && typeof this.navigator?.share === 'function') {
       try { await this.navigator.share({ title, text: '같은 과일 순서로 수박에 도전해요!', url }); this._feedback(feedback, '초대 링크를 보냈어요.'); return true; }
@@ -609,8 +608,9 @@ export class GardenSocial {
       return true;
     } catch {
       this.openDialog('friends-dialog');
+      if(feedback==='room-feedback')globalThis.dispatchEvent?.(new CustomEvent('garden-share-room'));
       field?.focus(); field?.select();
-      this._feedback('friend-feedback', '아래 초대 링크를 길게 눌러 복사한 뒤 친구에게 보내주세요.');
+      this._feedback(feedback, '아래 초대 링크를 길게 눌러 복사한 뒤 친구에게 보내주세요.');
       return false;
     }
   }

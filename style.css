@@ -688,3 +688,5 @@ html[data-theme=dark] .pear-progress{background:#514b26;color:#f0dc8e}
 .promotion-actions {display:flex;gap:10px;margin:14px 0}.promotion-actions button {flex:1}
 .promotion-caption {border-top:1px solid var(--line);padding-top:16px;font-size:13px}.promotion-caption summary {cursor:pointer}.promotion-caption textarea {margin:12px 0;resize:vertical;line-height:1.7}.promotion-caption a {display:block;margin-top:14px;font-size:12px}
 @media(max-width:360px){.promotion-card{gap:10px;padding:10px}.promotion-card img{width:100px;height:100px}.promotion-actions{flex-wrap:wrap}.promotion-actions button{min-width:120px}}
+
+.revive-button{max-width:100%;white-space:normal;overflow-wrap:anywhere}#room-share-link{width:100%;margin-top:10px}
