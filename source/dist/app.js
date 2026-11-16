@@ -26,16 +26,16 @@ const canvas = $('game-canvas');
 const ctx = canvas.getContext('2d');
 const WIDTH = 600, HEIGHT = 720;
 const MODES = [
+  { id:'classic', name:'기본 정원', icon:'🍉', description:'통통 튀는 과일을 합쳐 비밀의 과일까지.' },
   {id:'zoo',name:'동물원',icon:'🐹',description:'햄스터 + 햄스터 → 고양이 → 강아지! 15단계 고래까지 합쳐요.'},
   {id:'science',name:'과학 정원',icon:'⚗️',description:'2H + O → H₂O. 물 이후는 우주 테마 성장! 마지막은 초신성 폭발.'},
   {id:'watermelon',name:'수박 파티',icon:'🍉',description:'수박부터 시작해 비밀 과일까지!'},
   {id:'timed',name:'120초 정원',icon:'⏱',description:'120초 동안 가장 높은 점수에 도전해요.'},
   {id:'challenge',name:'챌린지',icon:'🎯',description:'큰 과일부터 시작해 5,000점을 달성하세요.'},
-  { id:'classic', name:'기본 정원', icon:'🍉', description:'통통 튀는 과일을 합쳐 비밀의 과일까지.' },
   { id:'apple', name:'사과 파티', icon:'🍎', description:'떨어지는 과일은 모두 사과! 커다란 합치기의 시작.' },
-  { id:'free', name:'자유 흔들기', icon:'✳', description:'횟수 제한 없이, 원하는 만큼 흔들어보세요.' },
-  { id:'water', name:'물의 정원', icon:'◉', description:'물결과 부력 속에서 과일이 둥실둥실.' },
-  { id:'space', name:'우주 정원', icon:'✦', description:'무중력에서 떠다니며 만나는 과일들.' },
+  { id:'free', name:'자유 흔들기', icon:'🌀', description:'횟수 제한 없이, 원하는 만큼 흔들어보세요.' },
+  { id:'water', name:'물의 정원', icon:'🌊', description:'물결과 부력 속에서 과일이 둥실둥실.' },
+  { id:'space', name:'우주 정원', icon:'🪐', description:'무중력에서 떠다니며 만나는 과일들.' },
 ];
 const MODE_HINTS={
   apple:{code:'apple',clue:'빨간 사과를 영어로! a로 시작하는 다섯 글자예요.'},
@@ -845,7 +845,7 @@ function renderModes() {
       startGame({ mode:mode.id });
       $('modes-dialog').close(); $('menu-dialog').close();
     });
-    const option=document.createElement('article');option.className='mode-option';option.classList.toggle('mode-option-selected',activeMode===mode.id);option.append(button);
+    const option=document.createElement('article');option.className='mode-option';option.dataset.mode=mode.id;option.classList.toggle('mode-option-selected',activeMode===mode.id);option.append(button);
     const hint=MODE_HINTS[mode.id];
     if(hint){
       const details=document.createElement('details');details.className='mode-hint';

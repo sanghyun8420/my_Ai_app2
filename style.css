@@ -536,6 +536,7 @@ html[data-theme=dark] #tool-slot-calm{--tool-accent:#8fc6b6;--tool-soft:#293e36;
 .intro .intro-copy,.intro .eyebrow,.intro-doodle,.save-note,footer{color:var(--page-muted,var(--muted))}
 .mode-option{display:flex;flex-direction:column;min-width:0;border:1px solid var(--line);border-radius:13px;background:var(--paper);overflow:hidden}
 .mode-option-selected{border-color:#adc58d}
+.mode-option[data-mode=classic]{grid-column:1/-1}
 .mode-option>.mode-card{width:100%;flex:1;border:0;border-radius:0}
 .mode-option>.mode-card:disabled{opacity:.8}
 .mode-hint{padding:10px 12px;border-top:1px solid var(--line);background:var(--card);font-size:10px;line-height:1.8}
