@@ -134,5 +134,4 @@ body .site-header .header-right :is(.shop-button,.friends-button) span{display:i
 
 #garden-buddy:hover,#garden-buddy:active{transform:none;animation:none}
 
-.ranking-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.ranking-actions p{margin:0;font-size:12px;font-weight:700;overflow-wrap:anywhere}.ranking-actions button{font-size:12px;min-height:40px}#ranking-status,#ranking-note{color:var(--muted);font-size:12px;line-height:1.6}#ranking-status{min-height:1.6em}#ranking-list span{min-width:0;overflow-wrap:anywhere;padding-right:12px}#ranking-list strong{flex-shrink:0}
-#ranking-device{font-size:12px;line-height:1.7;color:var(--muted);margin:8px 0}
+#ranking-identity{margin:0;font-size:12px;font-weight:700;overflow-wrap:anywhere}#ranking-status,#ranking-note{color:var(--muted);font-size:12px;line-height:1.6}#ranking-status{min-height:1.6em}#ranking-list span{min-width:0;overflow-wrap:anywhere;padding-right:12px}#ranking-list strong{flex-shrink:0}

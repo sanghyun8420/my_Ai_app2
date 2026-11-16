@@ -8,11 +8,11 @@ import {ECONOMY_KEY,GAME_KEYS} from '../dist/economy.js';
 const app=await createLocalApp({databasePath:':memory:'}),origin='https://garden.example',clients=[];
 const store=initial=>{const map=new Map(Object.entries(initial||{}));return {map,getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,String(v)),removeItem:k=>map.delete(k)};};
 async function client(initial={},session=''){
- const storage=store(initial),profile=new GardenProgress({storage});await profile.init();let cookie=session,reloads=0;
+ const storage=store(initial),profile=new GardenProgress({storage});await profile.init();let cookie=session,reloads=0,tick;
  const fetcher=async(path,init={})=>{const headers=new Headers(init.headers);headers.set('Origin',origin);if(cookie)headers.set('Cookie',cookie);const response=await app(new Request(origin+path,{...init,headers}));if(response.headers.get('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];return response;};
  const social=new GardenSocial({document:null,location:new URL(origin),fetcher});await social.init();
- const cloud=new PlayerCloud({social,storage,document:null,intervalMs:1e9,beforeCapture:async()=>{await profile._queue;profile._save();},reload:()=>reloads++});clients.push(cloud);await cloud.init();
- return {storage,profile,social,cloud,cookie:()=>cookie,reloads:()=>reloads};
+ const cloud=new PlayerCloud({social,storage,document:null,intervalMs:5000,setTimer:fn=>{tick=fn;return 1;},clearTimer:()=>{},beforeCapture:async()=>{await profile._queue;profile._save();},reload:()=>reloads++});clients.push(cloud);await cloud.init();
+ return {storage,profile,social,cloud,tick:()=>tick(),cookie:()=>cookie,reloads:()=>reloads};
 }
 const copy=c=>Object.fromEntries(c.storage.map),post=(c,url,body)=>c.social._request(url,{method:'POST',body});
 async function login(c){const result=await post(c,'/api/auth/login',{username:'Recover42',password:'GardenPass42'});c.social._acceptUser(result);await c.cloud.connect({includeGuestScores:true});c.storage.removeItem(PLAYER_KEY);}
@@ -48,5 +48,20 @@ try{
  await claimed.cloud.syncLeaderboard();assert.equal((await claimed.social._request('/api/leaderboard')).me.score,29000,'dedicated rank uploads cannot wait on stuck wallet tasks');
  const cloudAfter=await claimed.social._request('/api/cloud-save');assert.equal(cloudAfter.version,cloudBefore.version);assert.equal(JSON.parse(cloudAfter.snapshot.values[ECONOMY_KEY]).gems,557,'rank refresh never downloads or rewrites the wallet');
  assert.equal(claimed.reloads(),0,'opening rankings cannot reload the game');
- console.log('PASS score recovery: real same-account two-device CAS restore, higher offline records, post-reload upload/rank, guest claim, foreign-account isolation, separate mode highs, legacy records, no-op dedupe, authoritative wallets and independent rank submission despite stuck wallet tasks.');
+ // The five-second background timer must publish records with no ranking dialog
+ // or manual action, even while every wallet/capture path is still stalled.
+ claimed.cloud.busy=true;claimed.cloud.beforeCapture=()=>new Promise(()=>{});claimed.cloud.beforeScoreCapture=()=>new Promise(()=>{});
+ const request=claimed.social._request.bind(claimed.social);let imports=0,failUpload=false,releaseUpload;
+ claimed.social._request=async(path,init)=>{if(path==='/api/profile/import'){imports++;if(failUpload)throw Error('offline');if(releaseUpload)await releaseUpload.promise;}return request(path,init);};
+ const highs=(suika,apple,blocks)=>{const root=JSON.parse(claimed.storage.getItem(ECONOMY_KEY));root.records[GAME_KEYS.suika].bestScore=suika;root.records[GAME_KEYS.suika].modeBestScores.zoo=999999;root.records[GAME_KEYS.apple].best=apple;root.records[GAME_KEYS.blocks].best=blocks;claimed.storage.setItem(ECONOMY_KEY,JSON.stringify(root));};
+ highs(31000,4321,7654);let release;releaseUpload={promise:new Promise(resolve=>release=resolve)};
+ claimed.tick();claimed.tick();assert.equal(imports,1,'timer ticks coalesce pending automatic uploads');const automatic=claimed.cloud.flushScores();release();await automatic;releaseUpload=null;
+ for(const [game,score]of[['suika',31000],['apple',4321],['blocks',7654]])assert.equal((await request('/api/leaderboard?game='+game)).me.score,score,'registered account highs rank automatically while wallets are busy');
+ claimed.tick();await claimed.cloud.flushScores();assert.equal(imports,1,'unchanged highs do not repeatedly submit');
+ highs(32000,4400,7700);failUpload=true;claimed.tick();await claimed.cloud.flushScores();assert.equal((await request('/api/leaderboard')).me.score,31000);
+ failUpload=false;claimed.tick();await claimed.cloud.flushScores();assert.equal((await request('/api/leaderboard')).me.score,32000,'the next scheduled tick retries a failed upload without a button');
+ const meta=claimed.storage.getItem(CLOUD_META),beforeForeign=imports;claimed.storage.setItem(CLOUD_META,JSON.stringify({userId:'ga_different_registered_account',kind:'account'}));highs(999999,999999,999999);claimed.tick();assert.equal(await claimed.cloud.syncLeaderboard(),false);assert.equal(imports,beforeForeign,'automatic publishing never transfers another account records');claimed.storage.setItem(CLOUD_META,meta);
+ claimed.cloud.restoring=true;claimed.tick();assert.equal(imports,beforeForeign,'pending account restores block automatic record claims');claimed.cloud.restoring=false;
+ const finalCloud=await request('/api/cloud-save');assert.equal(finalCloud.version,cloudBefore.version);assert.equal(JSON.parse(finalCloud.snapshot.values[ECONOMY_KEY]).gems,557);assert.equal(claimed.reloads(),0);
+ console.log('PASS score recovery: same-account restore, guest claim, ownership/mode isolation, authoritative wallets and automatic three-game highs/retries/coalescing with no ranking dialog despite stalled wallet and capture tasks.');
 }finally{for(const c of clients)c.dispose();app.close();}

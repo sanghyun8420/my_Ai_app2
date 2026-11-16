@@ -4,7 +4,6 @@ import { drawSkinnedFruit } from './skins.js';
 import { mountGrowthGames, isGrowthGame } from './growth-games.js';
 import { drawHero } from './growth-art.js';
 import { LiveLeaderboard } from './leaderboard-live.js';
-import {localScores} from './player-cloud.js';
 export function drawBuddy(c,hat='none',x=30,y=30,scale=1,time=0){
  const swing=Math.sin(time*2.6)*2.6,other=Math.sin(time*2.6+.8)*1.8;
  c.save();c.translate(x,y);c.scale(scale,scale);c.strokeStyle='#293a35';c.lineWidth=2.2;c.lineCap='round';c.lineJoin='round';
@@ -61,18 +60,17 @@ export function createHub(api){
  nav.onclick=e=>{const b=e.target.closest('[data-game]');if(b){select(b.dataset.game);closePicker();}};
  globalThis.addEventListener('garden-room',e=>{const room=e.detail;if(room.game!=='suika')select(room.game,room.seed,room.mode);else select('suika');});
  function dialog(id,content){const d=document.createElement('dialog');d.id=id;d.className='hub-dialog';d.innerHTML=`<button class="dialog-close" aria-label="닫기">×</button>${content}`;d.querySelector('.dialog-close').onclick=()=>d.close();d.addEventListener('close',api.resume);document.body.append(d);return d;}
- const ranking=dialog('ranking-dialog','<p class="eyebrow">GARDEN RECORDS</p><h2>리더보드</h2><div class="rank-games"><button data-rank="suika">수박정원</button><button data-rank="apple">사과모아</button><button data-rank="blocks">블록정원</button></div><p id="ranking-note">가입한 계정은 자동 참여해요.</p><div class="ranking-actions"><p id="ranking-identity"></p><button id="ranking-refresh" type="button" class="secondary-button">↻ 내 기록 동기화</button></div><p id="ranking-status" role="status" aria-live="polite"></p><p id="ranking-device"></p><p id="ranking-mine" hidden></p><ol id="ranking-list"></ol>');
+ const ranking=dialog('ranking-dialog','<p class="eyebrow">GARDEN RECORDS</p><h2>리더보드</h2><div class="rank-games"><button data-rank="suika">수박정원</button><button data-rank="apple">사과모아</button><button data-rank="blocks">블록정원</button></div><p id="ranking-note">가입한 계정은 자동 참여해요.</p><p id="ranking-identity"></p><p id="ranking-status" role="status" aria-live="polite"></p><p id="ranking-mine" hidden></p><ol id="ranking-list"></ol>');
  let rankState={},rankUserId=api.social()?.user?.id||'';
  const liveRanking=new LiveLeaderboard({
   read:game=>api.social()._request('/api/leaderboard?game='+game),context:()=>api.social().user?.id||'',visible:()=>ranking.open&&!document.hidden,
-  sync:async()=>{const player=api.player();if(player)await player.syncLeaderboard();},
-  status:state=>{Object.assign(rankState,state);const button=$('ranking-refresh');button.disabled=!!rankState.loading;button.setAttribute('aria-busy',String(!!rankState.loading));
+  sync:async()=>{const player=api.player();return player?player.syncLeaderboard():false;},
+  status:state=>{Object.assign(rankState,state);$('ranking-list').setAttribute('aria-busy',String(!!rankState.loading));
    if(rankState.loading&&!rankState.updatedAt){$('ranking-status').textContent='순위를 불러오고 있어요…';return;}
-   const stamp=rankState.updatedAt?new Date(rankState.updatedAt).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' 갱신 · ':'';
-   $('ranking-status').textContent=stamp+(rankState.error?'연결을 확인해 주세요. '+rankState.error:rankState.warning?rankState.warning:rankState.syncing?'내 점수를 전송하고 있어요. 순위는 계속 표시돼요.':'5초마다 자동 새로고침');
+   $('ranking-status').textContent=rankState.error?'연결을 다시 시도하고 있어요. 기존 기록은 그대로예요.':'기록은 자동으로 반영돼요.';
   },
   render:(result,game)=>{
-   const user=api.social().user,own=result.me||result.scores.find(row=>row.id===user?.id);$('ranking-list').replaceChildren();$('ranking-mine').hidden=!own;let deviceScore=0;try{deviceScore=localScores(api.player()?.storage)[game]||0;}catch{}$('ranking-device').textContent=user?`이 기기 최고 ${deviceScore.toLocaleString()}점 · 서버 최고 ${(own?.score||0).toLocaleString()}점`:`이 기기 최고 ${deviceScore.toLocaleString()}점 · 로그인하면 내 계정 기록을 확인할 수 있어요.`;
+   const user=api.social().user,own=result.me||result.scores.find(row=>row.id===user?.id);$('ranking-list').replaceChildren();$('ranking-mine').hidden=!own;
    for(const row of result.scores){const li=document.createElement('li'),name=document.createElement('span'),score=document.createElement('strong');name.textContent=`${row.rank}. ${row.displayName}`;score.textContent=row.score.toLocaleString()+'점';if(row.id===user?.id)li.className='rank-me';li.append(name,score);$('ranking-list').append(li);}
    if(!result.scores.length)$('ranking-list').textContent='아직 등록된 기록이 없어요.';
    if(own)$('ranking-mine').textContent=`내 순위 ${own.rank.toLocaleString()}위 · ${own.score.toLocaleString()}점`;
@@ -84,13 +82,12 @@ export function createHub(api){
   if(game==='racing'){racing.openRecords();return;}
   if(isGrowthGame(game)){growth.openRecords();return;}
   if(!['suika','apple','blocks'].includes(game))game='suika';
-  rankState={};rankUserId=api.social().user?.id||'';open('ranking-dialog');$('menu-dialog').close();$('ranking-list').textContent='기록을 불러오고 있어요…';$('ranking-mine').hidden=true;$('ranking-device').textContent='';
+  rankState={};rankUserId=api.social().user?.id||'';open('ranking-dialog');$('menu-dialog').close();$('ranking-list').textContent='기록을 불러오고 있어요…';$('ranking-mine').hidden=true;
   for(const b of ranking.querySelectorAll('[data-rank]'))b.setAttribute('aria-pressed',String(b.dataset.rank===game));
   return liveRanking.open(game);
  }
  ranking.addEventListener('close',()=>liveRanking.close());
- $('ranking-refresh').onclick=()=>liveRanking.refresh({sync:true});
- document.addEventListener('visibilitychange',()=>{if(ranking.open&&!document.hidden)liveRanking.refresh();});
+ document.addEventListener('visibilitychange',()=>{if(ranking.open&&!document.hidden)liveRanking.refresh({sync:true});});
  globalThis.addEventListener('garden-user',()=>{if(ranking.open&&(api.social().user?.id||'')!==rankUserId)rank(liveRanking.game);});
  ranking.querySelector('.rank-games').onclick=e=>{if(e.target.dataset.rank)rank(e.target.dataset.rank);};
  $('ranking-open').onclick=()=>rank();
