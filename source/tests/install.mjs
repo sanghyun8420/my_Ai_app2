@@ -24,4 +24,13 @@ const ios=make({navigator:{userAgent:'iPhone Safari'}});assert.equal(ios.platfor
 let badPrompts=0;const bad=make();bad.promptEvent={prompt:async()=>{badPrompts++;throw Error('not allowed');}};await bad.install();assert.equal(badPrompts,1);assert(bad.manual);assert(!bad.busy);
 const blocked=make({navigator:{get serviceWorker(){throw Error('blocked');}}});assert.doesNotThrow(()=>blocked.init());blocked.dispose();
 const standalone=make({navigator:{standalone:true}});standalone.open=()=>{throw Error('must not offer again');};for(let i=0;i<50;i++){now+=1000;standalone.tick();}
+// Browser installation must begin synchronously inside the menu click, even if
+// saving returns a promise. The native confirmation owns the final consent.
+let activation=false,directPrompts=0,paused=false,closed=false;
+const direct=make({beforeInstall:()=>new Promise(()=>{}),openDialog:()=>{paused=true;}});
+direct.render=()=>{};direct.$=()=>({focus(){}});direct.dialog={close(){closed=true;paused=false;}};
+direct.promptEvent={prompt(){assert(activation,'prompt must keep the original user activation');assert(paused,'the game must pause before native confirmation');directPrompts++;return Promise.resolve();},userChoice:Promise.resolve({outcome:'accepted'})};
+direct.open();assert.equal(directPrompts,0,'automatic/timed offers never prompt without a click');
+activation=true;const directTask=direct.open({requestInstall:true});activation=false;assert.equal(directPrompts,1,'menu action prompts before returning or awaiting work');await directTask;assert(closed);assert(!direct.installed,'only appinstalled confirms completion');
+await direct.open({requestInstall:true});assert.equal(directPrompts,1,'a consumed event cannot be reused');assert(direct.manual,'unsupported menu installs immediately show manual steps');
 console.log('PASS install offer: active-play timing, no overlapping/background prompts, persistent cooldown, real one-use browser installation, installed event, iOS fallback, unsupported browsers and untouched guest device saves.');

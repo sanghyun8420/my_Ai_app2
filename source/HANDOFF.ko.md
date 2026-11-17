@@ -133,7 +133,7 @@ node scripts/export-github-pages.mjs /absolute/empty/output
 ## 홈 화면 설치와 오프라인 게임
 
 - `dist/install.js`는 실제 플레이35초 후 설치 안내를 한 번 표시합니다. 다른 창이 열렸거나 탭이 숨겨져 있으면 시간을 세지 않습니다. 설치 창은 수박·퍼즐·원정대의 진행을 멈추고 닫을 때 이어갑니다.
-- 닫으면 `garden-install-v1`에7일 대기 상태를 기록합니다. 이미 설치했거나 standalone으로 실행 중이면 자동 안내를 생략합니다. 메뉴의 ‘홈 화면에 추가’는 언제든 열 수 있습니다.
+- 닫으면 `garden-install-v1`에7일 대기 상태를 기록합니다. 이미 설치했거나 standalone으로 실행 중이면 자동 안내를 생략합니다. 메뉴의 ‘홈 화면에 추가’는 언제든 누를 수 있으며, beforeinstallprompt가 준비됐으면 같은 클릭에서 바로 브라우저 설치 확인창을 엽니다. 준비되지 않았거나 지원하지 않는 브라우저는 첫 클릭부터 수동 안내를 펼칩니다.
 - Chromium의 `beforeinstallprompt`를 보관하고 사용자가 버튼을 누른 순간 실제 `prompt()`를 호출합니다. 설치 완료 표시는 실제 `appinstalled` 이벤트를 기준으로 합니다. iOS와 지원하지 않는 브라우저에는 수동 추가 절차를 안내합니다. 웹 코드가 운영체제 설치를 강제로 실행하지 않습니다.
 - `dist/manifest.webmanifest`의 `id`, `start_url`, `scope`는 모두 상대 주소 `./`입니다. 기존 주소·프로젝트 경로에서 열어야 기기의 같은 저장소를 사용할 수 있으므로 별도 설치용 사이트로 보내지 않습니다. 이름·로그인 없이도 기기 자동 저장은 작동하며 브라우저 데이터를 삭제하면 기기 기록도 삭제될 수 있습니다.
 - `scripts/create-app-icons.mjs`가 기존 게임의 수박 그림으로192·512·maskable512·Apple180 아이콘을 생성합니다. 그림을 바꿀 때만 실행합니다. PNG는 저장소에 포함됩니다.
@@ -293,3 +293,10 @@ racing difficulty ID easy/hard/hell은 기존 저장과 보상을 위해 유지�
 어려움에서 커브 앞 미리보기 변화가32를 넘고 주행 중이면 driftAvailable입니다. 버튼/Space로만 requestDrift를 호출해90프레임 드리프트와120프레임 쿨다운을 시작합니다. 회전 자세/타이어 자국을 그리고 원심력과 급커브 감속을 줄입니다. 자동 발동시키거나 쉬움에 드리프트 버튼을 보이지 않습니다. 보상·3위 진출·자유주행3회 충돌 규칙은 유지됩니다.
 
 자동 검사36개와 실제 모듈 DOM/Canvas/SQLite 재현을 통과했습니다. Cloud desktop capability는 있지만 이 세션에는 cua_repl.js/브라우저 조작 도구가 없어 실제 브라우저 시각 QA는 수행하지 못했습니다. https://autocatalogarchive.com/index-brand/ 및 BMW/Audi의 직접 PDF 주소를 웹 도구와 HTTP 클라이언트로 확인했으나403이므로 사진은 가져오지 못했습니다. 링크만을 근거로 새 차량 이미지를 적용했다고 보고하지 않습니다.
+
+
+## 홈 화면 추가의 직접 설치 동작
+
+GardenInstall.open({requestInstall:true})는 메뉴 클릭에서만 사용합니다. 먼저 게임 일시정지용 install-dialog를 열고 같은 동기 호출 스택에서 install()→event.prompt()를 호출합니다. 설치 안내에서 다시 버튼을 누르게 하지 않습니다. 자동35초 안내의 open()은 requestInstall을 전달하지 않아 사용자 동작 없이 OS 설치창을 띄우지 않습니다. 저장/네트워크 Promise를 prompt() 전에 await하지 않습니다. 브라우저 설치창이 닫히면 기존 close 경로로 게임을 이어갑니다.
+
+설치 이벤트가 없으면 같은 클릭에서 manual 안내를 표시하고, 이벤트가 나중에 준비되더라도 사용자 입력 없이 prompt를 실행하지 않습니다. 실제 설치됨 표시는 appinstalled/standalone만 사용합니다. 취소/재시도/중복 탭/이미 설치됨 상태를 install.mjs 및 실제 앱 DOM/Canvas/SQLite 재현에서 검사했습니다. 실제 모바일 브라우저의 OS 설치는 이 세션에서 검사하지 못했습니다.

@@ -38,7 +38,7 @@ export class GardenInstall {
     if (menu) {
       const button = this.doc.createElement('button'); button.className = 'menu-action'; button.type = 'button'; button.id = 'install-menu';
       button.innerHTML = '<span aria-hidden="true">＋</span><span>홈 화면에 추가</span><span aria-hidden="true">↗</span>';
-      button.onclick = () => { this.$('menu-dialog')?.close(); this.open(); }; menu.append(button);
+      button.onclick = () => { this.$('menu-dialog')?.close(); this.open({ requestInstall: true }); }; menu.append(button);
     }
   }
 
@@ -46,6 +46,7 @@ export class GardenInstall {
   render() {
     if (!this.dialog) return;
     const canPrompt = !!this.promptEvent && !this.installed;
+    this.$('install-title').textContent = this.installed ? '수박정원이 설치되어 있어요' : '수박정원 설치하기';
     this.$('install-confirm').textContent = this.installed ? '게임 계속하기' : canPrompt ? '홈 화면에 추가' : this.manual ? '게임 계속하기' : '추가 방법 보기';
     this.$('install-confirm').disabled = this.busy;
     this.$('install-guide').hidden = !this.manual || canPrompt || this.installed;
@@ -62,9 +63,14 @@ export class GardenInstall {
       : '브라우저에 따라 버튼 이름과 위치가 조금 다를 수 있어요.';
   }
 
-  open() {
-    this.manual = !this.promptEvent && this.platform === 'ios'; this.render();
+  open({ requestInstall = false } = {}) {
+    this.manual = !this.promptEvent && (requestInstall || this.platform === 'ios');
+    if (this.$('install-status')) this.$('install-status').textContent = '';
+    this.render();
     if (this.openDialog) this.openDialog('install-dialog'); else if (this.dialog && !this.dialog.open) this.dialog.showModal();
+    // Menu clicks can open the real browser confirmation immediately. Timer offers
+    // still wait for a click, and the game stays paused behind the native prompt.
+    if (requestInstall && this.promptEvent && !this.installed) return this.install();
     this.$('install-confirm')?.focus();
   }
   dismiss() { this.remember({ dismissedUntil: this.clock() + WEEK }); this.dialog?.close(); }
