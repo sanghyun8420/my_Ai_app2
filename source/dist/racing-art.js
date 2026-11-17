@@ -29,8 +29,7 @@ export function drawRaceScene(c,race,time=0,input={},viewHeight=720,playerBottom
  for(const t of race.traffic)drawRaceCar(c,race.screenX(t.lane,t.y),t.y,32,60,race.roadAngle(t.lane,t.y),{bodyColor:t.color,accentColor:'#cbd5e1'},{time});
  for(const r of race.rivals){const y=533-(r.distance-race.distance)*1.45;if(y< -shift-120||y>viewHeight-shift+120)continue;const x=race.screenX(r.lane,y),car=carById(r.id);drawRaceCar(c,x,y,34,64,race.roadAngle(r.lane,y),car,{boost:race.difficulty==='hell',rival:true,time});c.fillStyle='#0f172ae8';box(c,x-30,y-52,60,16,5);c.fill();c.fillStyle='#fda4af';c.font='bold 9px sans-serif';c.textAlign='center';c.fillText(car.shortBadge,x,y-40);}
  for(const p of race.police)drawRaceCar(c,race.screenX(p.lane,p.y),p.y,35,66,race.roadAngle(p.lane,p.y),{bodyType:'sedan',bodyColor:'#0f172a',accentColor:'#38bdf8'},{boost:true,rival:true,police:true,time});
- if(race.driftLeft){c.strokeStyle='#080d1688';c.lineWidth=4;for(const side of [-1,1]){const x=300+race.x*220+side*13;c.beginPath();c.moveTo(x,555);c.quadraticCurveTo(x-race.driftSign*30,585,x-race.driftSign*45,630);c.stroke();}}
- if(!race.invulnerable||Math.floor(race.invulnerable/4)%2===0)drawRaceCar(c,300+race.x*220,533,36,68,race.roadAngle(race.x,533)+race.tilt+(race.driftLeft?Math.sin(Math.min(1,race.driftLeft/12)*Math.PI/2)*race.driftSign*.38:0),race.car,{jump:race.jump,boost:race.boosting,brake:input.brake,time});
+ if(!race.invulnerable||Math.floor(race.invulnerable/4)%2===0)drawRaceCar(c,300+race.x*220,533,36,68,race.roadAngle(race.x,533)+race.tilt,race.car,{jump:race.jump,boost:race.boosting,brake:input.brake,time});
  if(race.boosting){c.strokeStyle='#bfedff55';c.lineWidth=2;for(let i=0;i<7;i++){const x=(i*97+time*13)%600,y=-shift+(i*233+time*1100)%viewHeight;c.beginPath();c.moveTo(x,y);c.lineTo(x,y+48);c.stroke();}}
  c.restore();
 }

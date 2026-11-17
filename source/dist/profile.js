@@ -6,6 +6,7 @@ const STORAGE_KEY = 'suika-garden-profile-v3';
 const BEST_KEY = 'suika-garden-best';
 const PRICES = Object.freeze(Object.fromEntries(SKIN_CATALOG.map(item => [item.id, item.price])));
 const ITEM_LIMIT = 999;
+export const RUN_TOOL_LIMIT = 5;
 const RECEIPT_LIMIT = 32;
 const REVIVAL_COSTS = Object.freeze(Array.from({length:15},(_,i)=>10**(i+1)));
 const RUN_MODES = new Set(['classic','apple','free','water','space','watermelon','timed','challenge','science','zoo']);
@@ -19,7 +20,7 @@ export const ACHIEVEMENTS = Object.freeze([
   { id: 'score10000', title: '정원의 달인', description: '한 판에서 10,000점을 달성해요.', icon: '🏆', reward: 5 },
   { id: 'watermelon', title: '수박 수확', description: '커다란 수박을 만들어요.', icon: '🍉', reward: 5 },
   { id: 'secret', title: '비밀의 열매', description: '시크릿 과일을 발견해요.', icon: '✨', reward: 5 },
-  { id: 'shake10', title: '흔들기의 달인', description: '한 판에서 흔들기를 10번 사용해요.', icon: '🌀', reward: 5 },
+  { id: 'shake10', title: '흔들기의 달인', description: '한 판에서 흔들기를 5번 사용해요.', icon: '🌀', reward: 5 },
   { id: 'waterExplorer', title: '물속 탐험가', description: '기본 정원에서 물속 모드의 비밀을 발견해요.', icon: '🫧', reward: 5 },
   { id: 'spaceExplorer', title: '우주 탐험가', description: '기본 정원에서 우주 모드의 비밀을 발견해요.', icon: '🚀', reward: 5 },
   { id: 'friendGame', title: '함께 가꾸는 정원', description: '친구와 같은 과일 순서로 도전해요.', icon: '🤝', reward: 5 },
@@ -123,7 +124,7 @@ function cleanActiveRun(value) {
     if (!Number.isSafeInteger(lastRevivalTick) || lastRevivalTick < -1) return null;
     const revivalCount=value.revivalCount??0;
     if(!Number.isSafeInteger(revivalCount)||revivalCount<0)return null;
-    return { id: value.id, mode:RUN_MODES.has(value.mode)?value.mode:'classic', finished: false, result: null, creditedFruits: value.creditedFruits ?? 0, earnedGems: value.earnedGems ?? 0, earnedCoins:whole(value.earnedCoins), score: value.score ?? 0, lastRevivalTick,revivalCount, creditedSpecialShakes: value.creditedSpecialShakes ?? 0,creditedSpecialPears:value.creditedSpecialPears??0, gemMergeId:whole(value.gemMergeId) };
+    return { id: value.id, mode:RUN_MODES.has(value.mode)?value.mode:'classic', finished: false, result: null, creditedFruits: value.creditedFruits ?? 0, earnedGems: value.earnedGems ?? 0, earnedCoins:whole(value.earnedCoins), score: value.score ?? 0, lastRevivalTick,revivalCount,toolUses:Object.fromEntries(ITEMS.map(item=>[item.id,Math.min(RUN_TOOL_LIMIT,whole(value.toolUses?.[item.id]))])), creditedSpecialShakes: value.creditedSpecialShakes ?? 0,creditedSpecialPears:value.creditedSpecialPears??0, gemMergeId:whole(value.gemMergeId) };
   }
   const receipt = cleanReceipt({ ...value.result, id: value.id });
   return receipt ? completedRun(receipt) : null;
@@ -157,11 +158,12 @@ export class GardenProgress {
     this.economy=new GameEconomy(this.storage,STORAGE_KEY);this.storage=this.economy.storage;
     const loaded = this._load();
     this._profile = this.economy.bind(loaded.profile);
-    this.economy.delta += loaded.refundedCrystalGems;
+    this.economy.delta += loaded.refundedCrystalGems + loaded.refundedCurrencyGems;
     this.pendingRun = loaded.activeRun;
     this._settledRuns = loaded.settledRuns;
     this._migrations = loaded.migrations;
     this.refundedToolGems = loaded.refundedToolGems;
+    this.refundedCurrencyGems = loaded.refundedCurrencyGems;
     this._revivalReceipts = loaded.revivalReceipts;
     this._pendingRevival = loaded.pendingRevival;
     this.storageAvailable = false;
@@ -183,6 +185,8 @@ export class GardenProgress {
     profile.gems += refundedToolGems;
     const refundedCrystalGems=value?.migrations?.removedCrystalV45!==true&&value?.ownedSkins?.includes('gem')?Math.min(60,Number.MAX_SAFE_INTEGER-profile.gems):0;
     profile.gems+=refundedCrystalGems;
+    const refundedCurrencyGems=value?.migrations?.removedMoneyV60===true?0:Math.min(['krw','usd'].filter(id=>value?.ownedSkins?.includes(id)).length*80,Number.MAX_SAFE_INTEGER-profile.gems);
+    profile.gems+=refundedCurrencyGems;
     const settledRuns = [];
     const seen = new Set();
     for (const item of Array.isArray(value?.settledRuns) ? value.settledRuns : []) {
@@ -222,7 +226,7 @@ export class GardenProgress {
       revivalReceipts.unshift(receipt); revivalReceipts.length = Math.min(revivalReceipts.length, RECEIPT_LIMIT);
     }
     if(activeRun&&!activeRun.finished&&value?.activeRun?.revivalCount===undefined)activeRun.revivalCount=revivalReceipts.filter(receipt=>receipt.runId===activeRun.id).length;
-    return { profile, activeRun, settledRuns, migrations: { ...value?.migrations,removedToolsV9: true,removedCrystalV45:true }, refundedToolGems,refundedCrystalGems, revivalReceipts, pendingRevival };
+    return { profile, activeRun, settledRuns, migrations: { ...value?.migrations,removedToolsV9: true,removedCrystalV45:true,removedMoneyV60:true }, refundedToolGems,refundedCrystalGems,refundedCurrencyGems, revivalReceipts, pendingRevival };
   }
 
   _save() {
@@ -292,7 +296,7 @@ export class GardenProgress {
       let id;
       do { id = `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}-${++this._nextRun}`; }
       while (this.canResumeRun(id));
-      this.pendingRun = { id, mode, finished: false, result: null, creditedFruits: 0, earnedGems: 0, earnedCoins:0, score: 0, lastRevivalTick: -1,revivalCount:0, creditedSpecialShakes: 0,creditedSpecialPears:0 };
+      this.pendingRun = { id, mode, finished: false, result: null, creditedFruits: 0, earnedGems: 0, earnedCoins:0, score: 0, lastRevivalTick: -1,revivalCount:0,toolUses:{eraser:0,shake:0,calm:0}, creditedSpecialShakes: 0,creditedSpecialPears:0 };
       this._save();
       return { runId: id };
     });
@@ -578,6 +582,23 @@ export class GardenProgress {
   }
 
   async buyHat(id) {await this._buyPermanent(id,HATS,'ownedHats','INVALID_HAT');return this._equipPermanent(id,HATS,'ownedHats','equippedHat','INVALID_HAT','HAT_NOT_OWNED');}
+
+  toolUses(id) { return this.pendingRun?.toolUses?.[id] || 0; }
+
+  async useTool(id, { consumeStock = true } = {}) {
+    return this._mutate(() => {
+      const item = ITEMS.find(item => item.id === id),run=this.pendingRun;
+      if (!item) throw progressError('이 아이템을 찾을 수 없어요.', 'INVALID_ITEM');
+      if (!run || run.finished) throw progressError('플레이 중에만 도구를 사용할 수 있어요.', 'NO_ACTIVE_RUN');
+      if (this.toolUses(id) >= RUN_TOOL_LIMIT) throw progressError(`${item.name}는 한 판에 5번까지 사용할 수 있어요.`, 'TOOL_RUN_LIMIT');
+      if (consumeStock && this._profile.inventory[id] < 1) return {used:false,profile:this.profile};
+      const previous={...run.toolUses};
+      try {
+        this._commitCommerce(() => {run.toolUses={...run.toolUses,[id]:this.toolUses(id)+1};if(consumeStock)this._profile.inventory[id]--;});
+      } catch(error) {run.toolUses=previous;throw error;}
+      this._emit();return {used:true,profile:this.profile,uses:run.toolUses[id]};
+    });
+  }
 
   async consumeItem(id) {
     return this._mutate(() => {

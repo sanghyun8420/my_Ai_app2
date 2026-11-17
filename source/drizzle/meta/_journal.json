@@ -36,6 +36,13 @@
       "when": 1794646550612,
       "tag": "0005_signup_rewards",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794918881143,
+      "tag": "0006_owner_coin_grant",
+      "breakpoints": true
     }
   ]
 }

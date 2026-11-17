@@ -3,7 +3,7 @@ import { SCIENCE_STAGES, scienceReaction } from './science.js';
 const WORLD_MODES=new Set(['classic','apple','free','water','space','watermelon','timed','challenge','science','zoo']);
 
 /** Small, deterministic circle solver used by the orchard game. */
-export const OVERFLOW_SECONDS = 5;
+export const OVERFLOW_SECONDS = 3;
 
 export class FruitWorld {
   constructor({ width = 600, height = 720, fruits, onMerge, onDanger, onGameOver,onBlast, random = Math.random, mode = 'classic' } = {}) {
@@ -101,7 +101,7 @@ export class FruitWorld {
             typeof body.incoming !== 'boolean' || typeof body.entered !== 'boolean' || (body.incoming && body.entered) ||
             (body.landed!==undefined&&typeof body.landed!=='boolean') ||
             typeof body.special !== 'boolean' || (body.special && (['science','zoo'].includes(mode)||!(['apple','pear'].includes(fruits[body.level]?.id)||/사과|apple|^배$|pear/i.test(fruits[body.level]?.name||'')))) ||
-            !finite(body.age, 0, 1e9) || !finite(body.overflowTime, 0, OVERFLOW_SECONDS) ||
+            !finite(body.age, 0, 1e9) || !finite(body.overflowTime, 0, 5) ||
             (!legacy && !finite(body.squash, 0, 1)) ||
             !finite(body.vx, -700, 700) || !finite(body.vy, -700, 1100) ||
             !finite(body.spin, -.8 - 1e-9, .8 + 1e-9) || !finite(body.angle, -1e6, 1e6) ||
@@ -120,7 +120,7 @@ export class FruitWorld {
           id: body.id, level: body.level, r, x, y,
           vx: body.vx, vy: body.vy, angle: body.angle, spin: body.spin, squash: legacy ? 0 : body.squash,
           age: body.age, incoming: body.incoming, entered: body.entered,landed:body.landed===undefined?!body.incoming:body.landed,
-          overflowTime:body.overflowTime||0, mergedTick: body.mergedTick, special: body.special,
+          overflowTime:Math.min(OVERFLOW_SECONDS,body.overflowTime||0), mergedTick: body.mergedTick, special: body.special,
         });
       }
       if (snapshot.nextId <= maxId) return false;

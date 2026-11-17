@@ -172,7 +172,7 @@ node scripts/export-github-pages.mjs /absolute/empty/output
 ## 최신 자동 저장·MAX 카운트다운·홍보
 
 - `PlayerCloud`의 기본값은 `autoGuest=true`, `autoRestore=true`, 저장 주기5초입니다. 활성 상태에서15초마다 서버 버전을 확인하며 focus/online에도 최신 기록을 확인합니다. 손상된 서버 스냅샷은 자동 덮어쓰기를 막고 로컬을 유지합니다. 과거 수동 흐름 검사는 옵션을 false로 주어 유지하고 `tests/auto-cloud.mjs`가 기본 자동 흐름을 검사합니다.
-- `physics.js`의 `OVERFLOW_SECONDS=5`가 단일 기준입니다. landed 과일이 MAX 위에서 머무는 시간을 누적하고 내려오면0으로 만듭니다. 흔들기·부활 보호 중에는 누적하지 않으며 합쳐진 과일은 기존 경고를 이어받습니다. serialize/restore로0~5초를 보존합니다. `update()`에서 step의 경고를 다시0으로 덮어쓰지 않아야 숫자가 유지됩니다.
+- `physics.js`의 `OVERFLOW_SECONDS=3`가 단일 기준입니다. landed 과일이 MAX 위에서 머무는 시간을 누적하고 내려오면0으로 만듭니다. 흔들기·부활 보호 중에는 누적하지 않으며 합쳐진 과일은 기존 경고를 이어받습니다. serialize/restore로0~3초를 보존하며 구버전5초 경고는3초로 줄여 복원합니다. `update()`에서 step의 경고를 다시0으로 덮어쓰지 않아야 숫자가 유지됩니다.
 - `promotion.js`의 공개 공유 주소는 항상 `https://sanghyun8420.github.io/my_Ai_app2/`이며 private key·초대 코드·세션을 첨부하지 않습니다. Web Share가 없으면 클립보드, 둘 다 없으면 주소 선택 안내를 사용합니다. QR은 `dist/promotion-qr.svg`입니다.
 
 ## 로그인 유지 수정
@@ -233,7 +233,7 @@ node scripts/export-github-pages.mjs /absolute/empty/output
 
 현재 레이싱은 body[data-game=racing]에서 fixed 전체 화면을 사용합니다. 차고/상점/튜닝은 body의 native dialog로 열고 게임 선택 복귀 버튼을 제공합니다. drawFrontCar는 정면 차량 미리보기이며 실제 주행은 탑뷰입니다. canvas는 실제 화면 비율로 크기를 조절하고 drawRaceScene의 viewHeight 카메라로 세로 공간을 확장하여 차량 비율을 보존합니다. 기존 제한된5:6 race-play 규칙은 더 이상 사용하지 않습니다.
 
-drawFrontCar/carFaceFamily는 참고 사진의 브랜드별 그릴/헤드라이트를 Canvas로 그립니다. raceTelemetry는 게임용 RPM·자동 단수·km/h 표시이며 물리나 보상을 바꾸지 않습니다. 계기판은 하단 조작 버튼 사이, 부스트/드리프트 상태는 상단 HUD에 있습니다. 화면마다 setViewport(viewHeight,playerBottom)를 update 전에 호출하고, viewTop 위쪽에서 차량/경찰/아이템을 생성합니다. viewTop은 저장하지 않으며 복원한 기기의 화면으로 다시 측정합니다. 그리기의 shift와 모델의 viewTop은 같은 533+playerBottom-viewHeight를 사용합니다. 라이벌 컬링도 현재 카메라 기준입니다.
+drawFrontCar/carFaceFamily는 참고 사진의 브랜드별 그릴/헤드라이트를 Canvas로 그립니다. raceTelemetry는 게임용 RPM·자동 단수·km/h 표시이며 물리나 보상을 바꾸지 않습니다. 계기판은 하단 조작 버튼 사이, 부스트 상태는 상단 HUD에 있습니다. 화면마다 setViewport(viewHeight,playerBottom)를 update 전에 호출하고, viewTop 위쪽에서 차량/경찰/아이템을 생성합니다. viewTop은 저장하지 않으며 복원한 기기의 화면으로 다시 측정합니다. 그리기의 shift와 모델의 viewTop은 같은 533+playerBottom-viewHeight를 사용합니다. 라이벌 컬링도 현재 카메라 기준입니다.
 
 블록정원은 data-game=blocks에서 fixed 전체 화면, stage의 ResizeObserver가 --block-board-size를 실제 남은 공간의 정사각형으로 맞춥니다. 보드 해상도1280, 입력/고스트/놓기 계산은 실제 canvas rect를 유지합니다. 크기 변경 시 드래그를 해제하고, 꾸미기 패널·게임 선택 복귀를 제공합니다. 사과 게임은 기존 가로판 레이아웃/640 높이입니다.
 
@@ -248,7 +248,7 @@ RaceSimulation.mode는 race/drive이며 구버전은 race로 복원합니다. dr
 
 RacingGarage.finish는 rank<=3인 경우에만 stage를 올립니다.4~7위도 완주 보상/완주 횟수는 지급하되 같은 스테이지를 유지합니다. 결과 화면의 재도전/다음 단계 문구와 출발 stage는 같은 규칙을 사용합니다. 구버전에 이미 도달한 stage를 낮추지 않습니다.
 
-currency-art.js는 KRW_STAGES, USD_STAGES 각14단계와 Canvas 그림을 제공합니다. 모든 개별 동전·지폐는 실제 단위이고, 중간 금액은 ×2/×3 묶음입니다. 총액은 단계마다 증가하며 끝은5만원권/100달러권입니다. 화폐 모양은 게임 스킨이며 동전·보석 잔액을 해당 액면으로 바꾸지 않습니다. id krw/usd, 각80보석으로 일반 스킨의 구매·소유·장착·자동 저장 경로를 사용합니다. 상점 미리보기는 첫 단계와 마지막 지폐/중간 묶음을 보여줍니다.
+currency-art.js는 KRW_STAGES, USD_STAGES 각14단계와 Canvas 그림을 제공합니다. 모든 개별 동전·지폐는 실제 단위이고, 중간 금액은 ×2/×3 묶음입니다. 총액은 단계마다 증가하며 끝은5만원권/100달러권입니다. 화폐 모양은 게임 스킨이며 동전·보석 잔액을 해당 액면으로 바꾸지 않습니다. krw/usd는 v60에서 상점과 장착 목록에서 제거됐습니다. 기존 구매는 removedMoneyV60 영수증으로 각80보석을 한 번 환급하고 기본 과일로 전환합니다. 그림 모듈은 옛 소스 호환용으로 보존합니다.
 
 
 정적 자산 빌드는 scripts/bundle-assets.mjs의 embedStaticAssets로 처리합니다. JSON을 문자열 치환의 두 번째 인수로 직접 넣으면 달러+따옴표 등의 문자열이 특수 치환 기호로 해석됩니다. 반드시 콜백을 유지하고 tests/bundle-assets.mjs로 문자 보존을 검사합니다.
@@ -290,7 +290,7 @@ racing difficulty ID easy/hard/hell은 기존 저장과 보상을 위해 유지�
 
 수동 니트로 버튼/게이지와 Space 니트로 입력을 제거했습니다. 기존 upgrades.nitro와 car의 관련 숫자는 발판 성능과 저장 호환을 위해 유지하며 사용자 문구는 발판 부스트입니다. zones는 lane=0에서 생성하고 used 플래그로 한 번만 boostLeft를 설정합니다. boostLeft/driftLeft/driftCooldown은60Hz 프레임 숫자로 제한해서 저장하며 구버전 누락은0입니다. 기존 nitroActive/Held는 불러올 때 false로 바꿉니다.
 
-어려움에서 커브 앞 미리보기 변화가32를 넘고 주행 중이면 driftAvailable입니다. 버튼/Space로만 requestDrift를 호출해90프레임 드리프트와120프레임 쿨다운을 시작합니다. 회전 자세/타이어 자국을 그리고 원심력과 급커브 감속을 줄입니다. 자동 발동시키거나 쉬움에 드리프트 버튼을 보이지 않습니다. 보상·3위 진출·자유주행3회 충돌 규칙은 유지됩니다.
+v60에서 드리프트 버튼/Space 처리/회전 효과/타이어 자국을 제거했습니다. requestDrift는 false이며 구버전 driftLeft/cooldown도 복원 시0으로 바꿉니다. 어려움은 보통 레이싱3위 이내3회로 해금합니다. 보상·3위 진출·자유주행3회 충돌 규칙은 유지됩니다.
 
 자동 검사36개와 실제 모듈 DOM/Canvas/SQLite 재현을 통과했습니다. Cloud desktop capability는 있지만 이 세션에는 cua_repl.js/브라우저 조작 도구가 없어 실제 브라우저 시각 QA는 수행하지 못했습니다. https://autocatalogarchive.com/index-brand/ 및 BMW/Audi의 직접 PDF 주소를 웹 도구와 HTTP 클라이언트로 확인했으나403이므로 사진은 가져오지 못했습니다. 링크만을 근거로 새 차량 이미지를 적용했다고 보고하지 않습니다.
 
@@ -300,3 +300,20 @@ racing difficulty ID easy/hard/hell은 기존 저장과 보상을 위해 유지�
 GardenInstall.open({requestInstall:true})는 메뉴 클릭에서만 사용합니다. 먼저 게임 일시정지용 install-dialog를 열고 같은 동기 호출 스택에서 install()→event.prompt()를 호출합니다. 설치 안내에서 다시 버튼을 누르게 하지 않습니다. 자동35초 안내의 open()은 requestInstall을 전달하지 않아 사용자 동작 없이 OS 설치창을 띄우지 않습니다. 저장/네트워크 Promise를 prompt() 전에 await하지 않습니다. 브라우저 설치창이 닫히면 기존 close 경로로 게임을 이어갑니다.
 
 설치 이벤트가 없으면 같은 클릭에서 manual 안내를 표시하고, 이벤트가 나중에 준비되더라도 사용자 입력 없이 prompt를 실행하지 않습니다. 실제 설치됨 표시는 appinstalled/standalone만 사용합니다. 취소/재시도/중복 탭/이미 설치됨 상태를 install.mjs 및 실제 앱 DOM/Canvas/SQLite 재현에서 검사했습니다. 실제 모바일 브라우저의 OS 설치는 이 세션에서 검사하지 못했습니다.
+
+
+## 난이도 조정 v60 · 계정 동전 지급
+
+수박 도구는 GardenProgress.useTool에서 run별 toolUses를 지갑과 원자적으로 저장합니다. eraser/shake/calm 각5회이며 보너스 지우개·자유 흔들기의 무료 사용도 같은 횟수에 포함됩니다. 소비 실패는 inventory와 toolUses를 함께 롤백합니다. fresh startRun에서만0으로 초기화하며 reload/부활에서는 유지합니다. UI 표시/입력 가드를 함께 사용하고 generic consumeItem을 실제 플레이 경로로 연결하지 않습니다. 가격은 지우개25/흔들기20/작은 과일 정리30동전, 사과 판 섞기는15동전입니다. 기존 흔들기 업적 ID shake10은 보존하되 새 조건은 한 판5회입니다.
+
+MAX 단일 기준은 OVERFLOW_SECONDS=3입니다. old snapshot의 overflowTime은5까지 읽되3으로 clamp하여 보드를 버리지 않습니다. 경고가 이미3초 이상이면 다음 물리 업데이트에서 판정합니다. 보호/일시정지/새 과일 비행 제외와 합치기 경고 승계는 그대로입니다.
+
+블록정원의 active 한 줄 정리 도구는 제거했습니다. over 상태에서만 ArcadeStore.revive로 동전을 지불하고 중앙4×4를 비우고 새 트레이를 받습니다. 점수/획득 보석/정리 칸은 주지 않습니다. 비용은50×2^revivals, 최대10회이며 timed는60초를 복구하고 challenge 목표 달성에는 부활을 제공하지 않습니다. round.revivals와 바뀐 보드·동전은 한 번에 저장하며 실패/잔액 부족/중복 클릭은 되돌리거나 거부합니다.
+
+RacingGarage.mediumPodiums는 race모드 difficulty=hard(화면 명칭 보통)의3위 이내 결과를 고유 receipt당 한 번 올립니다.3회면 hardUnlocked=true가 저장됩니다. 자유주행/쉬움/4위 이하는 인정하지 않습니다. 이전 selectedDifficulty=hell 또는 activeRace.difficulty=hell은 접근을 유지합니다. 선택과 출발 양쪽에 잠금을 적용하며 드리프트는 제거됐습니다.
+
+원화/달러 스킨은 카탈로그에서 제거하고 owned/equipped 정리 및 removedMoneyV60으로 각80보석을 한 번 환급합니다. 기존 지갑·다른 스킨·기록은 유지합니다.
+
+0006_owner_coin_grant.sql은 사용자가 요청한 sanghyun8420 계정에 수박/사과/블록/원정대/레이싱 동전100000개씩 한 번 지급하는 배포 마이그레이션입니다. 계정명과 등록 계정 여부를 확인해 서버 cloud-save만 갱신하며 공개 지급 API나 클라이언트 보너스 분기가 없습니다. garden_coin_grants는 before/after_balances와 applied_at을 보관합니다. canonical wallet은 cloud envelope 안의 JSON문자열로 유지하고5개 recordVersions/전체 revision/cloud version을 올려 오래된 업로드가 덮지 못하게 합니다. 계정 보석/점수/게임판/다른 사용자/옛 사과 재배 잔액은 건드리지 않습니다. 재실행 영수증과 지갑 coinGrants marker로 중복 지급을 막습니다.
+
+검사38개 및 실제 앱 DOM/Canvas/SQLite 재현에서 횟수 제한·새 판 초기화·MAX3초 표시·블록50/100 부활·드리프트 제거·어려움 잠금/해금을 확인했습니다. 모바일 실기 시각 QA는 수행하지 못했습니다.

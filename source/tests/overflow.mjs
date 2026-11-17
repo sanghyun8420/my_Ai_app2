@@ -11,7 +11,7 @@ chain.bodies=[chain.makeBody(2,100,107,{age:2})];
 advance(chain,OVERFLOW_SECONDS+.1, (world,i)=>{if(i%24===0)world.bodies.push(world.makeBody(0,480,122,{age:2}),world.makeBody(0,499,122,{age:2}));});
 assert(merges>=3,'fixture must cause actual unrelated merges');
 assert.equal(chain.state,'over','other merges cannot reset an overflowing pile');
-assert(chain.time>=OVERFLOW_SECONDS&&chain.time<OVERFLOW_SECONDS+.05,'a stranded fruit loses after five seconds');
+assert(chain.time>=OVERFLOW_SECONDS&&chain.time<OVERFLOW_SECONDS+.05,'a stranded fruit loses after three seconds');
 chain.update(1);assert.equal(losses,1,'loss callback runs once');
 
 // A fruit that rolls sideways above MAX is still part of the overflowing pile.
@@ -49,7 +49,7 @@ carry.bodies=[carry.makeBody(0,100,107,{age:2,overflowTime:OVERFLOW_SECONDS-.15}
 carry.update(1/120);assert.equal(carry.bodies.length,1);assert.equal(carry.bodies[0].level,1);
 assert(carry.bodies[0].overflowTime>=OVERFLOW_SECONDS-.15,'warning survives an above-line merge');
 advance(carry,.2);assert.equal(carry.state,'over');
-const finished=new FruitWorld({height:140,fruits:sizes});assert(finished.restore(carry.serialize()),'a completed five-second warning remains a valid save');assert.equal(finished.state,'over');
+const finished=new FruitWorld({height:140,fruits:sizes});assert(finished.restore(carry.serialize()),'a completed three-second warning remains a valid save');assert.equal(finished.state,'over');
 
 // If a merge actually brings the fruit below MAX, the old warning is cleared.
 const saved=new FruitWorld({fruits:sizes});
@@ -61,10 +61,11 @@ assert.equal(saved.bodies[0].overflowTime,0);assert.equal(saved.state,'playing')
 // Pauses freeze the countdown; reload resumes the remaining time instead of resetting it.
 let latestWarning=0;
 const timed=new FruitWorld({height:140,fruits,onDanger:value=>latestWarning=value});
-timed.bodies=[timed.makeBody(2,100,107,{age:2})];advance(timed,2.05);assert.equal(Math.ceil(OVERFLOW_SECONDS*(1-latestWarning)),3);
-timed.state='paused';advance(timed,10);assert.equal(Math.ceil(OVERFLOW_SECONDS*(1-latestWarning)),3);timed.state='playing';
-const resumed=new FruitWorld({height:140,fruits,onDanger:value=>latestWarning=value});assert(resumed.restore(timed.serialize()));assert.equal(Math.ceil(OVERFLOW_SECONDS*(1-latestWarning)),3);
-advance(resumed,2.8);assert.equal(resumed.state,'playing');advance(resumed,.3);assert.equal(resumed.state,'over');assert.equal(latestWarning,1);
+timed.bodies=[timed.makeBody(2,100,107,{age:2})];advance(timed,2.05);assert.equal(Math.ceil(OVERFLOW_SECONDS*(1-latestWarning)),1);
+timed.state='paused';advance(timed,10);assert.equal(Math.ceil(OVERFLOW_SECONDS*(1-latestWarning)),1);timed.state='playing';
+const resumed=new FruitWorld({height:140,fruits,onDanger:value=>latestWarning=value});assert(resumed.restore(timed.serialize()));assert.equal(Math.ceil(OVERFLOW_SECONDS*(1-latestWarning)),1);
+advance(resumed,.8);assert.equal(resumed.state,'playing');advance(resumed,.3);assert.equal(resumed.state,'over');assert.equal(latestWarning,1);
 const canceled=new FruitWorld({fruits});canceled.bodies=[canceled.makeBody(2,100,300,{age:2,overflowTime:4.9})];canceled.update(1/120);assert.equal(canceled.danger,0);assert.equal(canceled.bodies[0].overflowTime,0);
 
+const oldFive=timed.serialize();oldFive.time=10;oldFive.state='playing';oldFive.bodies[0].overflowTime=4.8;const upgraded=new FruitWorld({height:140,fruits});assert(upgraded.restore(oldFive),'old five-second snapshots remain readable');assert.equal(upgraded.bodies[0].overflowTime,3);upgraded.update(1/120);assert.equal(upgraded.state,'over','already-expired warnings cannot reset during upgrade');
 console.log('PASS overflow: real unrelated merge chains, sideways rolling, fresh apple flight, transient bounces, full shake protection and expiration, merge warning inheritance and below-MAX recovery.');

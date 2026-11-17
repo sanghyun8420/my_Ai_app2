@@ -50,3 +50,5 @@ body[data-game=blocks] main{max-width:1400px;padding-inline:12px}
 
 /* Block Garden keeps its own blue arcade palette in either theme. */
 #arcade-root[data-arcade=blocks]{--paper:#203e76;--card:#2b4a82;--card-soft:#29477a;--ink:#f2f7ff;--muted:#bbd0f2;--line:#5475ac;background:linear-gradient(155deg,#284e91,#193260);color:var(--ink)}#arcade-root[data-arcade=blocks] .arcade-stats>span{background:#172f5ca8;border-color:#6387be66}#arcade-root[data-arcade=blocks] .arcade-wrap{border-color:#3e6196;box-shadow:0 6px 20px #0b1e4590}#arcade-root[data-arcade=blocks] .tray-piece{background:#234279;border-color:#5278b288}#arcade-root[data-arcade=blocks] .arcade-actions button{background:#315990;border-color:#6389be;color:#f3f7ff}#arcade-root[data-arcade=blocks] .arcade-heading-actions select{background:#274779;color:#edf5ff;border-color:#6688b6}
+
+#arcade-root #arcade-tool[hidden],#arcade-root #arcade-revive[hidden]{display:none!important}

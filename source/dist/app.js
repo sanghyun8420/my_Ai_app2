@@ -4,7 +4,7 @@ import { SCIENCE_STAGES, drawScience, drawScienceBackground, drawSupernova } fro
 import { FRUITS, drawFruit, APPLE_LEVEL,PEAR_LEVEL, WATERMELON_LEVEL, SECRET_LEVEL } from './fruits.js';
 import { FruitWorld, OVERFLOW_SECONDS } from './physics.js';
 import { drawSkinnedFruit, SKINS, skinFruitName } from './skins.js';
-import { GardenProgress, ACHIEVEMENTS } from './profile.js';
+import { GardenProgress, ACHIEVEMENTS, RUN_TOOL_LIMIT } from './profile.js';
 import { GameSave } from './save-state.js';
 import { fitNumericText, observeNumericText } from './number-fit.js';
 import { loadPreferences, savePreferences } from './preferences.js';
@@ -33,7 +33,7 @@ const MODES = [
   {id:'timed',name:'120초 정원',icon:'⏱',description:'120초 동안 가장 높은 점수에 도전해요.'},
   {id:'challenge',name:'챌린지',icon:'🎯',description:'큰 과일부터 시작해 5,000점을 달성하세요.'},
   { id:'apple', name:'사과 파티', icon:'🍎', description:'떨어지는 과일은 모두 사과! 커다란 합치기의 시작.' },
-  { id:'free', name:'자유 흔들기', icon:'🌀', description:'횟수 제한 없이, 원하는 만큼 흔들어보세요.' },
+  { id:'free', name:'자유 흔들기', icon:'🌀', description:'동전 소모 없이 빠르게, 한 판에5회 흔들 수 있어요.' },
   { id:'water', name:'물의 정원', icon:'🌊', description:'물결과 부력 속에서 과일이 둥실둥실.' },
   { id:'space', name:'우주 정원', icon:'🪐', description:'무중력에서 떠다니며 만나는 과일들.' },
 ];
@@ -366,18 +366,16 @@ function drop() {
 }
 
 async function shake() {
-  if (!started || world.state!=='playing' || inventoryBusy || commerceBusy || erasingBusy || reviveBusy || (activeMode !== 'free' && progressStore.profile.inventory.shake <= 0) || world.time < shakeReadyAt || document.querySelector('dialog[open]')) return;
+  if (!started || world.state!=='playing' || inventoryBusy || commerceBusy || erasingBusy || reviveBusy || (activeMode !== 'free' && progressStore.profile.inventory.shake <= 0) || world.time < shakeReadyAt || progressStore.toolUses('shake')>=RUN_TOOL_LIMIT || document.querySelector('dialog[open]')) return;
   if (!world.bodies.length) { toast('과일을 먼저 떨어뜨려주세요'); return; }
   inventoryBusy=true;updateShake();updateInventory();
   try{
-  if(activeMode!=='free'){
-    const result=await progressStore.consumeItem('shake');
-    if(!result.used)return;
-  }
+  const result=await progressStore.useTool('shake',{consumeStock:activeMode!=='free'});
+  if(!result.used)return;
   if (!world.shake()) return;
   shakeReadyAt = world.time + (activeMode === 'free' ? .12 : 5);
   totalShakes++;
-  if (totalShakes >= 10) unlockAchievement('shake10');
+  if (totalShakes >= 5) unlockAchievement('shake10');
   if (!reducedMotion) {
     $('board-shell').classList.remove('shake-animation');
     void $('board-shell').offsetWidth;
@@ -386,7 +384,7 @@ async function shake() {
   playSound('shake');
   pulseTool('shake');
   const remaining=progressStore.profile.inventory.shake;
-  toast(activeMode === 'free' ? '마음껏 흔들어보세요! 횟수 제한이 없어요.' : remaining ? `와르르! 흔들기 ${remaining}개가 남았어요` : '와르르! 수박 동전이나 특별 사과로 흔들기를 더 모아보세요');
+  toast(activeMode === 'free' ? `흔들기 ${RUN_TOOL_LIMIT-progressStore.toolUses('shake')}회 남음` : remaining ? `와르르! 흔들기 ${remaining}개가 남았어요` : '와르르! 수박 동전이나 특별 사과로 흔들기를 더 모아보세요');
   updateShake();
   saveGame();
   }catch(error){toast(error.message);}
@@ -396,15 +394,15 @@ async function shake() {
 function updateShake() {
   const shakes=progressStore.profile.inventory.shake;
   const cooldown = Math.max(0, Math.ceil(shakeReadyAt - world.time - 1e-6));
-  $('shake-count').textContent = activeMode === 'free' ? '∞' : String(shakes);
-  $('shake-button').disabled = !started || inventoryBusy || commerceBusy || erasingBusy || reviveBusy || world.state !== 'playing' || !world.bodies.length || (activeMode !== 'free' && shakes === 0) || world.time < shakeReadyAt;
-  $('shake-button').setAttribute('aria-label', activeMode === 'free' ? '횟수 제한 없이 흔들기' : cooldown && shakes ? `흔들기 ${cooldown}초 후 사용 가능` : `흔들기 ${shakes}회 남음`);
+  $('shake-count').textContent = String(Math.min(activeMode==='free'?5:shakes,RUN_TOOL_LIMIT-progressStore.toolUses('shake')));
+  $('shake-button').disabled = !started || inventoryBusy || commerceBusy || erasingBusy || reviveBusy || world.state !== 'playing' || !world.bodies.length || (activeMode !== 'free' && shakes === 0) || world.time < shakeReadyAt || progressStore.toolUses('shake')>=RUN_TOOL_LIMIT;
+  $('shake-button').setAttribute('aria-label', progressStore.toolUses('shake')>=RUN_TOOL_LIMIT?'이번 판 흔들기 5회 사용 완료':activeMode === 'free' ? '한 판에 5회 흔들기' : cooldown && shakes ? `흔들기 ${cooldown}초 후 사용 가능` : `흔들기 ${shakes}회 남음`);
 }
 
 function updateItem() {
   const total = itemCount + progressStore.profile.inventory.eraser;
   if ($('item-count').textContent !== String(total)) $('item-count').textContent = String(total);
-  $('item-button').disabled = !started || inventoryBusy || (world.state !== 'playing' && !eraseMode) || total < 1 || !world.bodies.length || erasingBusy || (!eraseMode && world.time < toolReadyAt.eraser);
+  $('item-button').disabled = !started || inventoryBusy || (world.state !== 'playing' && !eraseMode) || total < 1 || !world.bodies.length || erasingBusy || (!eraseMode && world.time < toolReadyAt.eraser) || progressStore.toolUses('eraser')>=RUN_TOOL_LIMIT;
   $('item-button').setAttribute('aria-label', `선택 지우개, ${total}개 보유. 없앨 과일 하나를 선택하세요`);
   $('item-tray').classList.toggle('item-ready', started && total > 0);
   $('item-tray').classList.toggle('selecting', eraseMode);
@@ -414,7 +412,7 @@ function updateItem() {
 
 function useItem() {
   if (eraseMode) { cancelErase(); return; }
-  if (!started || inventoryBusy || erasingBusy || world.time < toolReadyAt.eraser || world.state !== 'playing' || itemCount + progressStore.profile.inventory.eraser < 1 || !world.bodies.length || document.querySelector('dialog[open]')) return;
+  if (!started || inventoryBusy || erasingBusy || world.time < toolReadyAt.eraser || world.state !== 'playing' || itemCount + progressStore.profile.inventory.eraser < 1 || !world.bodies.length || document.querySelector('dialog[open]') || progressStore.toolUses('eraser')>=RUN_TOOL_LIMIT) return;
   eraseMode = true; world.state = 'paused'; selectedFruitId = world.bodies[0].id;
   $('game-status').textContent = '지울 과일을 톡! · 방향키로 선택하고 Enter로 지울 수도 있어요';
   updateItem();
@@ -435,10 +433,8 @@ async function eraseSelected() {
   const targetId = selectedFruitId;
   try {
   const fromBonus = itemCount > 0;
-  if (!fromBonus) {
-    const result = await progressStore.consumeItem('eraser');
-    if (!result.used) { toast('가방에 지우개가 없어요. 위쪽 상점에서 구매할 수 있어요.'); return; }
-  }
+  const result = await progressStore.useTool('eraser',{consumeStock:!fromBonus});
+  if (!result.used) { toast('가방에 지우개가 없어요. 위쪽 상점에서 구매할 수 있어요.'); return; }
   world.state = 'playing';
   const body = world.removeFruit(targetId);
   if (!body) { world.state = 'paused'; return; }
@@ -667,12 +663,13 @@ async function purchaseShopItem(category, item) {
 function inventoryAvailability(id) {
   if (!ITEMS.some(item => item.id === id)) return {ok:false,reason:'알 수 없는 도구'};
   const stock=progressStore.profile.inventory[id]+(id==='eraser'?itemCount:0);
+  if(progressStore.toolUses(id)>=RUN_TOOL_LIMIT)return {ok:false,reason:'이번 판 5회 사용 완료'};
   if (stock<1) return {ok:false,reason:'보유 아이템 없음'};
   if (!started||roundCredited||world.state==='over'||resumeAvailable) return {ok:false,reason:'플레이 중 사용'};
   const cooldown = Math.ceil((toolReadyAt[id] || 0) - world.time - 1e-6);
   if (cooldown>0) return {ok:false,reason:`${cooldown}초 후 사용`};
   if (id==='eraser'&&!world.bodies.length) return {ok:false,reason:'과일이 필요해요'};
-  if (id==='shake'&&(activeMode==='free'||world.time<shakeReadyAt||!world.bodies.length)) return {ok:false,reason:activeMode==='free'?'이미 무제한이에요':!world.bodies.length?'과일이 필요해요':`${Math.ceil(shakeReadyAt-world.time)}초 후 사용`};
+  if (id==='shake'&&(activeMode==='free'||world.time<shakeReadyAt||!world.bodies.length)) return {ok:false,reason:activeMode==='free'?'위쪽 흔들기 버튼으로 사용':!world.bodies.length?'과일이 필요해요':`${Math.ceil(shakeReadyAt-world.time)}초 후 사용`};
   if (id==='calm'&&world.bodies.length<3) return {ok:false,reason:'과일 3개가 필요해요'};
   return {ok:true,reason:''};
 }
@@ -703,11 +700,12 @@ function updateToolHud() {
     const stock=progressStore.profile.inventory[id]+(id==='eraser'?itemCount:0);
     const active=id==='eraser'&&eraseMode;
     let text=!live?'플레이 중 사용':remaining>1e-6?`${Math.ceil(remaining-1e-6)}초 대기`:stock>0?'준비 완료':'상점에서 충전';
-    if(live&&id==='shake'&&activeMode==='free')text='무제한 사용';
+    if(live&&id==='shake'&&activeMode==='free')text='동전 소모 없이 사용';
     else if(live&&id==='shake'&&stock===0)text='동전·특별사과로 획득';
     else if(live&&id==='shake'&&stock>0&&!world.bodies.length)text='과일이 필요해요';
     if(live&&id==='eraser'&&eraseMode)text=erasingBusy?'지우는 중…':'과일을 선택하세요';
     if(live&&stock>0&&remaining<=1e-6&&id!=='shake'&&!active){const available=inventoryAvailability(id);if(!available.ok)text=available.reason;}
+    if(live)text=progressStore.toolUses(id)>=RUN_TOOL_LIMIT?'이번 판 5회 사용 완료':`${text} · ${progressStore.toolUses(id)}/5회`;
     const slot=$(`tool-slot-${id}`),status=$(`tool-status-${id}`);
     if(status.textContent!==text)status.textContent=text;
     slot.classList.toggle('is-cooling',live&&remaining>1e-6&&!active);
@@ -716,7 +714,7 @@ function updateToolHud() {
     if(slot.style.setProperty)slot.style.setProperty('--tool-cooldown',fraction.toFixed(3));
     const button=$(id==='eraser'?'item-button':id==='shake'?'shake-button':`inventory-${id}`);
     const name=id==='shake'?'강력 흔들기':ITEMS.find(item=>item.id===id).name;
-    button.setAttribute('aria-label',`${name}, ${id==='shake'&&activeMode==='free'?'무제한':stock+'개 보유'}, ${text}`);
+    button.setAttribute('aria-label',`${name}, ${id==='shake'&&activeMode==='free'?'한 판 5회':stock+'개 보유'}, ${text}`);
     if(id==='eraser')button.setAttribute('aria-pressed',String(eraseMode));
   }
   let effect='도구를 골라 정원에 새 틈을 만들어보세요';
@@ -743,7 +741,7 @@ async function useInventoryItem(id) {
   if (eraseMode) cancelErase();
   inventoryBusy=true;updateInventory();renderShop();
   try {
-    const result=await progressStore.consumeItem(id);if(!result.used)return;
+    const result=await progressStore.useTool(id);if(!result.used)return;
     if(id==='calm'){
       const removed=world.removeSmallest(3);recordCleanup(removed);
       toast('작은 과일 3개를 정리했어요!');
@@ -1072,6 +1070,7 @@ document.querySelectorAll('[data-close]').forEach(button => button.addEventListe
 
 const progressInitialization = progressStore.init().then(async () => {
   renderProfile(); await prepareSavedGame(); progressReady = true;
+  if(progressStore.refundedCurrencyGems>0)toast(`삭제된 돈 스킨을 보석 ${progressStore.refundedCurrencyGems}개로 돌려드렸어요.`,4000);
   if(progressStore.refundedToolGems>0)toast(`삭제된 도구를 보석 ${progressStore.refundedToolGems.toLocaleString('ko-KR')}개로 돌려드렸어요.`,4000);
 });
 observeNumericText([$('score'), $('best-score'), $('final-score'), $('coin-count'), $('gem-count'), $('shop-gems')]);
