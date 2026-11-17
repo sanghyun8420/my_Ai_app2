@@ -28,6 +28,7 @@
 
 - racing은 `racing-model.js`/`racing-art.js`/`racing.js`/`racing.css`로 구성합니다. 기존 GAME_KEYS는 다섯 레거시 키로 유지하고, 새 레이싱 레코드 RACING_KEY는 canonical records 안에 선택적으로 저장합니다. 주행/차고는 서버 백업에 함께 들어가며 보상 run ID 중복 방지·실패 롤백·60Hz 고정 간격·메뉴/숨김/포인터 취소 입력 해제를 유지합니다.
 - 레이싱은 전체 화면과 상단 차고/상점/튜닝 창, 중앙 정면 차량 미리보기를 사용합니다. mode=drive는 자유 도로주행이며 trackCoins만 정산하고 레이스 스테이지/완주 보석 보상에 합산하지 않습니다. 카운트다운 입력 수용·requestNitro 한 번 사용·브레이크 제거·구버전 race 복원·도로/레이스 저장을 유지합니다.
+- 차량 생성/라이벌 컬링은 현재 카메라 viewTop 기준이어야 합니다. setViewport는 update 전에 호출하며 기기별 크기는 저장하지 않습니다. 하단 RPM/속도 표시와 상단 니트로 게이지를 유지합니다. 블록정원은 전체 화면으로 stage 크기에 보드를 맞추고 사과 게임의 가로 레이아웃은 유지합니다.
 
 - 리더보드 공개 목록 읽기는 점수/지갑 동기화와 독립적으로 즉시 시작해야 합니다. 수동 동기화 버튼을 다시 추가하지 않습니다. 열린 창의5초 폴링은 전송도 자동 재시도하고, PlayerCloud.flushScores는 창을 열지 않아도 소유권이 확인된 기기 최고점수를 자동 전송합니다. syncTask/connectTask/전체 beforeCapture를 기다리지 않습니다. 같은 사용자 이벤트 재초기화 금지, 목록/전송 타임아웃과 기존 행 보존을 유지합니다.
 - saveScore의 성공 응답은 요청 당시 사용자 ID·_userVersion과 현재 상태가 일치하고 인증 변경 중이 아닐 때만 _acceptUser로 적용합니다. 지연된 게스트 점수 응답으로 로그인 계정을 되돌리면 안 됩니다. native/Pages 실제 API 지연 재현은 auth-persistence.mjs에 있습니다.
