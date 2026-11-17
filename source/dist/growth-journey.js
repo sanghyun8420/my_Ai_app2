@@ -9,12 +9,13 @@ export class ExpeditionJourney {
   const front=enemy.boss?330:213,travel=Math.max(0,this.distance-(this.origins.get(enemy.id)??this.distance));
   // Compress the approach rather than parking a monster at the frontline before
   // its combat position arrives. It keeps walking until the encounter is in range.
-  return front+Math.max(0,enemy.x-front)/(1+travel/180);
+  const ingress=Number.isFinite(enemy.entryEdge)?Math.max(0,Math.min(1,(enemy.entryEdge-enemy.x)/180)):1;
+  return front+Math.max(0,enemy.x-front)/(1+travel*ingress/180);
  }
  effect(event){
   if(!Number.isFinite(event.x))return {...event};
   const target=this.enemies.get(event.enemyId);
-  const x=Number.isFinite(event.enemyId)?this.project({...event,id:event.enemyId,boss:target?.boss??event.boss}):event.x;
+  const x=Number.isFinite(event.enemyId)?this.project({...event,id:event.enemyId,boss:target?.boss??event.boss,entryEdge:target?.entryEdge}):event.x;
   return {...event,worldX:x+this.distance};
  }
  projectEffect(effect,reduced=false){

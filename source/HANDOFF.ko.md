@@ -233,11 +233,11 @@ node scripts/export-github-pages.mjs /absolute/empty/output
 
 현재 레이싱은 body[data-game=racing]에서 fixed 전체 화면을 사용합니다. 차고/상점/튜닝은 body의 native dialog로 열고 게임 선택 복귀 버튼을 제공합니다. drawFrontCar는 정면 차량 미리보기이며 실제 주행은 탑뷰입니다. canvas는 실제 화면 비율로 크기를 조절하고 drawRaceScene의 viewHeight 카메라로 세로 공간을 확장하여 차량 비율을 보존합니다. 기존 제한된5:6 race-play 규칙은 더 이상 사용하지 않습니다.
 
-drawFrontCar/carFaceFamily는 참고 사진의 브랜드별 그릴/헤드라이트를 Canvas로 그립니다. raceTelemetry는 게임용 RPM·자동 단수·km/h 표시이며 물리나 보상을 바꾸지 않습니다. 계기판은 하단 조작 버튼 사이, 니트로 게이지는 상단 HUD에 있습니다. 화면마다 setViewport(viewHeight,playerBottom)를 update 전에 호출하고, viewTop 위쪽에서 차량/경찰/아이템을 생성합니다. viewTop은 저장하지 않으며 복원한 기기의 화면으로 다시 측정합니다. 그리기의 shift와 모델의 viewTop은 같은 533+playerBottom-viewHeight를 사용합니다. 라이벌 컬링도 현재 카메라 기준입니다.
+drawFrontCar/carFaceFamily는 참고 사진의 브랜드별 그릴/헤드라이트를 Canvas로 그립니다. raceTelemetry는 게임용 RPM·자동 단수·km/h 표시이며 물리나 보상을 바꾸지 않습니다. 계기판은 하단 조작 버튼 사이, 부스트/드리프트 상태는 상단 HUD에 있습니다. 화면마다 setViewport(viewHeight,playerBottom)를 update 전에 호출하고, viewTop 위쪽에서 차량/경찰/아이템을 생성합니다. viewTop은 저장하지 않으며 복원한 기기의 화면으로 다시 측정합니다. 그리기의 shift와 모델의 viewTop은 같은 533+playerBottom-viewHeight를 사용합니다. 라이벌 컬링도 현재 카메라 기준입니다.
 
 블록정원은 data-game=blocks에서 fixed 전체 화면, stage의 ResizeObserver가 --block-board-size를 실제 남은 공간의 정사각형으로 맞춥니다. 보드 해상도1280, 입력/고스트/놓기 계산은 실제 canvas rect를 유지합니다. 크기 변경 시 드래그를 해제하고, 꾸미기 패널·게임 선택 복귀를 제공합니다. 사과 게임은 기존 가로판 레이아웃/640 높이입니다.
 
-RaceSimulation.mode는 race/drive이며 구버전은 race로 복원합니다. drive는 라이벌0대·경찰/결승선 없음, finishDrive 결과를 RacingGarage.finish에서 모은 trackCoins만 한 번 정산합니다. completedDrives는 별도이며 race의 completedRaces/승수/스테이지/5회 보석 보상을 올리지 않습니다. selectedDriveMode와 진행 중 주행을 canonical 레코드에 저장합니다. 순위 경기의3위 이내 진출 규칙은 유지합니다. 니트로는 requestNitro로 켜서 소진까지 nitroActive를 저장하며 키 반복으로 재충전하지 않습니다. UI 입력은 countdown에서도 받아 출발 즉시 엑셀이 적용되고, 브레이크 UI/키는 없습니다. 메뉴·포커스 상실·포인터 취소의 입력 해제는 유지합니다.
+RaceSimulation.mode는 race/drive이며 구버전은 race로 복원합니다. drive는 라이벌0대·경찰/결승선 없음, finishDrive 결과를 RacingGarage.finish에서 모은 trackCoins만 한 번 정산합니다. completedDrives는 별도이며 race의 completedRaces/승수/스테이지/5회 보석 보상을 올리지 않습니다. selectedDriveMode와 진행 중 주행을 canonical 레코드에 저장합니다. 순위 경기의3위 이내 진출 규칙은 유지합니다. 수동 니트로는 제거됐습니다. 도로 발판만 boostLeft를 설정하며 requestNitro는 구버전 호출 호환을 위한 false 반환 함수입니다. 구버전 nitroActive는 복원 시 끕니다. UI 입력은 countdown에서도 받아 출발 즉시 엑셀이 적용되고, 브레이크 UI/키는 없습니다. 메뉴·포커스 상실·포인터 취소의 입력 해제는 유지합니다.
 
 `RACING_KEY= garden-racing-v1` 레코드는 canonical 경제 저장의 records 안에 선택적으로 생성합니다. 기존 GAME_KEYS 다섯 항목은 옛 백업 호환을 위해 그대로 두며 새 기기 백업 키를 추가하지 않습니다. 클라우드는 경제 저장 전체를 포함하므로 추가 서버 테이블 없이 레이싱도 백업/복원됩니다. 동전500개로 처음 시작하고 차량·튜닝은 레이싱 동전으로만 구매합니다.5회 완주당 공용 보석5개는 경제 milestone으로 한 번만 지급합니다. 사과 키우기 기록은 재사용하거나 삭제하지 않습니다.
 
@@ -269,7 +269,7 @@ play-layout.js는 현재 게임과 관계없이 --garden-header-height를 측정
 
 ## 자유주행 충돌 · 원정대 연속 전투
 
-`WORLD_TRAVEL_SCALE=.45`는 화면/거리 이동에만 적용합니다. 계기판은 기존 speed/maxSpeed 비율을 유지하고 기본 가속 .009, 부스트 .018로 서서히 가속합니다. AI/코인/램프/충전구역/일반 차량의 상대 이동도 같은 비율을 사용합니다. 니트로 소모는 기존의 .35배이며 대기 중에 누르면 가속 후 자동 발동합니다.
+`WORLD_TRAVEL_SCALE=.45`는 화면/거리 이동에만 적용합니다. 계기판은 기존 speed/maxSpeed 비율을 유지하고 기본 가속 .035, 발판 가속 .055로 반응을 높였습니다. AI/코인/램프/부스트 발판/일반 차량의 상대 이동도 같은 비율을 사용합니다. 발판을 한 번 밟으면 약120프레임(강화 시 증가) 동안 부스트가 적용됩니다. 수동 니트로는 사용하지 않습니다.
 
 자유주행은 collisions=3에서 finishDrive(true)로 종료하고 trackCoins만 한 번 정산합니다. traffic의 hit는 같은 차와 겹친 상태에서 중복 충돌을 막습니다. invulnerable 동안 다른 접촉도 세지 않습니다. 벽/커브는 충돌 횟수가 아니며 일반 레이스는 세 번 충돌해도 종료하지 않습니다. 구버전 collisions 누락은0이며 음수/비정수는 복원을 거부합니다.
 
@@ -277,4 +277,19 @@ play-layout.js는 현재 게임과 관계없이 --garden-header-height를 측정
 
 quest는 body[data-game=quest]의 전체 화면입니다. 강화 숫자는 레벨+실제 능력치로 표시합니다. 캔버스 실제 크기와 viewWidth/viewHeight로 숲을 확장하고 배우 비율은 균일하게 유지합니다. tree의 x 좌표에 의존하던 시간별 canopy 이동을 제거했습니다. 나뭇잎/풀/구름과 전투 이펙트는 계속 움직입니다.
 
-검사: npm test(35개), 실제 앱 모듈+Linkedom+Canvas+SQLite로 카운트다운/니트로/3회 충돌 결과·정산·새 주행, 원정대 자동 보스/패배→자동 사냥/강화→같은 보스/승리→다음 숲길 및 게임 전환을 재현했습니다. 실제 모바일 브라우저 시각 검사는 이 환경에서 수행하지 못했습니다.
+검사: npm test(36개), 실제 앱 모듈+Linkedom+Canvas+SQLite로 카운트다운/발판/드리프트/3회 충돌 결과·정산·새 주행, 원정대 자동 보스/패배→자동 사냥/강화→같은 보스/승리→다음 숲길 및 게임 전환을 재현했습니다. 실제 모바일 브라우저 시각 검사는 이 환경에서 수행하지 못했습니다.
+
+
+## 적의 화면 밖 등장 · 전투/강화 배치 · 드리프트
+
+원정대의 viewport는 expeditionViewport로 공통 계산합니다. CSS의 전투/강화 공간은2:1이며 좁고 낮은 가로 화면은 전투2:강화1의 좌우 배치입니다. 뽑기와 장비 버튼은 growth-heading 안에 있습니다. 강화 패널은 접히지 않는 section입니다. canvas는 absolute로 성장하는 scene을 채워 원래 비율의 intrinsic height가 레이아웃을 밀지 않게 합니다. 하단68px의 조작 dock을 빼고 균일 배율/offsetY를 정해491y의 체력 표시가 버튼 위에 남습니다. viewTop을 배경에도 전달하여 빈 모서리를 만들지 않습니다.
+
+setViewport(viewWidth)는 초기 start 및 그리기 전에 현재 화면의 오른쪽 경계 entryRight를 계산합니다. 일반 적은 그 바깥85px부터, 보스는115px 바깥부터 나타납니다. 등장 중145px/s, 진입 후 일반32/보스48px/s로 걷습니다. 공격 대상은 화면 안에 들어온 적만 고르고, 보스도380x에 접근한 다음 공격합니다. ExpeditionJourney의 entryEdge 가중치가 새로 생성된 적을 카메라 압축으로 화면 안에 즉시 당기지 않게 합니다. 코인 이펙트의 위치 계산에도 entryEdge를 전달합니다.
+
+racing difficulty ID easy/hard/hell은 기존 저장과 보상을 위해 유지하되 화면 명칭은 쉬움/보통/어려움입니다. easy의 curve는 항상0, hard는 진폭36/12의 완만한 사인, hell은2600거리 주기의 부드러운 급커브 구간입니다. roadAngle은 도로의 접선으로 플레이어/일반 차/라이벌/경찰의 방향을 맞춥니다.
+
+수동 니트로 버튼/게이지와 Space 니트로 입력을 제거했습니다. 기존 upgrades.nitro와 car의 관련 숫자는 발판 성능과 저장 호환을 위해 유지하며 사용자 문구는 발판 부스트입니다. zones는 lane=0에서 생성하고 used 플래그로 한 번만 boostLeft를 설정합니다. boostLeft/driftLeft/driftCooldown은60Hz 프레임 숫자로 제한해서 저장하며 구버전 누락은0입니다. 기존 nitroActive/Held는 불러올 때 false로 바꿉니다.
+
+어려움에서 커브 앞 미리보기 변화가32를 넘고 주행 중이면 driftAvailable입니다. 버튼/Space로만 requestDrift를 호출해90프레임 드리프트와120프레임 쿨다운을 시작합니다. 회전 자세/타이어 자국을 그리고 원심력과 급커브 감속을 줄입니다. 자동 발동시키거나 쉬움에 드리프트 버튼을 보이지 않습니다. 보상·3위 진출·자유주행3회 충돌 규칙은 유지됩니다.
+
+자동 검사36개와 실제 모듈 DOM/Canvas/SQLite 재현을 통과했습니다. Cloud desktop capability는 있지만 이 세션에는 cua_repl.js/브라우저 조작 도구가 없어 실제 브라우저 시각 QA는 수행하지 못했습니다. https://autocatalogarchive.com/index-brand/ 및 BMW/Audi의 직접 PDF 주소를 웹 도구와 HTTP 클라이언트로 확인했으나403이므로 사진은 가져오지 못했습니다. 링크만을 근거로 새 차량 이미지를 적용했다고 보고하지 않습니다.

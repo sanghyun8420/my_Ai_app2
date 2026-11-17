@@ -1,0 +1,19 @@
+import assert from 'node:assert/strict';
+import {RaceSimulation,CARS,effectiveCar} from '../dist/racing-model.js';
+import {FruitExpedition} from '../dist/growth-models.js';
+import {ExpeditionJourney} from '../dist/growth-journey.js';
+const car=effectiveCar(CARS[0]);
+const easy=new RaceSimulation({car,difficulty:'easy',stage:50});for(let d=0;d<10000;d+=17)assert.equal(easy.curve(d),0,'easy roads stay straight at any stage');
+const medium=new RaceSimulation({car,difficulty:'hard'}),hard=new RaceSimulation({car,difficulty:'hell'});
+let gentle=0,sharp=0;for(let d=0;d<5200;d+=5){gentle=Math.max(gentle,Math.abs(medium.curve(d+1)-medium.curve(d)));sharp=Math.max(sharp,Math.abs(hard.curve(d+1)-hard.curve(d)));}
+assert(gentle<.12);assert(sharp>.5);assert.equal(easy.roadAngle(0,533),0);
+hard.phase='racing';hard.speed=car.scrollSpeed;for(let d=0;d<2600;d+=5){hard.distance=d;if(hard.driftAvailable)break;}assert(hard.driftAvailable);assert(hard.requestDrift());assert.equal(hard.driftLeft,90);assert.equal(hard.requestDrift(),false);assert(hard.events.some(e=>e.type==='drift'));const saved=RaceSimulation.restore(hard.serialize());assert.equal(saved.driftLeft,90);assert.equal(saved.driftSign,hard.driftSign);
+for(let i=0;i<91;i++)hard.update(1/60,{accel:true});assert.equal(hard.driftLeft,0);assert(hard.driftCooldown>0);assert.equal(hard.requestDrift(),false);assert.equal(easy.requestDrift(),false);
+const road=new RaceSimulation({car,mode:'drive',random:()=>.5});road.phase='racing';road.update(1/60,{accel:true});assert(road.speed>.3,'first accelerator step is responsive');assert(road.speed<car.scrollSpeed*.1);assert.equal(road.requestNitro(),false);road.zones=[{lane:0,y:533}];road.update(1/60,{accel:true});assert(road.boosting&&road.boostLeft>=120);assert(road.zones[0].used);assert.equal(road.events.filter(e=>e.type==='boost').length,1);const left=road.boostLeft;road.update(1/60,{accel:true});assert(road.boostLeft<left,'a used pad does not reset the boost every overlapping frame');
+const old=road.serialize();delete old.boostLeft;delete old.driftLeft;delete old.driftCooldown;delete old.driftSign;old.nitroActive=true;const oldLoaded=RaceSimulation.restore(old);assert.equal(oldLoaded.boostLeft,0);assert.equal(oldLoaded.nitroActive,false);assert.equal(oldLoaded.boosting,false);assert.equal(RaceSimulation.restore({...old,boostLeft:Infinity}),null);
+const q=new FruitExpedition({storage:{getItem:()=>null,setItem(){}}});q.setViewport(900);q.start();assert(q.enemies.every(e=>e.x-60>750),'whole enemy bodies begin beyond the visible right edge');assert.equal(q.tap(),false);const initial=q.enemies.map(e=>e.x);q.tick(.1);assert(q.enemies.every((e,i)=>e.x<initial[i]&&e.x>750));assert(!q.events.some(e=>e.type==='shot'),'unseen enemies cannot be killed before entering');
+q.data.waveKills=10;q.challenge();assert(q.enemies[0].x-90>750);assert.equal(q.tap(),false);const hp=q.hp;for(let i=0;i<5;i++)q.tick(.1);assert.equal(q.hp,hp,'offscreen bosses cannot attack the team');
+const journey=new ExpeditionJourney(),enemy={id:99,x:835,entryEdge:835,boss:false,hp:50};journey.track([enemy]);journey.advance();assert.equal(journey.project(enemy),835);let previous=835;for(let i=0;i<90;i++){enemy.x-=145/60;journey.tick(1/60,'waves');const x=journey.project(enemy);assert(x<=previous&&previous-x<16,'entry and travel camera remain continuous');previous=x;}
+
+const coinX=journey.project(enemy),coin=journey.effect({type:'coin',enemyId:enemy.id,x:enemy.x});journey.trim([]);assert(Math.abs(journey.projectEffect(coin).x-coinX)<1e-9,'entry camera also keeps a defeated enemy and its reward at the same position');
+console.log('PASS road/ingress: straight/gentle/sharp routes, explicit timed drift and cooldown, responsive accel, one-shot road pads and legacy saves, fully offscreen enemy/boss creation, hidden-target combat guard and continuous entry projection.');

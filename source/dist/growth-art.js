@@ -1,5 +1,10 @@
 import { GEAR, HEROES, DIFFICULTIES, stageName } from './growth-models.js';
 const TAU=Math.PI*2;
+// Keep the health bar and characters above the controls, including short screens.
+export function expeditionViewport(width,height,footer=68){
+ const w=Math.max(1,width),h=Math.max(1,height),playHeight=Math.max(1,h-Math.min(footer,h*.4)),scale=Math.min(w/600,playHeight/510),offsetX=(w-600*scale)/2,offsetY=Math.max(0,playHeight-510*scale);
+ return {scale,offsetX,offsetY,viewWidth:w/scale,viewHeight:h/scale,viewTop:-offsetY/scale};
+}
 const wrap=(value,span)=>((value%span)+span)%span;
 const oval=(c,x,y,rx,ry,fill,stroke=null,width=2)=>{c.beginPath();c.ellipse(x,y,rx,ry,0,0,TAU);if(fill){c.fillStyle=fill;c.fill();}if(stroke){c.strokeStyle=stroke;c.lineWidth=width;c.stroke();}};
 function shape(c,points,fill,stroke='#354f49',width=2){c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();if(fill){c.fillStyle=fill;c.fill();}if(stroke){c.strokeStyle=stroke;c.lineWidth=width;c.stroke();}}
@@ -189,7 +194,7 @@ export function drawExpeditionScene(c,model,time=0,effects=[],drawHUD=true,optio
  const journey=options.journey,camera=reduced?0:journey?.distance||0,lead=reduced?0:journey?.lead||0;
  const places=heroPlaces.map(([x,y])=>[x+lead,y]);
  const viewEffects=journey?effects.map(fx=>journey.projectEffect(fx,reduced)):effects;
- const viewWidth=Math.max(600,options.viewWidth||600),viewHeight=Math.max(510,options.viewHeight||510),left=(600-viewWidth)/2,top=(510-viewHeight)*.7;
+ const viewWidth=Math.max(600,options.viewWidth||600),viewHeight=Math.max(510,options.viewHeight||510),left=(600-viewWidth)/2,top=Number.isFinite(options.viewTop)?options.viewTop:(510-viewHeight)*.7;
  c.save();c.beginPath();c.rect(left,top,viewWidth,viewHeight);c.clip();
  // Extend the forest around the combat area without stretching the characters.
  forest(c,reduced?0:time,camera,{left,top,width:viewWidth,height:viewHeight});
