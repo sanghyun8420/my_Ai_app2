@@ -13,13 +13,13 @@ const roster=[
  ['a7','아우디 A7','A7','coupe',1750,'#f1f5f9','#f43f5e','#0f172a',278,13.1,.112,1.54,'패스트백 GT'],
  ['q8','아우디 Q8','Q8','suv',2050,'#ea580c','#fed7aa','#18181b',276,13,.104,1.58,'플래그십 SUV'],
  ['s_class','벤츠 S클래스','S-Class','sedan',2400,'#b45309','#fde68a','#fef3c7',288,13.6,.114,1.58,'럭셔리 플래그십'],
- ['rs6','아우디 RS6','RS6','supercar',3000,'#64748b','#f43f5e','#09090b',315,14.8,.122,1.62,'슈퍼 왜건'],
+ ['rs6','아우디 RS6','RS6','supercar',3000,'#6e8388','#c0d1cf',null,315,14.8,.122,1.62,'슈퍼 왜건'],
  ['x6m','BMW X6M','X6M','suv',3600,'#8597a9','#d5e4ef',null,312,14.7,.116,1.66,'M 하이퍼 SUV'],
  ['rs7','아우디 RS7','RS7','supercar',4300,'#94a3b8','#ef4444','#111827',332,15.6,.128,1.66,'V8 트윈터보 GT'],
  ['xm','BMW XM','XM','suv',5000,'#14243c','#7488ab',null,330,15.5,.120,1.72,'M 플래그십 괴물'],
  ['m8','BMW M8','M8','supercar',5800,'#059669','#6ee7b7','#064e3b',348,16.3,.134,1.70,'M 컴페티션 쿠페'],
  ['amg_gt','벤츠 AMG GT','AMG GT','supercar',6800,'#eab308','#fef08a','#09090b',362,17,.138,1.74,'트랙 몬스터'],
- ['r8','아우디 R8','R8 V10','supercar',8000,'#dc2626','#fde047','#fef08a',378,17.8,.144,1.78,'미드십 V10 슈퍼카']
+ ['r8','아우디 R8','R8 V10','supercar',8000,'#1766a1','#8bbfdf',null,378,17.8,.144,1.78,'미드십 V10 슈퍼카']
 ];
 export const CARS=Object.freeze(roster.map((r,i)=>Object.freeze(Object.fromEntries([...['id','name','shortBadge','bodyType','price','bodyColor','accentColor','stripeColor','maxSpeed','scrollSpeed','handling','nitroPower','tag'].map((k,j)=>[k,r[j]]),['category',i<11?'luxury':'supercar']]))));
 export const DIFFICULTIES=Object.freeze({
@@ -27,6 +27,7 @@ export const DIFFICULTIES=Object.freeze({
  hard:{id:'hard',label:'🟠 어려움',length:9000,curve:155,ids:['a6','x5','a7','q8','s_class','rs6'],speeds:[12,12.4,12.8,13.1,13.5,13.9],traffic:82,trafficMin:5,trafficMax:7.2,coin:46,ramp:240,nitro:230,police:2800,reward:1200,road:'#1c1917',curb:'#f59e0b',scenery:'#451a03'},
  hell:{id:'hell',label:'🔥 지옥',length:12500,curve:215,ids:['rs6','x6m','rs7','xm','m8','amg_gt'],speeds:[14.6,15.1,15.6,16.1,16.7,17.3],traffic:58,trafficMin:6.8,trafficMax:9.8,coin:40,ramp:220,nitro:250,police:2500,reward:3000,road:'#180c12',curb:'#e11d48',scenery:'#3b0712'}
 });
+export const WORLD_TRAVEL_SCALE=.45;
 export const UPGRADE_COSTS=[0,200,450,800,1300];
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n)),whole=(n,d=0)=>Number.isSafeInteger(n)&&n>=0?n:d,clone=v=>JSON.parse(JSON.stringify(v));
 export const carById=id=>CARS.find(c=>c.id===id)||CARS[0];
@@ -67,7 +68,7 @@ export class RaceSimulation {
  constructor({car=CARS[0],difficulty='easy',stage=1,mode='race',random=Math.random,id}={}){
   this.id=id||`race-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;this.car=car.nitroDrainRate?{...car}:effectiveCar(car);this.difficulty=DIFFICULTIES[difficulty]?difficulty:'easy';this.stage=Math.max(1,whole(stage,1));this.phase='countdown';this.countdown=2.25;this.elapsed=0;this.tick=0;this.distance=0;this.speed=0;this.x=-.72;this.tilt=0;this.jump=0;this.jumpVelocity=0;this.nitro=55;this.boosting=false;this.invulnerable=0;this.trackCoins=0;this.policeLeft=0;this.nextPolice=this.diff.police;this.traffic=[];this.coins=[];this.ramps=[];this.zones=[];this.police=[];this.events=[];this.accumulator=0;this.random=random;
   this.mode=mode==='drive'?'drive':'race';this.x=0;this.nitroActive=false;this.nitroHeld=false;
-  this.viewTop=0;
+  this.viewTop=0;this.collisions=0;
   this.rivals=this.mode==='drive'?[]:this.diff.ids.map((id,i)=>({id,lane:[-.44,-.15,.15,.44,.72,-.72][i],target:[-.44,-.15,.15,.44,.72,-.72][i],distance:(i+1)*7,speed:this.diff.speeds[i]*(1+(this.stage-1)*.065),phase:i*1.45}));
  }
  get diff(){return DIFFICULTIES[this.difficulty];}
@@ -76,7 +77,7 @@ export class RaceSimulation {
  setViewport(height,playerBottom=187){if(Number.isFinite(height)&&Number.isFinite(playerBottom))this.viewTop=533+clamp(playerBottom,100,600)-clamp(height,350,2400);}
  curve(distance){const amp=this.diff.curve*(this.mode==='drive'?.45:1+(this.stage-1)*.08);return Math.sin(distance*.0018)*amp+Math.sin(distance*.0044)*amp*.42;}
  requestNitro(){if(!['countdown','racing'].includes(this.phase)||this.nitro<=1||this.nitroActive)return false;this.nitroActive=true;return true;}
- finishDrive(){if(this.mode!=='drive'||this.phase==='finished')return false;this.phase='finished';this.boosting=false;this.nitroActive=false;this.result={id:this.id,mode:'drive',stage:this.stage,difficulty:this.difficulty,rank:1,seconds:this.elapsed,trackCoins:this.trackCoins};this.emit('finish');return true;}
+ finishDrive(crashed=false){if(this.mode!=='drive'||this.phase==='finished')return false;this.phase='finished';this.boosting=false;this.nitroActive=false;this.result={id:this.id,mode:'drive',crashed,collisions:this.collisions,stage:this.stage,difficulty:this.difficulty,rank:1,seconds:this.elapsed,trackCoins:this.trackCoins};this.emit('finish');return true;}
  screenX(lane,y){return 300+this.curve(this.distance+(533-y)/1.45)-this.curve(this.distance)+lane*220;}
  emit(type,extra={}){this.events.push({type,...extra});}
  update(dt,input={}){if(!Number.isFinite(dt)||dt<=0||this.phase==='finished')return;this.accumulator+=Math.min(.25,dt);while(this.accumulator>=1/60){this.accumulator-=1/60;this.step(input);if(this.phase==='finished')break;}}
@@ -84,17 +85,17 @@ export class RaceSimulation {
   if(input.nitro&&!this.nitroHeld)this.requestNitro();this.nitroHeld=!!input.nitro;
   if(this.phase==='countdown'){this.countdown-=1/60;if(this.countdown<=0){this.phase='racing';this.emit('go');}return;}
   if(this.phase!=='racing')return;this.tick++;this.elapsed+=1/60;const car=this.car,d=this.diff;
-  this.boosting=!!(this.nitroActive&&this.nitro>0&&this.speed>3);this.nitro=clamp(this.nitro+(this.boosting?-car.nitroDrainRate:.04),0,100);if(!this.nitro)this.nitroActive=false;
+  this.boosting=!!(this.nitroActive&&this.nitro>0&&this.speed>3);this.nitro=clamp(this.nitro+(this.boosting?-car.nitroDrainRate*.35:.04),0,100);if(!this.nitro)this.nitroActive=false;
   const top=car.scrollSpeed*(this.boosting?car.nitroPower:1);
-  if(input.accel||this.nitroActive||this.boosting)this.speed+=(top-this.speed)*(this.boosting?.24:.14);else this.speed=this.speed<.05?0:this.speed*.985;
+  if(input.accel||this.nitroActive||this.boosting)this.speed+=(top-this.speed)*(this.boosting?.018:.009);else this.speed=this.speed<.05?0:this.speed*.985;
   if(this.invulnerable>0){this.invulnerable--;this.speed=Math.min(this.speed,car.scrollSpeed*.52);}
-  this.distance+=this.speed;const ratio=this.speed/car.scrollSpeed,delta=(this.curve(this.distance+45)-this.curve(this.distance))/45;
+  this.distance+=this.speed*WORLD_TRAVEL_SCALE;const ratio=this.speed/car.scrollSpeed,delta=(this.curve(this.distance+45)-this.curve(this.distance))/45;
   if(this.jump===0&&this.speed>4)this.x-=delta*ratio*.032;
   const steering=car.handling*.25*clamp(ratio,.35,1.15);
   if(input.left&&!input.right){this.x-=steering;this.tilt=Math.max(-.22,this.tilt-.035);}else if(input.right&&!input.left){this.x+=steering;this.tilt=Math.min(.22,this.tilt+.035);}else this.tilt*=.8;
   if(Math.abs(this.x)>.78){this.x=Math.sign(this.x)*.78;this.speed*=.975;}
   if(this.jump>0||this.jumpVelocity>0){this.jump+=this.jumpVelocity;this.jumpVelocity-=.44;if(this.jump<=0){this.jump=0;this.jumpVelocity=0;this.emit('land');}}
-  this.rivals.forEach((r,i)=>{r.distance+=r.speed+Math.sin(this.tick*.03+r.phase)*.65;if((this.tick+i*29)%105===0)r.target=[-.68,-.35,0,.35,.68][Math.floor(this.random()*5)];r.lane+=(r.target-r.lane)*.04;});
+  this.rivals.forEach((r,i)=>{r.distance+=(r.speed+Math.sin(this.tick*.03+r.phase)*.65)*WORLD_TRAVEL_SCALE;if((this.tick+i*29)%105===0)r.target=[-.68,-.35,0,.35,.68][Math.floor(this.random()*5)];r.lane+=(r.target-r.lane)*.04;});
   const lane=()=>[-.68,-.23,.23,.68][Math.floor(this.random()*4)],spawn=(array,e)=>{if(array.length<60)array.push(e);};
   if(this.speed>.6){
    if(this.tick%Math.max(36,Math.round(d.traffic*Math.max(.68,1-(this.stage-1)*.05)))===0)spawn(this.traffic,{lane:lane(),y:this.viewTop-90,speed:d.trafficMin+this.random()*(d.trafficMax-d.trafficMin),color:['#64748b','#0ea5e9','#10b981','#eab308','#ec4899'][Math.floor(this.random()*5)]});
@@ -102,15 +103,16 @@ export class RaceSimulation {
    if(this.tick%d.ramp===0)spawn(this.ramps,{lane:lane(),y:this.viewTop-80});if(this.tick%d.nitro===0)spawn(this.zones,{lane:lane(),y:this.viewTop-110});
   }
   const touching=(e,width,height)=>Math.abs(this.screenX(e.lane,e.y)-(300+this.x*220))<width&&Math.abs(e.y-533)<height;
-  for(const z of this.zones){z.y+=this.speed*1.45;if(!this.jump&&touching(z,34,55)){this.nitro=clamp(this.nitro+car.nitroPadGain,0,100);if(this.tick%12===0)this.emit('charge');}}
-  for(const r of this.ramps){r.y+=this.speed*1.45;if(!r.used&&!this.jump&&this.speed>4&&touching(r,34,36)){r.used=true;this.jump=1;this.jumpVelocity=9.8;this.speed+=2.2;this.trackCoins+=15;this.emit('jump');}}
-  const collide=()=>{this.invulnerable=42;this.speed*=.45;this.emit('hit');};
-  for(const t of this.traffic){t.y+=(this.speed-t.speed)*1.45;if(this.jump<12&&!this.invulnerable&&touching(t,28,52))collide();}
-  this.coins=this.coins.filter(c=>{c.y+=this.speed*1.45;if(touching(c,34,46)){this.trackCoins+=c.value;this.emit('coin');return false;}return c.y<840;});
+  for(const z of this.zones){z.y+=this.speed*1.45*WORLD_TRAVEL_SCALE;if(!this.jump&&touching(z,34,55)){this.nitro=clamp(this.nitro+car.nitroPadGain,0,100);if(this.tick%12===0)this.emit('charge');}}
+  for(const r of this.ramps){r.y+=this.speed*1.45*WORLD_TRAVEL_SCALE;if(!r.used&&!this.jump&&this.speed>4&&touching(r,34,36)){r.used=true;this.jump=1;this.jumpVelocity=9.8;this.speed+=2.2;this.trackCoins+=15;this.emit('jump');}}
+  const collide=()=>{this.invulnerable=90;this.speed*=.55;this.collisions++;this.emit('hit',{collisions:this.collisions});if(this.mode==='drive'&&this.collisions>=3)this.finishDrive(true);};
+  for(const t of this.traffic){t.y+=(this.speed-t.speed)*1.45*WORLD_TRAVEL_SCALE;if(this.phase==='racing'&&!t.hit&&this.jump<12&&!this.invulnerable&&touching(t,28,52)){t.hit=true;collide();}}
+  if(this.phase==='finished')return;
+  this.coins=this.coins.filter(c=>{c.y+=this.speed*1.45*WORLD_TRAVEL_SCALE;if(touching(c,34,46)){this.trackCoins+=c.value;this.emit('coin');return false;}return c.y<840;});
   if(this.mode!=='drive'&&!this.policeLeft&&this.distance>=this.nextPolice&&this.distance<this.length-900){this.policeLeft=540;this.nextPolice+=d.police;this.police=[{lane:-.4,y:this.viewTop-100},{lane:.4,y:this.viewTop-240}];this.emit('police');}
   if(this.policeLeft){this.policeLeft--;this.police.forEach((p,i)=>{p.y+=clamp(((i?408:621)-p.y)*.04,-14,14)+Math.sin(this.tick*.08+i*2.1)*2.2;p.lane+=(this.x-p.lane)*.024;if(this.jump<14&&!this.invulnerable&&touching(p,30,52)){collide();this.trackCoins=Math.max(0,this.trackCoins-30);this.emit('fine');}});if(!this.policeLeft){this.police=[];this.trackCoins+=150;this.emit('escaped');}}
   for(const key of ['traffic','ramps','zones'])this[key]=this[key].filter(e=>e.y>Math.min(-280,this.viewTop-280)&&e.y<1100);
-  if(this.mode!=='drive'&&this.distance>=this.length){this.phase='finished';this.boosting=false;this.result={id:this.id,mode:'race',stage:this.stage,difficulty:this.difficulty,rank:this.rank,seconds:this.elapsed,trackCoins:this.trackCoins};this.emit('finish');}
+  if(this.phase==='racing'&&this.mode!=='drive'&&this.distance>=this.length){this.phase='finished';this.boosting=false;this.result={id:this.id,mode:'race',stage:this.stage,difficulty:this.difficulty,rank:this.rank,seconds:this.elapsed,trackCoins:this.trackCoins};this.emit('finish');}
  }
  serialize(){const {random,events,accumulator,viewTop,...state}=this;return clone({version:1,...state});}
  static restore(value){
@@ -118,6 +120,7 @@ export class RaceSimulation {
    for(const k of ['countdown','elapsed','tick','distance','speed','x','tilt','jump','jumpVelocity','nitro','invulnerable','trackCoins','policeLeft','nextPolice'])if(!Number.isFinite(value[k])||Math.abs(value[k])>1e12)return null;
    if(!CARS.some(c=>c.id===value.car?.id)||!['scrollSpeed','handling','maxSpeed','nitroPower','nitroDrainRate','nitroPadGain'].every(k=>Number.isFinite(value.car[k])&&value.car[k]>0)||value.nitro<0||value.nitro>100||value.trackCoins<0)return null;
    for(const k of ['rivals','traffic','coins','ramps','zones','police']){if(!Array.isArray(value[k])||value[k].length>60)return null;for(const e of value[k]){if(!e||typeof e!=='object'||!Number.isFinite(e.lane)||Math.abs(e.lane)>2)return null;for(const [key,n]of Object.entries(e))if(typeof n==='number'&&(!Number.isFinite(n)||Math.abs(n)>1e12))return null;}}
+   if(value.collisions!==undefined&&(!Number.isInteger(value.collisions)||value.collisions<0||value.collisions>100000))return null;
    if(value.mode!==undefined&&!['race','drive'].includes(value.mode)||value.nitroActive!==undefined&&typeof value.nitroActive!=='boolean'||value.nitroHeld!==undefined&&typeof value.nitroHeld!=='boolean')return null;
    if(value.rivals.length!==(value.mode==='drive'?0:6)||value.rivals.some(r=>!CARS.some(c=>c.id===r.id)||!['target','distance','speed','phase'].every(k=>Number.isFinite(r[k])))||value.police.length>2||value.traffic.some(e=>!Number.isFinite(e.y)||!Number.isFinite(e.speed))||[...value.coins,...value.ramps,...value.zones,...value.police].some(e=>!Number.isFinite(e.y))||value.coins.some(e=>!Number.isSafeInteger(e.value)||e.value<0))return null;
    const race=new RaceSimulation({car:effectiveCar(CARS[0]),difficulty:value.difficulty,stage:value.stage,id:value.id});const allowed=Object.keys(race.serialize());for(const key of allowed)if(Object.hasOwn(value,key))race[key]=clone(value[key]);for(const key of ['bodyColor','accentColor','stripeColor','bodyType'])race.car[key]=carById(race.car.id)[key];race.random=Math.random;race.events=[];race.accumulator=0;return race;

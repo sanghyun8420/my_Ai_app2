@@ -33,3 +33,5 @@
 - 리더보드 공개 목록 읽기는 점수/지갑 동기화와 독립적으로 즉시 시작해야 합니다. 수동 동기화 버튼을 다시 추가하지 않습니다. 열린 창의5초 폴링은 전송도 자동 재시도하고, PlayerCloud.flushScores는 창을 열지 않아도 소유권이 확인된 기기 최고점수를 자동 전송합니다. syncTask/connectTask/전체 beforeCapture를 기다리지 않습니다. 같은 사용자 이벤트 재초기화 금지, 목록/전송 타임아웃과 기존 행 보존을 유지합니다.
 - saveScore의 성공 응답은 요청 당시 사용자 ID·_userVersion과 현재 상태가 일치하고 인증 변경 중이 아닐 때만 _acceptUser로 적용합니다. 지연된 게스트 점수 응답으로 로그인 계정을 되돌리면 안 됩니다. native/Pages 실제 API 지연 재현은 auth-persistence.mjs에 있습니다.
 - Window의 타이머 함수를 인스턴스 메서드로 직접 보관/호출하지 않습니다. LiveLeaderboard와 PlayerCloud의 기본 타이머는 전역 호출 래퍼를 유지하고 browser-timers.mjs를 실행합니다. Node에서는 통과하지만 브라우저에서는 순위 요청 전에 Illegal invocation이 발생할 수 있습니다.
+
+- 자유주행의3회 충돌 종료와 같은 차량 hit 중복 방지·충돌 횟수 저장을 유지합니다. WORLD_TRAVEL_SCALE은 실제 이동에만 적용하고 km/h 표시 범위를 바꾸지 않습니다. 원정대는 그룹 전투→첫 보스 자동→승리 후 다음 구간 자동이며 실패 시 bossRetry를 tier별 저장하고 일반 적 사냥으로 복귀합니다. 실패한 보스는 사용자의 명시적 재도전으로만 다시 시작하고 승리 전 index를 올리지 않습니다.
