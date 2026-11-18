@@ -117,6 +117,8 @@ export class RaceSimulation {
   for(const r of this.ramps){r.y+=this.speed*1.45*WORLD_TRAVEL_SCALE;if(!r.used&&!this.jump&&this.speed>4&&touching(r,34,36)){r.used=true;this.jump=1;this.jumpVelocity=9.8;this.speed+=2.2;this.trackCoins+=15;this.emit('jump');}}
   const collide=(damage=25)=>{this.invulnerable=75;this.speed*=.65;this.collisions++;if(this.mode==='drive'){this.hp=Math.max(0,this.hp-(this.scenario==='hard'?Math.max(damage,40):damage));}this.emit('hit',{collisions:this.collisions,hp:this.hp});if(this.mode==='drive'&&this.hp<=0)this.finishDrive(true);};
   for(const t of this.traffic){t.y+=(this.speed-t.speed)*1.45*WORLD_TRAVEL_SCALE;if(this.phase==='racing'&&!t.hit&&this.jump<12&&!this.invulnerable&&touching(t,28,52)){t.hit=true;collide();}}
+  // Rivals use the same world-to-screen projection as rendering, so contact agrees with the visible car.
+  for(const r of this.rivals){const y=533-(r.distance-this.distance)*1.45;if(this.phase==='racing'&&this.jump<12&&!this.invulnerable&&touching({lane:r.lane,y},28,52))collide();}
   if(this.phase==='finished')return;
   this.coins=this.coins.filter(c=>{c.y+=this.speed*1.45*WORLD_TRAVEL_SCALE;if(touching(c,34,46)){this.trackCoins+=c.value;this.emit('coin');return false;}return c.y<840;});
   // Police pursue only in the dedicated endless-drive mode.

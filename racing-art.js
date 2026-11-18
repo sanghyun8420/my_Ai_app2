@@ -23,19 +23,63 @@ export function drawRaceCar(c,x,y,width,height,angle,config,{boost=false,rival=f
  const family=carFaceFamily(config);if(config.id){c.strokeStyle='#d9e8ee99';c.lineWidth=1;const gy=-h/2+7;if(family==='bmw'){box(c,-w*.2,gy,w*.17,4,1);c.stroke();box(c,w*.03,gy,w*.17,4,1);c.stroke();}else if(family==='audi'){for(let i=0;i<4;i++){c.beginPath();c.arc((i-1.5)*2.4,gy,1.8,0,Math.PI*2);c.stroke();}}else{c.beginPath();c.arc(0,gy,3,0,Math.PI*2);c.stroke();}c.beginPath();c.moveTo(-w*.25,-h*.37);c.lineTo(-w*.19,-h*.28);c.moveTo(w*.25,-h*.37);c.lineTo(w*.19,-h*.28);c.stroke();}
  c.fillStyle=brake?'#ff2350':'#d83141';c.fillRect(-w/2+3,h/2-4,w-6,brake?4:2);c.restore();
 }
+// Roadside scenery is tied to world coordinates, so buildings and markings move at
+// exactly the same speed as the road and do not jump when a viewport changes.
+export function roadSceneFeatures(distance,viewTop,viewBottom,spacing=220){
+ const near=distance+(533-viewBottom)/1.45,far=distance+(533-viewTop)/1.45;
+ const first=Math.floor(near/spacing)-1,last=Math.ceil(far/spacing)+1,items=[];
+ for(let id=first;id<=last;id++)items.push({id,world:id*spacing,y:533-(id*spacing-distance)*1.45});
+ return items;
+}
+const roadNoise=(n,seed=0)=>{const v=Math.sin((n+seed*1.71)*12.9898)*43758.5453;return v-Math.floor(v);};
+function drawRoadside(c,x,y,side,theme,variant){
+ c.save();c.translate(x,y);
+ if(theme===0){ // Waterfront: a stone quay with parallel water glints.
+  c.fillStyle='#285d73';c.fillRect(-38,-158,76,316);
+  c.fillStyle='#427c8f';for(let i=-145;i<158;i+=25){c.fillRect(-32+(i%3)*2,i,32,2);c.fillRect(8,i+11,25,2);}
+  c.fillStyle='#9c9a83';c.fillRect(side<0?22:-30,-158,8,316);c.fillStyle='#e7d7a1';for(let i=-150;i<155;i+=22)c.fillRect(side<0?23:-29,i,6,3);
+ }else if(theme===1){ // City blocks are rooftop shapes, not road obstacles.
+  const tint=['#726c62','#786b61','#59666b','#8a766b'][variant%4];
+  c.fillStyle='#18282bcc';c.fillRect(-35,-87,70,176);c.fillStyle='#403f3b';c.fillRect(-38,-94,72,174);
+  c.fillStyle=tint;c.fillRect(-34,-90,64,165);c.strokeStyle='#c0b1a0';c.lineWidth=2;c.strokeRect(-32,-88,60,161);
+  c.fillStyle='#4e5551';c.fillRect(-26,-73,46,45);c.fillStyle='#8f9991';c.fillRect(-23,-70,40,39);
+  c.fillStyle='#4e5551';for(let i=0;i<4;i++)c.fillRect(-19+i*9,-65,5,29);
+  c.fillStyle='#b8ab97';c.fillRect(-22,1,38,24);c.fillStyle='#53615f';for(let i=0;i<4;i++)c.fillRect(-18+i*9,5,5,16);
+  c.fillStyle='#d2c3a7';c.fillRect(-22,39,15,17);c.fillStyle='#526466';c.fillRect(0,39,19,17);c.fillStyle='#282e2f';c.fillRect(2,42,15,2);c.fillRect(2,47,15,2);c.fillRect(2,52,15,2);
+ }else{ // Park verge, trees and paths.
+  c.fillStyle='#567454';c.fillRect(-38,-158,76,316);c.fillStyle='#6a8761';c.fillRect(side<0?15:-23,-158,8,316);
+  for(let i=-1;i<=1;i++){const ty=i*94+(variant%3)*9-8;c.fillStyle='#30473a66';c.beginPath();c.ellipse(3,ty+5,25,20,0,0,Math.PI*2);c.fill();c.fillStyle='#334d38';c.beginPath();c.arc(0,ty,21,0,Math.PI*2);c.fill();c.fillStyle='#5b8055';c.beginPath();c.arc(-4,ty-5,15,0,Math.PI*2);c.fill();c.fillStyle='#8ba574';c.beginPath();c.arc(-7,ty-8,6,0,Math.PI*2);c.fill();}
+ }
+ c.restore();
+}
 export function drawRaceScene(c,race,time=0,input={},viewHeight=720,playerBottom=187){
- const d=race.diff,shift=viewHeight-533-playerBottom;c.save();c.translate(0,shift);c.fillStyle=d.scenery;c.fillRect(0,-shift,600,viewHeight);
- const curve=y=>race.curve(race.distance+(533-y)/1.45)-race.curve(race.distance),left=y=>80+curve(y),scroll=race.distance*1.45;
- const themeAt=y=>{const segment=Math.floor((race.distance+(533-y)/1.45)/1400),n=Math.sin((segment+(race.scenerySeed||0))*12.9898)*43758.5453;return Math.floor((n-Math.floor(n))*3);};
- for(let y=-shift;y<viewHeight-shift;y+=32){c.fillStyle=['#327da4','#586d80','#3c7455'][themeAt(y)];c.fillRect(0,y,600,33);}
- for(let y=-shift;y<viewHeight-shift;y+=8){const x=left(y),theme=themeAt(y);c.fillStyle=theme===1?'#b3afa0':theme===0?'#b7aa90':'#81907e';c.fillRect(x-28,y,28,9);c.fillRect(x+440,y,28,9);c.fillStyle=theme===1?'#394546':theme===0?'#3b4c50':'#3a4744';c.fillRect(x,y,440,9);c.fillStyle='#dfc47c';c.fillRect(x+3,y,3,9);c.fillRect(x+434,y,3,9);if((((y-scroll)%90)+90)%90<48){c.fillStyle='#e6e6d6a8';for(let i=1;i<4;i++)c.fillRect(x+110*i-2,y,4,9);}if(theme===1&&((((y-scroll)%36)+36)%36)<3){c.fillStyle='#6c746d88';c.fillRect(x-28,y,27,2);c.fillRect(x+441,y,27,2);}}
- for(let i=0;i<Math.ceil(viewHeight/100)+3;i++){const y=-shift+((i*117+scroll*.55)%(viewHeight+250))-130;for(const x of [left(y)-40,left(y)+480]){const theme=themeAt(y);if(theme===0){c.fillStyle='#377bb5';c.fillRect(x-35,y-52,70,103);c.strokeStyle='#bcecff88';c.lineWidth=2;c.beginPath();c.moveTo(x-23,y);c.quadraticCurveTo(x-8,y-8,x+8,y);c.quadraticCurveTo(x+15,y+4,x+24,y);c.stroke();}else if(theme===1){c.fillStyle='#293a3ca0';c.fillRect(x-26,y-42,62,88);c.fillStyle='#8d8277';c.fillRect(x-30,y-48,58,84);c.fillStyle='#b2a69a';c.fillRect(x-27,y-45,52,78);c.strokeStyle='#716c67';c.lineWidth=3;c.strokeRect(x-27,y-45,52,78);c.fillStyle='#757d7a';c.fillRect(x-18,y-34,34,22);c.fillStyle='#d5d3c0';c.fillRect(x-14,y-31,13,16);c.fillStyle='#475b59';c.fillRect(x+3,y-29,9,11);c.fillStyle='#757d7a';c.fillRect(x-16,y+1,29,15);c.fillStyle='#4b5e5b';for(let k=0;k<4;k++)c.fillRect(x-12+k*6,y+4,3,9);}else{c.fillStyle='#634f38';c.fillRect(x-4,y+4,8,22);c.fillStyle='#59a66c';c.beginPath();c.arc(x,y,19,0,Math.PI*2);c.fill();c.fillStyle='#83c886';c.beginPath();c.arc(x-5,y-6,10,0,Math.PI*2);c.fill();}}}
+ const d=race.diff,shift=viewHeight-533-playerBottom;c.save();c.translate(0,shift);
+ const top=-shift,bottom=viewHeight-shift,worldAt=y=>race.distance+(533-y)/1.45;
+ const curve=y=>race.curve(worldAt(y))-race.curve(race.distance),left=y=>80+curve(y),scroll=race.distance*1.45;
+ const seed=race.scenerySeed||0,themeAt=y=>Math.floor(roadNoise(Math.floor(worldAt(y)/1400),seed)*3);
+ // Draw wide pavement first, followed by the same curve-aligned road used for
+ // collision coordinates. Different districts keep the roadway unambiguous.
+ for(let y=top;y<bottom;y+=8){const x=left(y),theme=themeAt(y);c.fillStyle=['#285d73','#827f75','#567454'][theme];c.fillRect(0,y,600,9);c.fillStyle=['#adab96','#aaa69a','#a5a898'][theme];c.fillRect(x-28,y,28,9);c.fillRect(x+440,y,28,9);c.fillStyle=['#354348','#354141','#394741'][theme];c.fillRect(x,y,440,9);c.fillStyle='#dec788';c.fillRect(x+3,y,3,9);c.fillRect(x+434,y,3,9);
+  // The middle markings divide opposing carriageways; they remain flat so
+  // lane changing is not misleadingly presented as hitting a solid median.
+  c.fillStyle='#d9c777';c.fillRect(x+217,y,2,9);c.fillRect(x+222,y,2,9);
+  if((((y-scroll)%104)+104)%104<55){c.fillStyle='#ebede0bb';for(const offset of [110,330])c.fillRect(x+offset-2,y,4,9);}
+ }
+ // Stationary world-space slabs, gutters and occasional crossings.
+ for(const mark of roadSceneFeatures(race.distance,top,bottom,32)){const y=mark.y,x=left(y);c.fillStyle='#69756e88';c.fillRect(x-28,y,27,2);c.fillRect(x+441,y,27,2);}
+ for(const mark of roadSceneFeatures(race.distance,top,bottom,1100)){if(mark.y<top-50||mark.y>bottom+50)continue;const x=left(mark.y);c.fillStyle='#e8e6cfb0';for(let lane=0;lane<4;lane++)for(let stripe=0;stripe<4;stripe++)c.fillRect(x+lane*110+13+stripe*20,mark.y-15,11,30);}
+ for(const feature of roadSceneFeatures(race.distance,top,bottom)){
+  if(feature.y<top-180||feature.y>bottom+180)continue;
+  const roadLeft=left(feature.y),theme=themeAt(feature.y),variant=Math.floor(roadNoise(feature.id,seed)*16);
+  drawRoadside(c,roadLeft-67,feature.y,-1,theme,variant);
+  drawRoadside(c,roadLeft+507,feature.y,1,theme,variant+2);
+ }
 
  const remaining=race.length-race.distance;if(race.mode!=='drive'&&remaining<520){const y=533-remaining*1.45;for(let r=0;r<2;r++)for(let i=0;i<28;i++){c.fillStyle=(i+r)%2?'#0b1220':'#fff';c.fillRect(left(y)+i*16,y+r*16,16,16);}}
  for(const z of race.zones){const x=race.screenX(z.lane,z.y);c.save();c.translate(x,z.y);c.rotate(race.roadAngle(z.lane,z.y));c.globalAlpha=z.used?.35:1;const g=c.createLinearGradient(0,40,0,-40);g.addColorStop(0,'#0a7cbf');g.addColorStop(1,'#53dcff');c.fillStyle=g;box(c,-50,-40,100,80,9);c.fill();c.strokeStyle='#a6f3ff';c.lineWidth=2;c.stroke();c.strokeStyle='#fff6a3';c.lineWidth=7;c.lineJoin='round';for(const y of [-20,4,28]){c.beginPath();c.moveTo(-28,y);c.lineTo(0,y-13);c.lineTo(28,y);c.stroke();}c.restore();}
  for(const r of race.ramps){const x=race.screenX(r.lane,r.y),g=c.createLinearGradient(0,r.y+26,0,r.y-26);g.addColorStop(0,'#d97706');g.addColorStop(1,'#fde047');c.fillStyle=g;box(c,x-22,r.y-26,44,52,6);c.fill();c.fillStyle='#2a1b09';c.textAlign='center';c.font='bold 11px sans-serif';c.fillText('▲ JUMP',x,r.y+4);}
  for(const coin of race.coins){const x=race.screenX(coin.lane,coin.y);c.save();c.translate(x,coin.y);c.scale(Math.max(.3,Math.abs(Math.cos(time*6+coin.y*.02))),1);c.fillStyle='#facc15';c.strokeStyle='#fef08a';c.lineWidth=2;c.beginPath();c.arc(0,0,12,0,Math.PI*2);c.fill();c.stroke();c.fillStyle='#854d0e';c.font='bold 13px sans-serif';c.textAlign='center';c.fillText('₩',0,5);c.restore();}
- for(const t of race.traffic)drawRaceCar(c,race.screenX(t.lane,t.y),t.y,32,60,race.roadAngle(t.lane,t.y),{bodyColor:t.color,accentColor:'#cbd5e1'},{time});
+ for(const t of race.traffic){const suv=t.color==='#64748b'||t.color==='#10b981',coupe=t.color==='#ec4899';drawRaceCar(c,race.screenX(t.lane,t.y),t.y,32,60,race.roadAngle(t.lane,t.y),{bodyType:suv?'suv':coupe?'coupe':'sedan',bodyColor:t.color,accentColor:'#cbd5e1'},{time});}
  for(const r of race.rivals){const y=533-(r.distance-race.distance)*1.45;if(y< -shift-120||y>viewHeight-shift+120)continue;const x=race.screenX(r.lane,y),car=carById(r.id);drawRaceCar(c,x,y,34,64,race.roadAngle(r.lane,y),car,{boost:race.difficulty==='hell',rival:true,time});c.fillStyle='#0f172ae8';box(c,x-30,y-52,60,16,5);c.fill();c.fillStyle='#fda4af';c.font='bold 9px sans-serif';c.textAlign='center';c.fillText(car.shortBadge,x,y-40);}
  for(const b of race.roadblocks||[]){const x=race.screenX(b.lane,b.y);c.save();c.translate(x,b.y);c.rotate(race.roadAngle(b.lane,b.y));c.fillStyle='#f8e5ba';c.fillRect(-38,-8,76,16);c.fillStyle='#e34e46';for(let i=-30;i<=30;i+=20)c.fillRect(i,-8,10,16);c.restore();}
  for(const p of race.police){const x=race.screenX(p.lane,p.y);if(p.kind==='helicopter'){c.save();c.translate(x,p.y);c.fillStyle='#172438';c.beginPath();c.ellipse(0,0,17,29,0,0,Math.PI*2);c.fill();c.strokeStyle='#d2edf9';c.lineWidth=3;c.beginPath();c.moveTo(-40,0);c.lineTo(40,0);c.moveTo(0,-36);c.lineTo(0,35);c.stroke();c.fillStyle='#87d7ff';c.fillRect(-9,-14,18,15);c.restore();}else{drawRaceCar(c,x,p.y,p.kind==='tank'?48:35,p.kind==='tank'?78:66,race.roadAngle(p.lane,p.y),{bodyType:p.kind==='armored'||p.kind==='tank'?'suv':'sedan',bodyColor:p.kind==='tank'?'#556b45':'#0f172a',accentColor:'#9bb6c5'},{rival:true,police:p.kind==='patrol',time});if(p.kind==='tank'){c.strokeStyle='#b6c59e';c.lineWidth=6;c.beginPath();c.moveTo(x,p.y);c.lineTo(x,p.y-40);c.stroke();}}}

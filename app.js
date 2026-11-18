@@ -936,7 +936,7 @@ async function ensureAudio() {
 }
 
 function syncAudio() {
-  gameAudio.setPlaying((selectedGame!=='suika'?arcadePlaying:started && world.state !== 'over') && !document.hidden,
+  gameAudio.setPlaying((selectedGame!=='suika'?arcadePlaying:started && world.state !== 'over') && !document.hidden && !(selectedGame==='racing' && hub?.racing.simulation()?.mode==='race'),
     (selectedGame==='suika'&&world.state === 'paused') || !!document.querySelector('dialog[open]'));
 }
 
