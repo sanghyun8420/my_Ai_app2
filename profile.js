@@ -5,7 +5,7 @@ import { normalizeGameRecord } from './save-state.js';
 const STORAGE_KEY = 'suika-garden-profile-v3';
 const BEST_KEY = 'suika-garden-best';
 const PRICES = Object.freeze(Object.fromEntries(SKIN_CATALOG.map(item => [item.id, item.price])));
-const ITEM_LIMIT = 999;
+const ITEM_LIMIT = Number.MAX_SAFE_INTEGER;
 export const RUN_TOOL_LIMIT = 5;
 const RECEIPT_LIMIT = 32;
 const REVIVAL_COSTS = Object.freeze(Array.from({length:15},(_,i)=>10**(i+1)));
@@ -529,7 +529,7 @@ export class GardenProgress {
       const item = ITEMS.find(item => item.id === id);
       if (!item) throw progressError('이 아이템을 찾을 수 없어요.', 'INVALID_ITEM');
       if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 99) throw progressError('아이템은 한 번에 1~99개 구매할 수 있어요.', 'INVALID_QUANTITY');
-      if (this._profile.inventory[id] + quantity > ITEM_LIMIT) throw progressError('아이템은 종류별로 999개까지 보관할 수 있어요.', 'STOCK_LIMIT');
+      if (this._profile.inventory[id] + quantity > ITEM_LIMIT) throw progressError('아이템 보관 한도에 도달했어요.', 'STOCK_LIMIT');
       const cost = item.price * quantity;
       if (this._profile.coins < cost) throw progressError('수박 동전이 부족해요. 과일을 더 합쳐 보세요!', 'INSUFFICIENT_GEMS');
       this._commitCommerce(() => {
@@ -576,7 +576,7 @@ export class GardenProgress {
       const values={seconds:this._profile.hubStats.seconds,merges:this._profile.classicMergedFruits,score:this._profile.bestScore,watermelons:this._profile.hubStats.watermelons};
       const key=`${metric}:${tier}`;
       if(values[metric]<goals[metric][tier]||this._profile.hubStats.claims.includes(key))return false;
-      this._commitCommerce(()=>{this._profile.hubStats.claims.push(key);this._profile.gems+=[10,30,100][tier];this._profile.inventory.shake=Math.min(999,this._profile.inventory.shake+tier+1);if(tier===2&&!this._profile.ownedHats.includes('crown'))this._profile.ownedHats.push('crown');});
+      this._commitCommerce(()=>{this._profile.hubStats.claims.push(key);this._profile.gems+=[10,30,100][tier];this._profile.inventory.shake=Math.min(ITEM_LIMIT,this._profile.inventory.shake+tier+1);if(tier===2&&!this._profile.ownedHats.includes('crown'))this._profile.ownedHats.push('crown');});
       this._emit();return true;
     });
   }

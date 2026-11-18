@@ -237,7 +237,7 @@ drawFrontCar/carFaceFamily는 참고 사진의 브랜드별 그릴/헤드라이�
 
 블록정원은 data-game=blocks에서 fixed 전체 화면, stage의 ResizeObserver가 --block-board-size를 실제 남은 공간의 정사각형으로 맞춥니다. 보드 해상도1280, 입력/고스트/놓기 계산은 실제 canvas rect를 유지합니다. 크기 변경 시 드래그를 해제하고, 꾸미기 패널·게임 선택 복귀를 제공합니다. 사과 게임은 기존 가로판 레이아웃/640 높이입니다.
 
-RaceSimulation.mode는 race/drive이며 구버전은 race로 복원합니다. drive는 라이벌0대·경찰/결승선 없음, finishDrive 결과를 RacingGarage.finish에서 모은 trackCoins만 한 번 정산합니다. completedDrives는 별도이며 race의 completedRaces/승수/스테이지/5회 보석 보상을 올리지 않습니다. selectedDriveMode와 진행 중 주행을 canonical 레코드에 저장합니다. 순위 경기의3위 이내 진출 규칙은 유지합니다. 수동 니트로는 제거됐습니다. 도로 발판만 boostLeft를 설정하며 requestNitro는 구버전 호출 호환을 위한 false 반환 함수입니다. 구버전 nitroActive는 복원 시 끕니다. UI 입력은 countdown에서도 받아 출발 즉시 엑셀이 적용되고, 브레이크 UI/키는 없습니다. 메뉴·포커스 상실·포인터 취소의 입력 해제는 유지합니다.
+RaceSimulation.mode는 race/drive이며 구버전은 race로 복원합니다. drive는 라이벌0대·결승선 없음(경찰은 police 시나리오에서만 등장), finishDrive 결과를 RacingGarage.finish에서 모은 trackCoins만 한 번 정산합니다. completedDrives는 별도이며 race의 completedRaces/승수/스테이지/5회 보석 보상을 올리지 않습니다. selectedDriveMode와 진행 중 주행을 canonical 레코드에 저장합니다. 순위 경기의3위 이내 진출 규칙은 유지합니다. 수동 니트로는 제거됐습니다. 도로 발판만 boostLeft를 설정하며 requestNitro는 구버전 호출 호환을 위한 false 반환 함수입니다. 구버전 nitroActive는 복원 시 끕니다. UI 입력은 countdown에서도 받아 출발 즉시 엑셀이 적용되고, 브레이크 UI/키는 없습니다. 메뉴·포커스 상실·포인터 취소의 입력 해제는 유지합니다.
 
 `RACING_KEY= garden-racing-v1` 레코드는 canonical 경제 저장의 records 안에 선택적으로 생성합니다. 기존 GAME_KEYS 다섯 항목은 옛 백업 호환을 위해 그대로 두며 새 기기 백업 키를 추가하지 않습니다. 클라우드는 경제 저장 전체를 포함하므로 추가 서버 테이블 없이 레이싱도 백업/복원됩니다. 동전500개로 처음 시작하고 차량·튜닝은 레이싱 동전으로만 구매합니다.5회 완주당 공용 보석5개는 경제 milestone으로 한 번만 지급합니다. 사과 키우기 기록은 재사용하거나 삭제하지 않습니다.
 
@@ -286,11 +286,11 @@ quest는 body[data-game=quest]의 전체 화면입니다. 강화 숫자는 레�
 
 setViewport(viewWidth)는 초기 start 및 그리기 전에 현재 화면의 오른쪽 경계 entryRight를 계산합니다. 일반 적은 그 바깥85px부터, 보스는115px 바깥부터 나타납니다. 등장 중145px/s, 진입 후 일반32/보스48px/s로 걷습니다. 공격 대상은 화면 안에 들어온 적만 고르고, 보스도380x에 접근한 다음 공격합니다. ExpeditionJourney의 entryEdge 가중치가 새로 생성된 적을 카메라 압축으로 화면 안에 즉시 당기지 않게 합니다. 코인 이펙트의 위치 계산에도 entryEdge를 전달합니다.
 
-racing difficulty ID easy/hard/hell은 기존 저장과 보상을 위해 유지하되 화면 명칭은 쉬움/보통/어려움입니다. easy의 curve는 항상0, hard는 진폭36/12의 완만한 사인, hell은2600거리 주기의 부드러운 급커브 구간입니다. roadAngle은 도로의 접선으로 플레이어/일반 차/라이벌/경찰의 방향을 맞춥니다.
+racing difficulty ID easy/hard/hell은 기존 저장과 보상을 위해 유지하되 내부 곡률 ID입니다. 현재 레이스 UI는 쉬움/어려움만 노출하고 자유주행은 무한주행/어려움/경찰 추격으로 선택합니다. easy의 curve는 항상0, hard는 진폭36/12의 완만한 사인, hell은2600거리 주기의 부드러운 급커브 구간입니다. roadAngle은 도로의 접선으로 플레이어/일반 차/라이벌/경찰의 방향을 맞춥니다.
 
-수동 니트로 버튼/게이지와 Space 니트로 입력을 제거했습니다. 기존 upgrades.nitro와 car의 관련 숫자는 발판 성능과 저장 호환을 위해 유지하며 사용자 문구는 발판 부스트입니다. zones는 lane=0에서 생성하고 used 플래그로 한 번만 boostLeft를 설정합니다. boostLeft/driftLeft/driftCooldown은60Hz 프레임 숫자로 제한해서 저장하며 구버전 누락은0입니다. 기존 nitroActive/Held는 불러올 때 false로 바꿉니다.
+수동 니트로 버튼/게이지와 Space 니트로 입력을 제거했습니다. 기존 upgrades.nitro와 car의 관련 숫자는 발판 성능과 저장 호환을 위해 유지하며 사용자 문구는 발판 부스트입니다. zones는 무작위 차선에서 생성하고 used 플래그로 한 번만 boostLeft를 설정합니다. boostLeft/driftLeft/driftCooldown은60Hz 프레임 숫자로 제한해서 저장하며 구버전 누락은0입니다. 기존 nitroActive/Held는 불러올 때 false로 바꿉니다.
 
-v60에서 드리프트 버튼/Space 처리/회전 효과/타이어 자국을 제거했습니다. requestDrift는 false이며 구버전 driftLeft/cooldown도 복원 시0으로 바꿉니다. 어려움은 보통 레이싱3위 이내3회로 해금합니다. 보상·3위 진출·자유주행3회 충돌 규칙은 유지됩니다.
+v60에서 드리프트 버튼/Space 처리/회전 효과/타이어 자국을 제거했습니다. requestDrift는 false이며 구버전 driftLeft/cooldown도 복원 시0으로 바꿉니다. 어려움은 쉬움 레이싱3위 이내3회로 해금합니다. 기존 보통에서 달성한 진척도는 유지합니다. 자유주행은 HP가0이 되면 종료합니다.
 
 자동 검사36개와 실제 모듈 DOM/Canvas/SQLite 재현을 통과했습니다. Cloud desktop capability는 있지만 이 세션에는 cua_repl.js/브라우저 조작 도구가 없어 실제 브라우저 시각 QA는 수행하지 못했습니다. https://autocatalogarchive.com/index-brand/ 및 BMW/Audi의 직접 PDF 주소를 웹 도구와 HTTP 클라이언트로 확인했으나403이므로 사진은 가져오지 못했습니다. 링크만을 근거로 새 차량 이미지를 적용했다고 보고하지 않습니다.
 
@@ -310,10 +310,17 @@ MAX 단일 기준은 OVERFLOW_SECONDS=3입니다. old snapshot의 overflowTime�
 
 블록정원의 active 한 줄 정리 도구는 제거했습니다. over 상태에서만 ArcadeStore.revive로 동전을 지불하고 중앙4×4를 비우고 새 트레이를 받습니다. 점수/획득 보석/정리 칸은 주지 않습니다. 비용은50×2^revivals, 최대10회이며 timed는60초를 복구하고 challenge 목표 달성에는 부활을 제공하지 않습니다. round.revivals와 바뀐 보드·동전은 한 번에 저장하며 실패/잔액 부족/중복 클릭은 되돌리거나 거부합니다.
 
-RacingGarage.mediumPodiums는 race모드 difficulty=hard(화면 명칭 보통)의3위 이내 결과를 고유 receipt당 한 번 올립니다.3회면 hardUnlocked=true가 저장됩니다. 자유주행/쉬움/4위 이하는 인정하지 않습니다. 이전 selectedDifficulty=hell 또는 activeRace.difficulty=hell은 접근을 유지합니다. 선택과 출발 양쪽에 잠금을 적용하며 드리프트는 제거됐습니다.
+RacingGarage.mediumPodiums는 레거시 이름으로, 현재 race모드 difficulty=easy의3위 이내 결과를 고유 receipt당 한 번 올립니다. 기존 보통 결과도 보존하며 총3회면 hardUnlocked=true가 저장됩니다. 자유주행/4위 이하는 인정하지 않습니다. 이전 selectedDifficulty=hell 또는 activeRace.difficulty=hell은 접근을 유지합니다. 선택과 출발 양쪽에 잠금을 적용하며 드리프트는 제거됐습니다.
 
 원화/달러 스킨은 카탈로그에서 제거하고 owned/equipped 정리 및 removedMoneyV60으로 각80보석을 한 번 환급합니다. 기존 지갑·다른 스킨·기록은 유지합니다.
 
 0006_owner_coin_grant.sql은 사용자가 요청한 sanghyun8420 계정에 수박/사과/블록/원정대/레이싱 동전100000개씩 한 번 지급하는 배포 마이그레이션입니다. 계정명과 등록 계정 여부를 확인해 서버 cloud-save만 갱신하며 공개 지급 API나 클라이언트 보너스 분기가 없습니다. garden_coin_grants는 before/after_balances와 applied_at을 보관합니다. canonical wallet은 cloud envelope 안의 JSON문자열로 유지하고5개 recordVersions/전체 revision/cloud version을 올려 오래된 업로드가 덮지 못하게 합니다. 계정 보석/점수/게임판/다른 사용자/옛 사과 재배 잔액은 건드리지 않습니다. 재실행 영수증과 지갑 coinGrants marker로 중복 지급을 막습니다.
 
 검사38개 및 실제 앱 DOM/Canvas/SQLite 재현에서 횟수 제한·새 판 초기화·MAX3초 표시·블록50/100 부활·드리프트 제거·어려움 잠금/해금을 확인했습니다. 모바일 실기 시각 QA는 수행하지 못했습니다.
+
+
+## 경찰 추격과 사용 한도 v61
+
+수박 도구는 구매 수량에 사실상 상한을 두지 않으며 한 판 각5회 사용 제한은 유지합니다. 한도에 도달해도 사용 버튼을 눌러 이유를 확인할 수 있고 실제 재고와 횟수는 변하지 않습니다. 새 게임에서만 횟수를 초기화합니다.
+
+자유주행 시나리오는 endless/hard/police입니다. 경찰 추격은 20초마다 최대 별6개까지 늘며 순찰차는 별1/2/3부터 각각 1/2/4대, 별4부터 바리케이드, 별5부터 장갑차와 헬기, 별6부터 탱크가 추가됩니다. 자유주행 HP는100에서 충돌 피해를 받아0이 되면 종료하고 이어하기 저장에도 포함합니다. 레이스와 나머지 자유주행에는 경찰이 없습니다. 부스트 발판은 랜덤 차선, 도로 풍경은 저장된 seed로 구간마다 가로수/바다/빌딩을 선택하여 흔들림을 막습니다. 일반 차량 생성 빈도를 줄였습니다. 구버전 저장과 영수증·지갑·기록은 유지합니다.

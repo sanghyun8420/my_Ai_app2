@@ -367,6 +367,7 @@ function drop() {
 }
 
 async function shake() {
+  if(started&&progressStore.toolUses('shake')>=RUN_TOOL_LIMIT){toast('흔들기 사용 한도 초과! 한 판에 5회까지 사용할 수 있어요.');return;}
   if (!started || world.state!=='playing' || inventoryBusy || commerceBusy || erasingBusy || reviveBusy || (activeMode !== 'free' && progressStore.profile.inventory.shake <= 0) || world.time < shakeReadyAt || progressStore.toolUses('shake')>=RUN_TOOL_LIMIT || document.querySelector('dialog[open]')) return;
   if (!world.bodies.length) { toast('과일을 먼저 떨어뜨려주세요'); return; }
   inventoryBusy=true;updateShake();updateInventory();
@@ -396,14 +397,14 @@ function updateShake() {
   const shakes=progressStore.profile.inventory.shake;
   const cooldown = Math.max(0, Math.ceil(shakeReadyAt - world.time - 1e-6));
   $('shake-count').textContent = String(Math.min(activeMode==='free'?5:shakes,RUN_TOOL_LIMIT-progressStore.toolUses('shake')));
-  $('shake-button').disabled = !started || inventoryBusy || commerceBusy || erasingBusy || reviveBusy || world.state !== 'playing' || !world.bodies.length || (activeMode !== 'free' && shakes === 0) || world.time < shakeReadyAt || progressStore.toolUses('shake')>=RUN_TOOL_LIMIT;
+  $('shake-button').disabled = !started || inventoryBusy || commerceBusy || erasingBusy || reviveBusy || world.state !== 'playing' || (progressStore.toolUses('shake')<RUN_TOOL_LIMIT && (!world.bodies.length || (activeMode !== 'free' && shakes === 0) || world.time < shakeReadyAt));
   $('shake-button').setAttribute('aria-label', progressStore.toolUses('shake')>=RUN_TOOL_LIMIT?'이번 판 흔들기 5회 사용 완료':activeMode === 'free' ? '한 판에 5회 흔들기' : cooldown && shakes ? `흔들기 ${cooldown}초 후 사용 가능` : `흔들기 ${shakes}회 남음`);
 }
 
 function updateItem() {
   const total = itemCount + progressStore.profile.inventory.eraser;
   if ($('item-count').textContent !== String(total)) $('item-count').textContent = String(total);
-  $('item-button').disabled = !started || inventoryBusy || (world.state !== 'playing' && !eraseMode) || total < 1 || !world.bodies.length || erasingBusy || (!eraseMode && world.time < toolReadyAt.eraser) || progressStore.toolUses('eraser')>=RUN_TOOL_LIMIT;
+  $('item-button').disabled = !started || inventoryBusy || (world.state !== 'playing' && !eraseMode) || erasingBusy || (progressStore.toolUses('eraser')<RUN_TOOL_LIMIT && (total < 1 || !world.bodies.length || (!eraseMode && world.time < toolReadyAt.eraser)));
   $('item-button').setAttribute('aria-label', `선택 지우개, ${total}개 보유. 없앨 과일 하나를 선택하세요`);
   $('item-tray').classList.toggle('item-ready', started && total > 0);
   $('item-tray').classList.toggle('selecting', eraseMode);
@@ -412,6 +413,7 @@ function updateItem() {
 }
 
 function useItem() {
+  if(started&&progressStore.toolUses('eraser')>=RUN_TOOL_LIMIT){toast('지우개 사용 한도 초과! 한 판에 5회까지 사용할 수 있어요.');return;}
   if (eraseMode) { cancelErase(); return; }
   if (!started || inventoryBusy || erasingBusy || world.time < toolReadyAt.eraser || world.state !== 'playing' || itemCount + progressStore.profile.inventory.eraser < 1 || !world.bodies.length || document.querySelector('dialog[open]') || progressStore.toolUses('eraser')>=RUN_TOOL_LIMIT) return;
   eraseMode = true; world.state = 'paused'; selectedFruitId = world.bodies[0].id;
@@ -626,8 +628,8 @@ function renderShop(force = false) {
       stock.textContent=`보유 ${profile.inventory[item.id]+(item.id==='eraser'?itemCount:0)}개`;
       const actions=document.createElement('div');actions.className='item-actions';
       const buy=document.createElement('button');buy.type='button';buy.className='skin-buy';
-      buy.textContent=profile.inventory[item.id]>=999?'가방이 가득해요':profile.coins<item.price?`수박 동전 ${item.price-profile.coins}개 더 필요`:'1개 구매';
-      buy.disabled=commerceBusy||inventoryBusy||profile.coins<item.price||profile.inventory[item.id]>=999;
+      buy.textContent=profile.inventory[item.id]>=Number.MAX_SAFE_INTEGER?'가방이 가득해요':profile.coins<item.price?`수박 동전 ${item.price-profile.coins}개 더 필요`:'1개 구매';
+      buy.disabled=commerceBusy||inventoryBusy||profile.coins<item.price||profile.inventory[item.id]>=Number.MAX_SAFE_INTEGER;
       buy.addEventListener('click',()=>purchaseShopItem('items',item));
       const use=document.createElement('button');use.type='button';use.className='secondary-button';
       const availability=inventoryAvailability(item.id);
@@ -664,7 +666,7 @@ async function purchaseShopItem(category, item) {
 function inventoryAvailability(id) {
   if (!ITEMS.some(item => item.id === id)) return {ok:false,reason:'알 수 없는 도구'};
   const stock=progressStore.profile.inventory[id]+(id==='eraser'?itemCount:0);
-  if(progressStore.toolUses(id)>=RUN_TOOL_LIMIT)return {ok:false,reason:'이번 판 5회 사용 완료'};
+  if(progressStore.toolUses(id)>=RUN_TOOL_LIMIT)return {ok:false,reason:'사용 한도 초과! 한 판에 5회까지 사용할 수 있어요.'};
   if (stock<1) return {ok:false,reason:'보유 아이템 없음'};
   if (!started||roundCredited||world.state==='over'||resumeAvailable) return {ok:false,reason:'플레이 중 사용'};
   const cooldown = Math.ceil((toolReadyAt[id] || 0) - world.time - 1e-6);
@@ -681,9 +683,9 @@ function updateInventory() {
   $('bag-count').textContent=String(count);
   for (const id of ['shake','calm']) {
     $(`inventory-${id}-count`).textContent=String(inventory[id]);
-    $(`inventory-${id}`).disabled=(id==='shake'?(progressStore.profile.coins<ITEMS.find(item=>item.id===id).price||inventory[id]>=999):!inventoryAvailability(id).ok)||inventoryBusy||commerceBusy||erasingBusy||reviveBusy;
+    $(`inventory-${id}`).disabled=(id==='shake'?(progressStore.profile.coins<ITEMS.find(item=>item.id===id).price||inventory[id]>=Number.MAX_SAFE_INTEGER):(!inventoryAvailability(id).ok&&!(started&&progressStore.toolUses(id)>=RUN_TOOL_LIMIT)))||inventoryBusy||commerceBusy||erasingBusy||reviveBusy;
   }
-  for(const button of document.querySelectorAll('[data-buy-tool]')){const item=ITEMS.find(entry=>entry.id===button.dataset.buyTool);if(!item)continue;button.textContent=`🪙 ${item.price} 구매`;button.title=`수박 동전 ${item.price}개로 ${item.name} 구매`;button.disabled=progressStore.profile.coins<item.price||inventory[item.id]>=999||inventoryBusy||commerceBusy||erasingBusy||reviveBusy;}
+  for(const button of document.querySelectorAll('[data-buy-tool]')){const item=ITEMS.find(entry=>entry.id===button.dataset.buyTool);if(!item)continue;button.textContent=`🪙 ${item.price} 구매`;button.title=`수박 동전 ${item.price}개로 ${item.name} 구매`;button.disabled=progressStore.profile.coins<item.price||inventory[item.id]>=Number.MAX_SAFE_INTEGER||inventoryBusy||commerceBusy||erasingBusy||reviveBusy;}
   updateToolHud();
 }
 

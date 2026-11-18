@@ -46,7 +46,7 @@ export class RacingGarage {
  constructor({storage=globalThis.localStorage}={}){
   this.economy=new GameEconomy(storage,RACING_KEY);const old=this.economy.read();
   const unlockedCars=[...new Set(['c_class',...(Array.isArray(old.unlockedCars)?old.unlockedCars.filter(id=>CARS.some(c=>c.id===id)):[])])];
-  this.data=this.economy.bind({coins:whole(old.coins,500),stage:Math.max(1,whole(old.stage,1)),unlockedCars,selectedDriveMode:old.selectedDriveMode==='drive'?'drive':'race',completedDrives:whole(old.completedDrives),selectedCarId:unlockedCars.includes(old.selectedCarId)?old.selectedCarId:'c_class',selectedCategory:['all','luxury','supercar'].includes(old.selectedCategory)?old.selectedCategory:'all',selectedDifficulty:DIFFICULTIES[old.selectedDifficulty]?old.selectedDifficulty:'easy',upgrades:Object.fromEntries(CARS.map(car=>[car.id,Object.fromEntries(['speed','handling','nitro'].map(k=>[k,clamp(whole(old.upgrades?.[car.id]?.[k],1),1,5)]))])),mediumPodiums:whole(old.mediumPodiums),hardUnlocked:old.hardUnlocked===true||old.hardUnlocked===undefined&&(old.selectedDifficulty==='hell'||old.activeRace?.difficulty==='hell'),completedRaces:whole(old.completedRaces),wins:whole(old.wins),earnedCoins:whole(old.earnedCoins),seconds:whole(old.seconds),bestRank:clamp(whole(old.bestRank,7),1,7),receipts:Array.isArray(old.receipts)?old.receipts.filter(id=>typeof id==='string').slice(0,32):[],activeRace:RaceSimulation.restore(old.activeRace)?.serialize()||null});
+  this.data=this.economy.bind({coins:whole(old.coins,500),stage:Math.max(1,whole(old.stage,1)),unlockedCars,selectedDriveMode:old.selectedDriveMode==='drive'?'drive':'race',selectedDriveScenario:['endless','hard','police'].includes(old.selectedDriveScenario)?old.selectedDriveScenario:'endless',completedDrives:whole(old.completedDrives),selectedCarId:unlockedCars.includes(old.selectedCarId)?old.selectedCarId:'c_class',selectedCategory:['all','luxury','supercar'].includes(old.selectedCategory)?old.selectedCategory:'all',selectedDifficulty:old.selectedDifficulty==='hell'?'hell':'easy',upgrades:Object.fromEntries(CARS.map(car=>[car.id,Object.fromEntries(['speed','handling','nitro'].map(k=>[k,clamp(whole(old.upgrades?.[car.id]?.[k],1),1,5)]))])),mediumPodiums:whole(old.easyPodiums,whole(old.mediumPodiums)),hardUnlocked:old.hardUnlocked===true||old.hardUnlocked===undefined&&(old.selectedDifficulty==='hell'||old.activeRace?.difficulty==='hell'),completedRaces:whole(old.completedRaces),wins:whole(old.wins),earnedCoins:whole(old.earnedCoins),seconds:whole(old.seconds),bestRank:clamp(whole(old.bestRank,7),1,7),receipts:Array.isArray(old.receipts)?old.receipts.filter(id=>typeof id==='string').slice(0,32):[],activeRace:RaceSimulation.restore(old.activeRace)?.serialize()||null});
  }
  get hardUnlocked(){return this.data.hardUnlocked||this.data.mediumPodiums>=3;}
  get car(){return effectiveCar(carById(this.data.selectedCarId),this.data.upgrades[this.data.selectedCarId]);}
@@ -54,7 +54,7 @@ export class RacingGarage {
  transaction(change){const before=clone(this.data),delta=this.economy.delta;try{const value=change();this.save();return value;}catch(error){this.data=this.economy.restore(before,delta);throw error;}}
  chooseCar(id){const car=CARS.find(c=>c.id===id);if(!car)throw Error('차량을 확인해 주세요.');return this.transaction(()=>{if(!this.data.unlockedCars.includes(id)){if(this.data.coins<car.price)throw Error(`레이싱 동전 ${(car.price-this.data.coins).toLocaleString()}개가 부족해요.`);this.data.coins-=car.price;this.data.unlockedCars.push(id);}this.data.selectedCarId=id;});}
  upgrade(key){if(!['speed','handling','nitro'].includes(key))throw Error('튜닝 항목을 확인해 주세요.');return this.transaction(()=>{const u=this.data.upgrades[this.data.selectedCarId],level=u[key];if(level>=5)throw Error('이미 최고 레벨이에요.');const price=UPGRADE_COSTS[level];if(this.data.coins<price)throw Error('레이싱 동전이 부족해요.');this.data.coins-=price;u[key]++;});}
- select(key,value){if(key==='selectedDifficulty'&&!DIFFICULTIES[value]||key==='selectedCategory'&&!['all','luxury','supercar'].includes(value)||key==='selectedDriveMode'&&!['drive','race'].includes(value)||!['selectedDifficulty','selectedCategory','selectedDriveMode'].includes(key))throw Error('선택을 확인해 주세요.');if(key==='selectedDifficulty'&&value==='hell'&&!this.hardUnlocked)throw Error('보통 레이싱에서3위 이내로3회 완주하면 어려움이 열려요.');this.transaction(()=>{this.data[key]=value;});}
+ select(key,value){if(key==='selectedDifficulty'&&!DIFFICULTIES[value]||key==='selectedCategory'&&!['all','luxury','supercar'].includes(value)||key==='selectedDriveMode'&&!['drive','race'].includes(value)||!['selectedDifficulty','selectedCategory','selectedDriveMode','selectedDriveScenario'].includes(key))throw Error('선택을 확인해 주세요.');if(key==='selectedDriveScenario'&&!['endless','hard','police'].includes(value))throw Error('주행 모드를 확인해 주세요.');if(key==='selectedDifficulty'&&value==='hell'&&!this.hardUnlocked)throw Error('쉬움 레이싱에서3위 이내로3회 완주하면 어려움이 열려요.');this.transaction(()=>{this.data[key]=value;});}
  checkpoint(race){this.transaction(()=>{this.data.activeRace=race&&['countdown','racing'].includes(race.phase)?race.serialize():null;});}
  finish(result){
   if(!result||typeof result.id!=='string'||!DIFFICULTIES[result.difficulty]||!Number.isSafeInteger(result.stage)||result.stage<1||!Number.isInteger(result.rank)||result.rank<1||result.rank>7||!Number.isSafeInteger(result.trackCoins)||result.trackCoins<0||!Number.isFinite(result.seconds)||result.seconds<0)throw Error('레이스 결과를 확인해 주세요.');
@@ -63,14 +63,14 @@ export class RacingGarage {
   if(result.difficulty!==this.data.activeRace.difficulty)throw Error('진행한 난이도를 확인해 주세요.');
   const driving=result.mode==='drive';if((this.data.activeRace.mode==='drive')!==driving)throw Error('주행 종류를 확인해 주세요.');
   const bonus=driving?0:Math.round(DIFFICULTIES[result.difficulty].reward*(1+(result.stage-1)*.15)*[0,1,.7,.5,.35,.25,.2,.15][result.rank]),total=result.trackCoins+bonus;
-  return this.transaction(()=>{if(!Number.isSafeInteger(total)||!Number.isSafeInteger(this.data.coins+total))throw Error('동전 한도를 확인해 주세요.');this.data.coins+=total;this.data.earnedCoins+=total;if(driving)this.data.completedDrives++;else{this.data.completedRaces++;if(result.rank===1)this.data.wins++;if(result.difficulty==='hard'&&result.rank<=3){this.data.mediumPodiums++;if(this.data.mediumPodiums>=3)this.data.hardUnlocked=true;}this.data.bestRank=Math.min(this.data.bestRank,result.rank);if(result.rank<=3)this.data.stage=Math.max(this.data.stage,result.stage+1);}this.data.seconds+=Math.floor(result.seconds);this.data.receipts.unshift(result.id);this.data.receipts.length=Math.min(32,this.data.receipts.length);this.data.activeRace=null;return {awarded:true,total,bonus,qualified:!driving&&result.rank<=3,nextStage:this.data.stage};});
+  return this.transaction(()=>{if(!Number.isSafeInteger(total)||!Number.isSafeInteger(this.data.coins+total))throw Error('동전 한도를 확인해 주세요.');this.data.coins+=total;this.data.earnedCoins+=total;if(driving)this.data.completedDrives++;else{this.data.completedRaces++;if(result.rank===1)this.data.wins++;if(result.difficulty==='easy'&&result.rank<=3){this.data.mediumPodiums++;if(this.data.mediumPodiums>=3)this.data.hardUnlocked=true;}this.data.bestRank=Math.min(this.data.bestRank,result.rank);if(result.rank<=3)this.data.stage=Math.max(this.data.stage,result.stage+1);}this.data.seconds+=Math.floor(result.seconds);this.data.receipts.unshift(result.id);this.data.receipts.length=Math.min(32,this.data.receipts.length);this.data.activeRace=null;return {awarded:true,total,bonus,qualified:!driving&&result.rank<=3,nextStage:this.data.stage};});
  }
 }
 export class RaceSimulation {
- constructor({car=CARS[0],difficulty='easy',stage=1,mode='race',random=Math.random,id}={}){
+ constructor({car=CARS[0],difficulty='easy',stage=1,mode='race',scenario='endless',random=Math.random,id}={}){
   this.id=id||`race-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;this.car=car.nitroDrainRate?{...car}:effectiveCar(car);this.difficulty=DIFFICULTIES[difficulty]?difficulty:'easy';this.stage=Math.max(1,whole(stage,1));this.phase='countdown';this.countdown=2.25;this.elapsed=0;this.tick=0;this.distance=0;this.speed=0;this.x=-.72;this.tilt=0;this.jump=0;this.jumpVelocity=0;this.nitro=55;this.boosting=false;this.invulnerable=0;this.trackCoins=0;this.policeLeft=0;this.nextPolice=this.diff.police;this.traffic=[];this.coins=[];this.ramps=[];this.zones=[];this.police=[];this.events=[];this.accumulator=0;this.random=random;
   this.mode=mode==='drive'?'drive':'race';this.x=0;this.nitroActive=false;this.nitroHeld=false;
-  this.viewTop=0;this.collisions=0;this.boostLeft=0;this.driftLeft=0;this.driftCooldown=0;this.driftSign=1;
+  this.scenario=['endless','hard','police'].includes(scenario)?scenario:'endless';this.scenerySeed=Math.floor(this.random()*1000000);this.hp=100;this.wanted=0;this.roadblocks=[];this.viewTop=0;this.collisions=0;this.boostLeft=0;this.driftLeft=0;this.driftCooldown=0;this.driftSign=1;
   this.rivals=this.mode==='drive'?[]:this.diff.ids.map((id,i)=>({id,lane:[-.44,-.15,.15,.44,.72,-.72][i],target:[-.44,-.15,.15,.44,.72,-.72][i],distance:(i+1)*7,speed:this.diff.speeds[i]*(1+(this.stage-1)*.065),phase:i*1.45}));
  }
  get diff(){return DIFFICULTIES[this.difficulty];}
@@ -88,13 +88,13 @@ export class RaceSimulation {
  requestDrift(){return false;}
  // Legacy entry point remains inert for old callers; road pads are the only boost source.
  requestNitro(){return false;}
- finishDrive(crashed=false){if(this.mode!=='drive'||this.phase==='finished')return false;this.phase='finished';this.boosting=false;this.nitroActive=false;this.result={id:this.id,mode:'drive',crashed,collisions:this.collisions,stage:this.stage,difficulty:this.difficulty,rank:1,seconds:this.elapsed,trackCoins:this.trackCoins};this.emit('finish');return true;}
+ finishDrive(crashed=false){if(this.mode!=='drive'||this.phase==='finished')return false;this.phase='finished';this.boosting=false;this.nitroActive=false;this.result={id:this.id,mode:'drive',crashed,collisions:this.collisions,hp:this.hp,scenario:this.scenario,wanted:this.wanted,stage:this.stage,difficulty:this.difficulty,rank:1,seconds:this.elapsed,trackCoins:this.trackCoins};this.emit('finish');return true;}
  screenX(lane,y){return 300+this.curve(this.distance+(533-y)/1.45)-this.curve(this.distance)+lane*220;}
  emit(type,extra={}){this.events.push({type,...extra});}
  update(dt,input={}){if(!Number.isFinite(dt)||dt<=0||this.phase==='finished')return;this.accumulator+=Math.min(.25,dt);while(this.accumulator>=1/60){this.accumulator-=1/60;this.step(input);if(this.phase==='finished')break;}}
  step(input){
   if(this.phase==='countdown'){this.countdown-=1/60;if(this.countdown<=0){this.phase='racing';this.emit('go');}return;}
-  if(this.phase!=='racing')return;this.tick++;this.elapsed+=1/60;const car=this.car,d=this.diff;
+  if(this.phase!=='racing')return;this.tick++;this.elapsed+=1/60;const car=this.car,d=this.diff;if(this.mode==='drive'&&this.scenario==='police')this.wanted=Math.min(6,1+Math.floor(this.elapsed/20));
   if(this.boostLeft>0)this.boostLeft--;if(this.driftLeft>0)this.driftLeft--;if(this.driftCooldown>0)this.driftCooldown--;this.boosting=this.boostLeft>0;
   const top=car.scrollSpeed*(this.boosting?Math.max(1.3,car.nitroPower):1);
   if(input.accel||this.boosting)this.speed+=(top-this.speed)*(this.boosting?.055:.035);else this.speed=this.speed<.05?0:this.speed*.985;
@@ -108,19 +108,27 @@ export class RaceSimulation {
   this.rivals.forEach((r,i)=>{r.distance+=(r.speed+Math.sin(this.tick*.03+r.phase)*.65)*WORLD_TRAVEL_SCALE;if((this.tick+i*29)%105===0)r.target=[-.68,-.35,0,.35,.68][Math.floor(this.random()*5)];r.lane+=(r.target-r.lane)*.04;});
   const lane=()=>[-.68,-.23,.23,.68][Math.floor(this.random()*4)],spawn=(array,e)=>{if(array.length<60)array.push(e);};
   if(this.speed>.6){
-   if(this.tick%Math.max(36,Math.round(d.traffic*Math.max(.68,1-(this.stage-1)*.05)))===0)spawn(this.traffic,{lane:lane(),y:this.viewTop-90,speed:d.trafficMin+this.random()*(d.trafficMax-d.trafficMin),color:['#64748b','#0ea5e9','#10b981','#eab308','#ec4899'][Math.floor(this.random()*5)]});
+   if(this.tick%Math.max(36,Math.round(d.traffic*2*Math.max(.68,1-(this.stage-1)*.05)))===0)spawn(this.traffic,{lane:lane(),y:this.viewTop-90,speed:d.trafficMin+this.random()*(d.trafficMax-d.trafficMin),color:['#64748b','#0ea5e9','#10b981','#eab308','#ec4899'][Math.floor(this.random()*5)]});
    if(this.tick%d.coin===0)spawn(this.coins,{lane:lane(),y:this.viewTop-40,value:this.difficulty==='hell'?35:this.difficulty==='hard'?22:12});
-   if(this.tick%d.ramp===0)spawn(this.ramps,{lane:lane(),y:this.viewTop-80});if(this.tick%d.nitro===0)spawn(this.zones,{lane:0,y:this.viewTop-110});
+   if(this.tick%d.ramp===0)spawn(this.ramps,{lane:lane(),y:this.viewTop-80});if(this.tick%d.nitro===0)spawn(this.zones,{lane:lane(),y:this.viewTop-110});
   }
   const touching=(e,width,height)=>Math.abs(this.screenX(e.lane,e.y)-(300+this.x*220))<width&&Math.abs(e.y-533)<height;
   for(const z of this.zones){z.y+=this.speed*1.45*WORLD_TRAVEL_SCALE;if(!z.used&&!this.jump&&touching(z,58,48)){z.used=true;this.boostLeft=120+Math.round((car.nitroPadGain-1.3)*35);this.boosting=true;this.speed=Math.max(this.speed,car.scrollSpeed*.7);this.emit('boost');}}
   for(const r of this.ramps){r.y+=this.speed*1.45*WORLD_TRAVEL_SCALE;if(!r.used&&!this.jump&&this.speed>4&&touching(r,34,36)){r.used=true;this.jump=1;this.jumpVelocity=9.8;this.speed+=2.2;this.trackCoins+=15;this.emit('jump');}}
-  const collide=()=>{this.invulnerable=90;this.speed*=.55;this.collisions++;this.emit('hit',{collisions:this.collisions});if(this.mode==='drive'&&this.collisions>=3)this.finishDrive(true);};
+  const collide=(damage=25)=>{this.invulnerable=75;this.speed*=.65;this.collisions++;if(this.mode==='drive'){this.hp=Math.max(0,this.hp-(this.scenario==='hard'?Math.max(damage,40):damage));}this.emit('hit',{collisions:this.collisions,hp:this.hp});if(this.mode==='drive'&&this.hp<=0)this.finishDrive(true);};
   for(const t of this.traffic){t.y+=(this.speed-t.speed)*1.45*WORLD_TRAVEL_SCALE;if(this.phase==='racing'&&!t.hit&&this.jump<12&&!this.invulnerable&&touching(t,28,52)){t.hit=true;collide();}}
   if(this.phase==='finished')return;
   this.coins=this.coins.filter(c=>{c.y+=this.speed*1.45*WORLD_TRAVEL_SCALE;if(touching(c,34,46)){this.trackCoins+=c.value;this.emit('coin');return false;}return c.y<840;});
-  if(this.mode!=='drive'&&!this.policeLeft&&this.distance>=this.nextPolice&&this.distance<this.length-900){this.policeLeft=540;this.nextPolice+=d.police;this.police=[{lane:-.4,y:this.viewTop-100},{lane:.4,y:this.viewTop-240}];this.emit('police');}
-  if(this.policeLeft){this.policeLeft--;this.police.forEach((p,i)=>{p.y+=clamp(((i?408:621)-p.y)*.04,-14,14)+Math.sin(this.tick*.08+i*2.1)*2.2;p.lane+=(this.x-p.lane)*.024;if(this.jump<14&&!this.invulnerable&&touching(p,30,52)){collide();this.trackCoins=Math.max(0,this.trackCoins-30);this.emit('fine');}});if(!this.policeLeft){this.police=[];this.trackCoins+=150;this.emit('escaped');}}
+  // Police pursue only in the dedicated endless-drive mode.
+  if(this.mode==='drive'&&this.scenario==='police'){
+   const count=this.wanted<2?1:this.wanted<3?2:4;
+   const types=Array(count).fill('patrol');if(this.wanted>=5)types.push('armored','helicopter');if(this.wanted>=6)types.push('tank');
+   while(this.police.length<types.length){const i=this.police.length;this.police.push({lane:(i%2?1:-1)*.55,y:this.viewTop-100-i*90,kind:types[i]});}
+   this.police.forEach((p,i)=>{p.kind=types[i];const target=533+Math.sin(this.tick*.017+i*1.9)*110;p.y+=clamp((target-p.y)*.018,-6,6);p.lane+=(this.x-p.lane)*.012;if(this.jump<14&&!this.invulnerable&&touching(p,p.kind==='tank'?42:30,55))collide(p.kind==='tank'?40:p.kind==='armored'?30:p.kind==='helicopter'?12:20);});
+   if(this.wanted>=4&&this.tick%420===0&&this.roadblocks.length<8)this.roadblocks.push({lane:lane(),y:this.viewTop-100});
+   for(const block of this.roadblocks){block.y+=this.speed*1.45*WORLD_TRAVEL_SCALE;if(!block.used&&this.jump<12&&!this.invulnerable&&touching(block,42,34)){block.used=true;collide(30);}}
+   this.roadblocks=this.roadblocks.filter(b=>b.y<1100);
+  }else this.police=[];
   for(const key of ['traffic','ramps','zones'])this[key]=this[key].filter(e=>e.y>Math.min(-280,this.viewTop-280)&&e.y<1100);
   if(this.phase==='racing'&&this.mode!=='drive'&&this.distance>=this.length){this.phase='finished';this.boosting=false;this.result={id:this.id,mode:'race',stage:this.stage,difficulty:this.difficulty,rank:this.rank,seconds:this.elapsed,trackCoins:this.trackCoins};this.emit('finish');}
  }
@@ -128,14 +136,20 @@ export class RaceSimulation {
  static restore(value){
   try{if(!value||value.version!==1||typeof value.id!=='string'||value.id.length>100||!['countdown','racing'].includes(value.phase)||!DIFFICULTIES[value.difficulty]||!Number.isSafeInteger(value.stage)||value.stage<1||value.stage>100000)return null;
    for(const k of ['countdown','elapsed','tick','distance','speed','x','tilt','jump','jumpVelocity','nitro','invulnerable','trackCoins','policeLeft','nextPolice'])if(!Number.isFinite(value[k])||Math.abs(value[k])>1e12)return null;
+   if(value.elapsed<0)return null;
    if(!CARS.some(c=>c.id===value.car?.id)||!['scrollSpeed','handling','maxSpeed','nitroPower','nitroDrainRate','nitroPadGain'].every(k=>Number.isFinite(value.car[k])&&value.car[k]>0)||value.nitro<0||value.nitro>100||value.trackCoins<0)return null;
    for(const k of ['rivals','traffic','coins','ramps','zones','police']){if(!Array.isArray(value[k])||value[k].length>60)return null;for(const e of value[k]){if(!e||typeof e!=='object'||!Number.isFinite(e.lane)||Math.abs(e.lane)>2)return null;for(const [key,n]of Object.entries(e))if(typeof n==='number'&&(!Number.isFinite(n)||Math.abs(n)>1e12))return null;}}
    for(const k of ['boostLeft','driftLeft','driftCooldown'])if(value[k]!==undefined&&(!Number.isInteger(value[k])||value[k]<0||value[k]>600))return null;
    if(value.driftSign!==undefined&&![-1,1].includes(value.driftSign))return null;
+   if(value.scenerySeed!==undefined&&(!Number.isInteger(value.scenerySeed)||value.scenerySeed<0||value.scenerySeed>=1000000))return null;
+   if(value.wanted!==undefined&&(!Number.isInteger(value.wanted)||value.wanted<0||value.wanted>6))return null;
+   if(value.hp!==undefined&&(!Number.isFinite(value.hp)||value.hp<0||value.hp>100))return null;
+   if(value.scenario!==undefined&&!['endless','hard','police'].includes(value.scenario))return null;
+   if(value.roadblocks!==undefined&&(!Array.isArray(value.roadblocks)||value.roadblocks.length>8||value.roadblocks.some(e=>!e||!Number.isFinite(e.lane)||Math.abs(e.lane)>2||!Number.isFinite(e.y))))return null;
    if(value.collisions!==undefined&&(!Number.isInteger(value.collisions)||value.collisions<0||value.collisions>100000))return null;
    if(value.mode!==undefined&&!['race','drive'].includes(value.mode)||value.nitroActive!==undefined&&typeof value.nitroActive!=='boolean'||value.nitroHeld!==undefined&&typeof value.nitroHeld!=='boolean')return null;
-   if(value.rivals.length!==(value.mode==='drive'?0:6)||value.rivals.some(r=>!CARS.some(c=>c.id===r.id)||!['target','distance','speed','phase'].every(k=>Number.isFinite(r[k])))||value.police.length>2||value.traffic.some(e=>!Number.isFinite(e.y)||!Number.isFinite(e.speed))||[...value.coins,...value.ramps,...value.zones,...value.police].some(e=>!Number.isFinite(e.y))||value.coins.some(e=>!Number.isSafeInteger(e.value)||e.value<0))return null;
-   const race=new RaceSimulation({car:effectiveCar(CARS[0]),difficulty:value.difficulty,stage:value.stage,id:value.id});const allowed=Object.keys(race.serialize());for(const key of allowed)if(Object.hasOwn(value,key))race[key]=clone(value[key]);for(const key of ['bodyColor','accentColor','stripeColor','bodyType'])race.car[key]=carById(race.car.id)[key];race.driftLeft=0;race.driftCooldown=0;race.nitroActive=false;race.nitroHeld=false;race.boosting=race.boostLeft>0;race.random=Math.random;race.events=[];race.accumulator=0;return race;
+   if(value.rivals.length!==(value.mode==='drive'?0:6)||value.rivals.some(r=>!CARS.some(c=>c.id===r.id)||!['target','distance','speed','phase'].every(k=>Number.isFinite(r[k])))||value.police.length>7||value.traffic.some(e=>!Number.isFinite(e.y)||!Number.isFinite(e.speed))||[...value.coins,...value.ramps,...value.zones,...value.police].some(e=>!Number.isFinite(e.y))||value.coins.some(e=>!Number.isSafeInteger(e.value)||e.value<0))return null;
+   const race=new RaceSimulation({car:effectiveCar(CARS[0]),difficulty:value.difficulty,stage:value.stage,id:value.id});const allowed=Object.keys(race.serialize());for(const key of allowed)if(Object.hasOwn(value,key))race[key]=clone(value[key]);for(const key of ['bodyColor','accentColor','stripeColor','bodyType'])race.car[key]=carById(race.car.id)[key];if(value.hp===undefined)race.hp=Math.max(1,100-(value.collisions||0)*25);if(value.scenario===undefined)race.scenario='endless';if(value.roadblocks===undefined)race.roadblocks=[];race.driftLeft=0;race.driftCooldown=0;race.nitroActive=false;race.nitroHeld=false;race.boosting=race.boostLeft>0;race.random=Math.random;race.events=[];race.accumulator=0;return race;
   }catch{return null;}
  }
 }
