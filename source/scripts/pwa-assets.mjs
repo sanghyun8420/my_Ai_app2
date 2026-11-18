@@ -4,7 +4,7 @@ import path from 'node:path';
 
 /** Generate separately for native and Pages: their API adapter and base path differ. */
 export async function writeServiceWorker(directory) {
-  const names = (await readdir(directory)).filter(name => /\.(?:html|js|css|svg|png|webmanifest)$/.test(name) && !['sw.js', 'github-pages-download.html'].includes(name)).sort();
+  const names = (await readdir(directory)).filter(name => /\.(?:html|js|css|svg|png|webp|webmanifest)$/.test(name) && !['sw.js', 'github-pages-download.html'].includes(name)).sort();
   const hash = createHash('sha256');
   hash.update(await readFile(new URL(import.meta.url)));
   for (const name of names) { hash.update(name); hash.update(await readFile(path.join(directory, name))); }

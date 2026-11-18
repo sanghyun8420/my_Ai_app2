@@ -1,5 +1,6 @@
 import {vehicleDimensions} from './racing-model.js';
 import {CAR_SPRITES, SPEED_ASSETS} from './racing-sprites.js';
+import {referenceCars} from './racing-reference.js';
 
 export const RACER_PHOTOS_READY = 'garden-racing-photos-ready';
 
@@ -11,9 +12,9 @@ function loadSprite(source, onLoad) {
  return image;
 }
 
-const photoAtlas = loadSprite(SPEED_ASSETS.cars, () => {
- globalThis.dispatchEvent?.(new Event(RACER_PHOTOS_READY));
-});
+const refreshCarPreviews = () => globalThis.dispatchEvent?.(new Event(RACER_PHOTOS_READY));
+const photoAtlas = loadSprite(SPEED_ASSETS.cars, refreshCarPreviews);
+const referenceAtlas = loadSprite(new URL('./racing-reference.webp', import.meta.url).href, refreshCarPreviews);
 const npcAtlas = loadSprite(SPEED_ASSETS.npc);
 const buildingAtlas = loadSprite(SPEED_ASSETS.buildings);
 const roadAtlas = loadSprite(SPEED_ASSETS.road);
@@ -74,8 +75,11 @@ export function drawRaceCar(c, x, y, width, length, angle, config, options = {})
   c.restore();
   return;
  }
- if (row >= 0 && spriteReady(photoAtlas)) {
-  c.drawImage(photoAtlas, 322, row * 190 + 4, 90, 182, -w / 2, -h / 2, w, h);
+ const reference = Object.hasOwn(referenceCars, config.id) ? referenceCars[config.id] : null;
+ const top = reference && spriteReady(referenceAtlas) ? reference.top : null;
+ if (top || (row >= 0 && spriteReady(photoAtlas))) {
+  if (top) c.drawImage(referenceAtlas, ...top, -w / 2, -h / 2, w, h);
+  else c.drawImage(photoAtlas, 322, row * 190 + 4, 90, 182, -w / 2, -h / 2, w, h);
   if (brake) {
    c.fillStyle = '#ff473f';
    c.fillRect(-w * .33, h * .42, w * .66, 2);
@@ -350,6 +354,25 @@ export function carFaceFamily(car){return ['3_series','5_series','x5','x6m','xm'
  */
 export function drawFrontCar(c,car){
  const row = CAR_SPRITES.indexOf(car.id);
+ const reference = Object.hasOwn(referenceCars, car.id) ? referenceCars[car.id] : null;
+ if (reference && spriteReady(referenceAtlas)) {
+  const source = reference.portrait;
+  const width = 910;
+  const height = width * source[3] / source[2];
+  const imageY = (560 - height) / 2;
+  c.save();
+  const base = 280 + height / 2 - 10;
+  const shadow = c.createRadialGradient(500, base, 20, 500, base, 460);
+  shadow.addColorStop(0, '#10182758');
+  shadow.addColorStop(1, '#10182700');
+  c.fillStyle = shadow;
+  c.beginPath();
+  c.ellipse(500, base, 470, 25, 0, 0, Math.PI * 2);
+  c.fill();
+  c.drawImage(referenceAtlas, ...source, (1000 - width) / 2, imageY, width, height);
+  c.restore();
+  return;
+ }
  if (row >= 0 && spriteReady(photoAtlas)) {
   c.save();
   // The 318×190 image remains in proportion in both the shop and showroom.

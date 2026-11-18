@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {createCanvas,Image}=require('@napi-rs/canvas');
+const {createCanvas,loadImage}=require('@napi-rs/canvas');
 (async()=>{
  const {CARS,RaceSimulation,effectiveCar}=await import('../dist/racing-model.js');
  const {drawRaceCar,drawRaceScene,drawFrontCar,carFaceFamily,roadSceneFeatures}=await import('../dist/racing-art.js');
@@ -29,17 +29,56 @@ const {createCanvas,Image}=require('@napi-rs/canvas');
  tall.rivals=[{id:'a5',lane:0,distance:650}];const visible=createCanvas(600,1400);drawRaceScene(visible.getContext('2d'),tall,0,{},1400,300);assert.notDeepEqual(visible.getContext('2d').getImageData(0,0,600,300).data,before,'rivals entering the upper part of a tall road cannot be culled at the old screen boundary');
  // Use the same atlases and rendering branches as a browser once images decode.
  const images=[];
- global.Image=class extends Image{constructor(){super();images.push(this);}};
+ global.Image=class{
+  constructor(){images.push(this);}
+  set src(value){
+   this.decoding=loadImage(value.startsWith('file:')?new URL(value):value).then(image=>{
+    this.image=image;
+    this.complete=true;
+    this.naturalWidth=image.width;
+    this.naturalHeight=image.height;
+   });
+  }
+ };
  const textured=await import('../dist/racing-art.js?atlas-test');
- for(let attempts=0;attempts<20&&images.some(image=>!image.complete||!image.naturalWidth);attempts++){
-  await new Promise(resolve=>setTimeout(resolve,10));
- }
- assert.equal(images.length,4);
- assert(images.every(image=>image.complete&&image.naturalWidth>0),'all four current site atlases decode');
- const loaded=createCanvas(1000,560);textured.drawFrontCar(loaded.getContext('2d'),CARS[0]);
+ assert.equal(images.length,5);
+ await Promise.all(images.map(image=>image.decoding));
+ assert(images.every(image=>image.complete&&image.naturalWidth>0),'all five site atlases decode');
+ const canvasContext=(canvas,onDraw=()=>{})=>{
+  const context=canvas.getContext('2d'),draw=context.drawImage.bind(context);
+  context.drawImage=(image,...args)=>{onDraw(image,args);draw(image.image||image,...args);};
+  return context;
+ };
+ const loaded=createCanvas(1000,560);textured.drawFrontCar(canvasContext(loaded),CARS[0]);
  assert.notDeepEqual(loaded.toBuffer('image/png'),hero.toBuffer('image/png'),'loaded car photo replaces fallback');
- const loadedRoad=createCanvas(600,900), roadContext=loadedRoad.getContext('2d');
+ const loadedRoad=createCanvas(600,900),roadContext=canvasContext(loadedRoad);
  textured.drawRaceScene(roadContext,new RaceSimulation({difficulty:'hell'}),2,{},900,240);
  assert(roadContext.getImageData(300,700,1,1).data[3]>0,'textured road and cars render');
+ const {referenceCars}=await import('../dist/racing-reference.js');
+ const {vehicleDimensions}=await import('../dist/racing-model.js');
+ const references=images[1];
+ assert.deepEqual([references.naturalWidth,references.naturalHeight],[1024,1536]);
+ const pairs=new Set();
+ for(const [id,sprites] of Object.entries(referenceCars)){
+  const car=CARS.find(model=>model.id===id);
+  assert(car);
+  const sceneCanvas=createCanvas(110,160),portraitCanvas=createCanvas(1000,560);
+  const calls=[],capture=(image,args)=>calls.push({image,args});
+  const scene=canvasContext(sceneCanvas,capture),portrait=canvasContext(portraitCanvas,capture);
+  textured.drawRaceCar(scene,55,80,40,75,0,car);
+  textured.drawFrontCar(portrait,car);
+  assert.equal(calls.length,2);
+  assert.equal(calls[0].image,references);
+  assert.equal(calls[1].image,references);
+  assert.deepEqual(calls[0].args.slice(0,4),sprites.top);
+  assert.deepEqual(calls[1].args.slice(0,4),sprites.portrait);
+  const footprint = vehicleDimensions(car,40,75);
+  assert.equal(calls[0].args[6],footprint.width);
+  assert.equal(calls[0].args[7],footprint.length);
+  assert(sceneCanvas.getContext('2d').getImageData(40,45,30,75).data.some((value,index)=>index%4===3&&value>128),id+' overhead image paints nontransparent pixels');
+  assert(portraitCanvas.getContext('2d').getImageData(270,180,460,180).data.some((value,index)=>index%4===3&&value>128),id+' portrait paints nontransparent pixels');
+  pairs.add(calls.map(call=>call.args.slice(0,4).join(',')).join(';'));
+ }
+ assert.equal(pairs.size,5,'five separate portraits and overhead images');
  console.log('PASS racing art:18 distinct vehicle drawings, three complete road scenes, boost/jump/police, nonempty pixels and balanced Canvas state.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

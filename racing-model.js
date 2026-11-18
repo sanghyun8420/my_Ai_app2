@@ -1,4 +1,5 @@
 import {GameEconomy,RACING_KEY} from './economy.js';
+import {referenceCars} from './racing-reference.js';
 
 // Vehicle roster and tuning values supplied for the garden's top-down racer.
 const roster=[
@@ -13,12 +14,12 @@ const roster=[
  ['a7','아우디 A7','A7','coupe',1750,'#f1f5f9','#f43f5e','#0f172a',278,13.1,.112,1.54,'패스트백 GT'],
  ['q8','아우디 Q8','Q8','suv',2050,'#ea580c','#fed7aa','#18181b',276,13,.104,1.58,'플래그십 SUV'],
  ['s_class','벤츠 S클래스','S-Class','sedan',2400,'#b45309','#fde68a','#fef3c7',288,13.6,.114,1.58,'럭셔리 플래그십'],
- ['rs6','아우디 RS6','RS6','supercar',3000,'#6e8388','#c0d1cf',null,315,14.8,.122,1.62,'슈퍼 왜건'],
- ['x6m','BMW X6M','X6M','suv',3600,'#8597a9','#d5e4ef',null,312,14.7,.116,1.66,'M 하이퍼 SUV'],
+ ['rs6','아우디 RS6','RS6','supercar',3000,'#4b555d','#a5afb7',null,315,14.8,.122,1.62,'슈퍼 왜건'],
+ ['x6m','BMW X6M','X6M','suv',3600,'#aeb8c1','#d5e4ef',null,312,14.7,.116,1.66,'M 하이퍼 SUV'],
  ['rs7','아우디 RS7','RS7','supercar',4300,'#94a3b8','#ef4444','#111827',332,15.6,.128,1.66,'V8 트윈터보 GT'],
  ['xm','BMW XM','XM','suv',5000,'#14243c','#7488ab',null,330,15.5,.120,1.72,'M 플래그십 괴물'],
- ['m8','BMW M8','M8','supercar',5800,'#059669','#6ee7b7','#064e3b',348,16.3,.134,1.70,'M 컴페티션 쿠페'],
- ['amg_gt','벤츠 AMG GT','AMG GT','supercar',6800,'#eab308','#fef08a','#09090b',362,17,.138,1.74,'트랙 몬스터'],
+ ['m8','BMW M8','M8','supercar',5800,'#214c91','#83a2d9',null,348,16.3,.134,1.70,'M 컴페티션 쿠페'],
+ ['amg_gt','벤츠 AMG GT','AMG GT','supercar',6800,'#a2b6c2','#e4f3fa',null,362,17,.138,1.74,'트랙 몬스터'],
  ['r8','아우디 R8','R8 V10','supercar',8000,'#1766a1','#8bbfdf',null,378,17.8,.144,1.78,'미드십 V10 슈퍼카']
 ];
 export const CARS=Object.freeze(roster.map((r,i)=>Object.freeze(Object.fromEntries([...['id','name','shortBadge','bodyType','price','bodyColor','accentColor','stripeColor','maxSpeed','scrollSpeed','handling','nitroPower','tag'].map((k,j)=>[k,r[j]]),['category',i<11?'luxury':'supercar']]))));
@@ -49,7 +50,14 @@ export function vehicleProfile(car = {}) {
 
 export function vehicleDimensions(config, width, length) {
  const profile = vehicleProfile(config);
- return { type: profile.type, width: width * profile.width, length: length * profile.length };
+ const bodyWidth = width * profile.width;
+ const bodyLength = length * profile.length;
+ const sprite = Object.hasOwn(referenceCars, config.id) ? referenceCars[config.id].top : null;
+ if (!sprite) return { type: profile.type, width: bodyWidth, length: bodyLength };
+ const ratio = sprite[2] / sprite[3];
+ // Keep the photo and physical footprint in the same proportions.
+ const fittedLength = Math.min(bodyLength, bodyWidth / ratio);
+ return { type: profile.type, width: fittedLength * ratio, length: fittedLength };
 }
 
 function trafficCar(color, spriteIndex) {

@@ -12,7 +12,7 @@ await mkdir(output, { recursive: true });
 if ((await readdir(output)).length) throw new Error('내보낼 폴더는 비어 있어야 합니다.');
 await writeServiceWorker(path.join(root,'dist'));
 for (const name of await readdir(path.join(root, 'dist'))) {
-  if (name === 'github-pages-download.html' || !/\.(html|css|js|svg|png|webmanifest)$/.test(name)) continue;
+  if (name === 'github-pages-download.html' || !/\.(html|css|js|svg|png|webp|webmanifest)$/.test(name)) continue;
   await copyFile(path.join(root, 'dist', name), path.join(output, name));
 }
 const appPath = path.join(output, 'app.js');
