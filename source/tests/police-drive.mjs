@@ -6,6 +6,7 @@ const memory=(seed={})=>{const m=new Map(Object.entries(seed).map(([k,v])=>[k,JS
 const car=effectiveCar(CARS[0]);
 const p=new RaceSimulation({car,mode:'drive',scenario:'police'});p.phase='racing';p.setViewport(900,187);
 for(const [seconds,stars,count,kinds]of [[0,1,1,['patrol']],[20,2,2,['patrol']],[40,3,4,['patrol']],[60,4,4,['patrol']],[80,5,6,['armored','helicopter']],[100,6,7,['tank']]]){p.elapsed=seconds;p.update(1/60,{});assert.equal(p.wanted,stars);assert.equal(p.police.length,count);for(const kind of kinds)assert(p.police.some(c=>c.kind===kind));}
+assert(p.police.every(car=>car.y>533),'police remain behind the player');
 p.tick=419;p.update(1/60,{});assert.equal(p.roadblocks.length,1);const restored=RaceSimulation.restore(p.serialize());assert.equal(restored.scenario,'police');assert.equal(restored.hp,100);assert.equal(restored.wanted,6);assert.equal(restored.police.length,7);assert.equal(restored.roadblocks.length,1);
 const race=new RaceSimulation({car});race.phase='racing';race.elapsed=120;race.update(1/60,{});assert.equal(race.police.length,0);assert.equal(race.wanted,0);
 const normal=new RaceSimulation({car,mode:'drive'});normal.phase='racing';normal.speed=8;for(let i=0;i<4;i++){normal.invulnerable=0;normal.x=0;normal.traffic=[{lane:0,y:533,speed:8,color:'#fff'}];normal.update(1/60,{});assert.equal(normal.hp,75-25*i);}assert.equal(normal.phase,'finished');assert(normal.result.crashed);

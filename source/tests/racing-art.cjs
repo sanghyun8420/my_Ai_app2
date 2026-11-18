@@ -3,6 +3,7 @@ const {createCanvas}=require('@napi-rs/canvas');
 (async()=>{
  const {CARS,RaceSimulation,effectiveCar}=await import('../dist/racing-model.js');
  const {drawRaceCar,drawRaceScene,drawFrontCar,carFaceFamily,roadSceneFeatures}=await import('../dist/racing-art.js');
+ const {CAR_SPRITES,SPEED_ASSETS}=await import('../dist/racing-sprites.js');assert.equal(CAR_SPRITES.length,18);for(const [key,data]of Object.entries(SPEED_ASSETS))assert(data.startsWith('data:image/webp;base64,'),key);
  const shapes=new Set();for(const car of CARS){const c=createCanvas(130,200),x=c.getContext('2d');drawRaceCar(x,65,100,50,95,.1,car,{boost:true,jump:3,time:1});assert.equal(x.getTransform().a,1);assert.equal(x.globalAlpha,1);assert(x.getImageData(0,0,130,200).data.some((v,i)=>i%4===3&&v));shapes.add(c.toBuffer('image/png').toString('base64'));}assert.equal(shapes.size,18);
  const poster=createCanvas(900,1080),p=poster.getContext('2d');
  for(const [i,difficulty]of ['easy','hard','hell'].entries()){

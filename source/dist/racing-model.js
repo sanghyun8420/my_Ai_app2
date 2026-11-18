@@ -70,13 +70,13 @@ export class RaceSimulation {
  constructor({car=CARS[0],difficulty='easy',stage=1,mode='race',scenario='endless',random=Math.random,id}={}){
   this.id=id||`race-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;this.car=car.nitroDrainRate?{...car}:effectiveCar(car);this.difficulty=DIFFICULTIES[difficulty]?difficulty:'easy';this.stage=Math.max(1,whole(stage,1));this.phase='countdown';this.countdown=2.25;this.elapsed=0;this.tick=0;this.distance=0;this.speed=0;this.x=-.72;this.tilt=0;this.jump=0;this.jumpVelocity=0;this.nitro=55;this.boosting=false;this.invulnerable=0;this.trackCoins=0;this.policeLeft=0;this.nextPolice=this.diff.police;this.traffic=[];this.coins=[];this.ramps=[];this.zones=[];this.police=[];this.events=[];this.accumulator=0;this.random=random;
   this.mode=mode==='drive'?'drive':'race';this.x=0;this.nitroActive=false;this.nitroHeld=false;
-  this.scenario=['endless','hard','police'].includes(scenario)?scenario:'endless';this.scenerySeed=Math.floor(this.random()*1000000);this.hp=100;this.wanted=0;this.roadblocks=[];this.viewTop=0;this.collisions=0;this.boostLeft=0;this.driftLeft=0;this.driftCooldown=0;this.driftSign=1;
+  this.scenario=['endless','hard','police'].includes(scenario)?scenario:'endless';this.scenerySeed=Math.floor(this.random()*1000000);this.hp=100;this.wanted=0;this.roadblocks=[];this.viewTop=0;this.viewBottom=720;this.collisions=0;this.boostLeft=0;this.driftLeft=0;this.driftCooldown=0;this.driftSign=1;
   this.rivals=this.mode==='drive'?[]:this.diff.ids.map((id,i)=>({id,lane:[-.44,-.15,.15,.44,.72,-.72][i],target:[-.44,-.15,.15,.44,.72,-.72][i],distance:(i+1)*7,speed:this.diff.speeds[i]*(1+(this.stage-1)*.065),phase:i*1.45}));
  }
  get diff(){return DIFFICULTIES[this.difficulty];}
  get length(){return Math.round(this.diff.length*(1+(this.stage-1)*.1));}
  get rank(){return 1+this.rivals.filter(r=>r.distance>this.distance).length;}
- setViewport(height,playerBottom=187){if(Number.isFinite(height)&&Number.isFinite(playerBottom))this.viewTop=533+clamp(playerBottom,100,600)-clamp(height,350,2400);}
+ setViewport(height,playerBottom=187){if(Number.isFinite(height)&&Number.isFinite(playerBottom)){this.viewBottom=533+clamp(playerBottom,100,600);this.viewTop=this.viewBottom-clamp(height,350,2400);}}
  curve(distance){
   if(this.difficulty==='easy')return 0;
   if(this.difficulty==='hard')return Math.sin(distance*.0013)*36+Math.sin(distance*.0032)*12;
@@ -108,7 +108,7 @@ export class RaceSimulation {
   this.rivals.forEach((r,i)=>{r.distance+=(r.speed+Math.sin(this.tick*.03+r.phase)*.65)*WORLD_TRAVEL_SCALE;if((this.tick+i*29)%105===0)r.target=[-.68,-.35,0,.35,.68][Math.floor(this.random()*5)];r.lane+=(r.target-r.lane)*.04;});
   const lane=()=>[-.68,-.23,.23,.68][Math.floor(this.random()*4)],spawn=(array,e)=>{if(array.length<60)array.push(e);};
   if(this.speed>.6){
-   if(this.tick%Math.max(36,Math.round(d.traffic*2*Math.max(.68,1-(this.stage-1)*.05)))===0)spawn(this.traffic,{lane:lane(),y:this.viewTop-90,speed:d.trafficMin+this.random()*(d.trafficMax-d.trafficMin),color:['#64748b','#0ea5e9','#10b981','#eab308','#ec4899'][Math.floor(this.random()*5)]});
+   if(this.tick%Math.max(36,Math.round(d.traffic*2*Math.max(.68,1-(this.stage-1)*.05)))===0)spawn(this.traffic,{lane:lane(),y:this.viewTop-90,speed:d.trafficMin+this.random()*(d.trafficMax-d.trafficMin),color:['#64748b','#0ea5e9','#10b981','#eab308','#ec4899'][Math.floor(this.random()*5)],spriteIndex:[0,1,2,5,6,7,9,10,11][Math.floor(this.random()*9)]});
    if(this.tick%d.coin===0)spawn(this.coins,{lane:lane(),y:this.viewTop-40,value:this.difficulty==='hell'?35:this.difficulty==='hard'?22:12});
    if(this.tick%d.ramp===0)spawn(this.ramps,{lane:lane(),y:this.viewTop-80});if(this.tick%d.nitro===0)spawn(this.zones,{lane:lane(),y:this.viewTop-110});
   }
@@ -125,8 +125,8 @@ export class RaceSimulation {
   if(this.mode==='drive'&&this.scenario==='police'){
    const count=this.wanted<2?1:this.wanted<3?2:4;
    const types=Array(count).fill('patrol');if(this.wanted>=5)types.push('armored','helicopter');if(this.wanted>=6)types.push('tank');
-   while(this.police.length<types.length){const i=this.police.length;this.police.push({lane:(i%2?1:-1)*.55,y:this.viewTop-100-i*90,kind:types[i]});}
-   this.police.forEach((p,i)=>{p.kind=types[i];const target=533+Math.sin(this.tick*.017+i*1.9)*110;p.y+=clamp((target-p.y)*.018,-6,6);p.lane+=(this.x-p.lane)*.012;if(this.jump<14&&!this.invulnerable&&touching(p,p.kind==='tank'?42:30,55))collide(p.kind==='tank'?40:p.kind==='armored'?30:p.kind==='helicopter'?12:20);});
+   while(this.police.length<types.length){const i=this.police.length;this.police.push({lane:(i%2?1:-1)*.55,y:this.viewBottom+120+i*90,kind:types[i]});}
+   this.police.forEach((p,i)=>{p.kind=types[i];const target=533+48+i*16+Math.sin(this.tick*.017+i*1.9)*28;p.y+=clamp((target-p.y)*.018,-3.8,2);p.lane+=(this.x-p.lane)*.012;if(this.jump<14&&!this.invulnerable&&touching(p,p.kind==='tank'?42:30,55))collide(p.kind==='tank'?40:p.kind==='armored'?30:p.kind==='helicopter'?12:20);});
    if(this.wanted>=4&&this.tick%420===0&&this.roadblocks.length<8)this.roadblocks.push({lane:lane(),y:this.viewTop-100});
    for(const block of this.roadblocks){block.y+=this.speed*1.45*WORLD_TRAVEL_SCALE;if(!block.used&&this.jump<12&&!this.invulnerable&&touching(block,42,34)){block.used=true;collide(30);}}
    this.roadblocks=this.roadblocks.filter(b=>b.y<1100);
@@ -134,7 +134,7 @@ export class RaceSimulation {
   for(const key of ['traffic','ramps','zones'])this[key]=this[key].filter(e=>e.y>Math.min(-280,this.viewTop-280)&&e.y<1100);
   if(this.phase==='racing'&&this.mode!=='drive'&&this.distance>=this.length){this.phase='finished';this.boosting=false;this.result={id:this.id,mode:'race',stage:this.stage,difficulty:this.difficulty,rank:this.rank,seconds:this.elapsed,trackCoins:this.trackCoins};this.emit('finish');}
  }
- serialize(){const {random,events,accumulator,viewTop,...state}=this;return clone({version:1,...state});}
+ serialize(){const {random,events,accumulator,viewTop,viewBottom,...state}=this;return clone({version:1,...state});}
  static restore(value){
   try{if(!value||value.version!==1||typeof value.id!=='string'||value.id.length>100||!['countdown','racing'].includes(value.phase)||!DIFFICULTIES[value.difficulty]||!Number.isSafeInteger(value.stage)||value.stage<1||value.stage>100000)return null;
    for(const k of ['countdown','elapsed','tick','distance','speed','x','tilt','jump','jumpVelocity','nitro','invulnerable','trackCoins','policeLeft','nextPolice'])if(!Number.isFinite(value[k])||Math.abs(value[k])>1e12)return null;
@@ -151,7 +151,7 @@ export class RaceSimulation {
    if(value.collisions!==undefined&&(!Number.isInteger(value.collisions)||value.collisions<0||value.collisions>100000))return null;
    if(value.mode!==undefined&&!['race','drive'].includes(value.mode)||value.nitroActive!==undefined&&typeof value.nitroActive!=='boolean'||value.nitroHeld!==undefined&&typeof value.nitroHeld!=='boolean')return null;
    if(value.rivals.length!==(value.mode==='drive'?0:6)||value.rivals.some(r=>!CARS.some(c=>c.id===r.id)||!['target','distance','speed','phase'].every(k=>Number.isFinite(r[k])))||value.police.length>7||value.traffic.some(e=>!Number.isFinite(e.y)||!Number.isFinite(e.speed))||[...value.coins,...value.ramps,...value.zones,...value.police].some(e=>!Number.isFinite(e.y))||value.coins.some(e=>!Number.isSafeInteger(e.value)||e.value<0))return null;
-   const race=new RaceSimulation({car:effectiveCar(CARS[0]),difficulty:value.difficulty,stage:value.stage,id:value.id});const allowed=Object.keys(race.serialize());for(const key of allowed)if(Object.hasOwn(value,key))race[key]=clone(value[key]);for(const key of ['bodyColor','accentColor','stripeColor','bodyType'])race.car[key]=carById(race.car.id)[key];if(value.hp===undefined)race.hp=Math.max(1,100-(value.collisions||0)*25);if(value.scenario===undefined)race.scenario='endless';if(value.roadblocks===undefined)race.roadblocks=[];race.driftLeft=0;race.driftCooldown=0;race.nitroActive=false;race.nitroHeld=false;race.boosting=race.boostLeft>0;race.random=Math.random;race.events=[];race.accumulator=0;return race;
+   const race=new RaceSimulation({car:effectiveCar(CARS[0]),difficulty:value.difficulty,stage:value.stage,id:value.id});const allowed=Object.keys(race.serialize());for(const key of allowed)if(Object.hasOwn(value,key))race[key]=clone(value[key]);for(const key of ['bodyColor','accentColor','stripeColor','bodyType'])race.car[key]=carById(race.car.id)[key];if(value.hp===undefined)race.hp=Math.max(1,100-(value.collisions||0)*25);if(value.scenario===undefined)race.scenario='endless';if(value.roadblocks===undefined)race.roadblocks=[];race.driftLeft=0;race.driftCooldown=0;race.nitroActive=false;race.nitroHeld=false;race.boosting=race.boostLeft>0;race.random=Math.random;race.events=[];race.accumulator=0;race.police.forEach((p,i)=>{if(p.y<510)p.y=740+i*90;});return race;
   }catch{return null;}
  }
 }
