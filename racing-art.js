@@ -91,23 +91,69 @@ export function drawRaceScene(c,race,time=0,input={},viewHeight=720,playerBottom
 }
 
 export function carFaceFamily(car){return ['3_series','5_series','x5','x6m','xm','m8'].includes(car.id)?'bmw':['a5','a6','a7','q8','rs6','rs7','r8'].includes(car.id)?'audi':'mercedes';}
-/** Model-specific front portraits: kidney grilles, Audi hexagons and split LEDs. */
+/** Draw the actual selected model as a front three-quarter original illustration.
+ * Paint comes from the car record; all geometry stays inside the 1000×560 canvas.
+ */
 export function drawFrontCar(c,car){
- const family=carFaceFamily(car),suv=car.bodyType==='suv',sport=car.bodyType==='supercar',xm=car.id==='xm',w=car.id==='a7'?360:car.id==='a5'?335:suv?355:345,roof=car.id==='rs6'?-157:car.id==='a7'?-162:suv?-180:sport?-127:-150;
- c.save();c.translate(500,295);c.scale(sport?1.08:1.03,car.id==='rs6'?.84:sport?.77:suv?.9:.84);
- const shadow=c.createRadialGradient(0,160,20,0,160,430);shadow.addColorStop(0,'#000c');shadow.addColorStop(1,'#0000');c.fillStyle=shadow;c.beginPath();c.ellipse(0,160,430,48,0,0,Math.PI*2);c.fill();
- for(const side of [-1,1]){c.fillStyle='#06090f';box(c,side*(w-32)-29,30,58,155,19);c.fill();c.strokeStyle='#28323c';c.lineWidth=3;for(let x=-18;x<=18;x+=9){c.beginPath();c.moveTo(side*(w-32)+x,68);c.lineTo(side*(w-32)+x,168);c.stroke();}}
- c.beginPath();c.moveTo(-w,139);c.lineTo(-w+8,-11);c.quadraticCurveTo(-w+12,-48,-219,-66);c.lineTo(-177,roof);c.quadraticCurveTo(0,roof-36,177,roof);c.lineTo(219,-66);c.quadraticCurveTo(w-12,-48,w-8,-11);c.lineTo(w,139);c.quadraticCurveTo(0,176,-w,139);c.closePath();c.fillStyle=car.bodyColor;c.fill();
- const sheen=c.createLinearGradient(0,roof-20,0,170);sheen.addColorStop(0,'#ffffff66');sheen.addColorStop(.28,'#ffffff12');sheen.addColorStop(.47,'#ffffff55');sheen.addColorStop(.52,'#00000024');sheen.addColorStop(.75,'#ffffff14');sheen.addColorStop(1,'#00000088');c.fillStyle=sheen;c.fill();c.strokeStyle='#f3faff55';c.lineWidth=2;c.stroke();
- const glass=c.createLinearGradient(0,roof,0,-65);glass.addColorStop(0,'#050d18');glass.addColorStop(.55,'#213544');glass.addColorStop(1,'#0b1721');c.fillStyle=glass;c.beginPath();c.moveTo(-196,-65);c.lineTo(-156,roof+15);c.quadraticCurveTo(0,roof-6,156,roof+15);c.lineTo(196,-65);c.closePath();c.fill();c.strokeStyle='#c8dbea66';c.lineWidth=3;c.stroke();c.strokeStyle='#bad2e51c';c.lineWidth=12;c.beginPath();c.moveTo(-140,roof+29);c.lineTo(135,-84);c.stroke();
- for(const side of [-1,1]){c.fillStyle=car.bodyColor;box(c,side*252-29,-79,58,27,11);c.fill();c.strokeStyle='#e3f5ff88';c.lineWidth=2;c.stroke();c.strokeStyle='#eff8ff55';c.lineWidth=3;c.beginPath();c.moveTo(side*158,-51);c.quadraticCurveTo(side*183,-28,side*198,-7);c.stroke();}
- // Lower intakes, honeycomb mesh and sculpted bumper edges.
- c.fillStyle='#09131e';for(const [x,y,vw,vh]of [[-w+29,67,120,60],[-110,99,220,35],[w-149,67,120,60]]){box(c,x,y,vw,vh,7);c.fill();}c.save();c.beginPath();c.rect(-w+29,67,120,60);c.rect(w-149,67,120,60);c.clip();c.strokeStyle='#415364';c.lineWidth=2;for(let y=78;y<132;y+=12)for(let x=-w+30;x<w-29;x+=18){c.beginPath();c.moveTo(x,y);c.lineTo(x+7,y-4);c.lineTo(x+14,y);c.lineTo(x+7,y+4);c.closePath();c.stroke();}c.restore();
- const grille=(x,y,gw,gh,kidney=false)=>{c.beginPath();if(kidney){c.moveTo(x+15,y);c.lineTo(x+gw-13,y);c.quadraticCurveTo(x+gw+5,y+gh*.35,x+gw-8,y+gh-9);c.quadraticCurveTo(x+gw*.45,y+gh+5,x+8,y+gh-8);c.quadraticCurveTo(x-6,y+gh*.4,x+15,y);}else{c.moveTo(x+28,y);c.lineTo(x+gw-28,y);c.lineTo(x+gw,y+gh*.22);c.lineTo(x+gw-19,y+gh);c.lineTo(x+19,y+gh);c.lineTo(x,y+gh*.22);c.closePath();}c.fillStyle='#050b12';c.fill();c.strokeStyle=car.id==='xm'?'#a1afba':'#9eabb5';c.lineWidth=5;c.stroke();c.save();c.clip();c.strokeStyle='#526171';c.lineWidth=4;for(let line=y+12;line<y+gh;line+=13){c.beginPath();c.moveTo(x+5,line);c.lineTo(x+gw-5,line);c.stroke();}c.restore();};
- if(family==='bmw'){const large=suv,gw=large?109:83,gh=large?97:57,y=large?-2:12;grille(-gw-9,y,gw,gh,true);grille(9,y,gw,gh,true);c.fillStyle='#d7e5ed';c.beginPath();c.arc(0,y-15,10,0,Math.PI*2);c.fill();for(let i=0;i<4;i++){c.fillStyle=i%2?'#1f78ac':'#f0f5fa';c.beginPath();c.moveTo(0,y-15);c.arc(0,y-15,7,i*Math.PI/2,(i+1)*Math.PI/2);c.closePath();c.fill();}}
- else if(family==='audi'){grille(car.id==='r8'?-172:car.id==='a5'?-142:-158,car.id==='r8'?18:4,car.id==='r8'?344:car.id==='a5'?284:316,suv?113:car.id==='r8'?83:car.id==='a5'?90:102);c.strokeStyle='#dbe5ed';c.lineWidth=3;for(let i=0;i<4;i++){c.beginPath();c.ellipse(-33+i*22,25,16,10,0,0,Math.PI*2);c.stroke();}}
- else {grille(-139,13,278,84);c.strokeStyle='#c9d8e3';c.lineWidth=4;c.beginPath();c.arc(0,53,23,0,Math.PI*2);c.stroke();for(let i=0;i<3;i++){const a=-Math.PI/2+i*Math.PI*2/3;c.beginPath();c.moveTo(0,53);c.lineTo(Math.cos(a)*22,53+Math.sin(a)*22);c.stroke();}}
- // Light signatures follow the five reference vehicles rather than a shared bar.
- for(const side of [-1,1]){c.save();c.translate(side*(w-105),xm?-12:20);c.scale(side,1);c.fillStyle='#07111b';c.beginPath();c.moveTo(-74,-7);c.lineTo(74,-24);c.lineTo(60,1);c.lineTo(-64,14);c.closePath();c.fill();c.strokeStyle='#dcefff';c.shadowColor='#95ddff';c.shadowBlur=12;c.lineWidth=xm?4:6;c.beginPath();if(xm){c.moveTo(-61,-4);c.lineTo(64,-17);}else if(family==='bmw'){for(const x of [-34,15]){c.moveTo(x-17,1);c.lineTo(x+9,-7);c.lineTo(x-2,7);}}else if(family==='audi'){c.moveTo(-58,8);c.lineTo(47,-3);c.lineTo(63,-18);if(car.id==='r8'){c.moveTo(-53,-2);c.lineTo(40,-12);c.lineTo(31,0);}else for(let i=0;i<4;i++){c.moveTo(-40+i*24,-3-i*2);c.lineTo(-34+i*24,6-i*2);}}else{c.moveTo(-55,5);c.lineTo(44,-7);c.lineTo(61,-16);}c.stroke();c.shadowBlur=0;if(xm){c.fillStyle='#253746';box(c,-46,30,105,31,5);c.fill();c.fillStyle='#9db4c7';box(c,-33,38,32,9,3);c.fill();box(c,10,38,32,9,3);c.fill();}c.restore();}
- c.fillStyle='#d4dce0';box(c,-79,112,158,27,4);c.fill();c.fillStyle='#135282';c.fillRect(-78,115,12,21);c.fillStyle='#18222c';c.textAlign='center';c.font='bold 15px sans-serif';c.fillText(car.shortBadge.toUpperCase(),5,132);c.strokeStyle='#d9e9f044';c.lineWidth=3;c.beginPath();c.moveTo(-w+20,145);c.quadraticCurveTo(0,174,w-20,145);c.stroke();c.restore();
+ const family=carFaceFamily(car),suv=car.bodyType==='suv',wagon=car.id==='rs6',sport=car.bodyType==='supercar'&&!wagon,coupe=car.bodyType==='coupe'||sport;
+ const roof=suv?104:sport?151:125,backRoof=wagon?140:suv?142:coupe?177:160;
+ const color=car.bodyColor||'#cbd5e1';
+ const path=(points,fill,stroke,width=1)=>{c.beginPath();c.moveTo(points[0][0],points[0][1]);for(const [x,y] of points.slice(1))c.lineTo(x,y);c.closePath();if(fill){c.fillStyle=fill;c.fill();}if(stroke){c.strokeStyle=stroke;c.lineWidth=width;c.stroke();}};
+ const line=(points,stroke,width=1)=>{c.beginPath();c.moveTo(points[0][0],points[0][1]);for(const [x,y] of points.slice(1))c.lineTo(x,y);c.strokeStyle=stroke;c.lineWidth=width;c.stroke();};
+ const grad=(x0,y0,x1,y1,stops)=>{const g=c.createLinearGradient(x0,y0,x1,y1);for(const [at,col] of stops)g.addColorStop(at,col);return g;};
+ c.save();
+ // Floor reflection is translucent so the showroom can supply its own lighting.
+ const shadow=c.createRadialGradient(485,403,20,485,403,440);shadow.addColorStop(0,'#19263388');shadow.addColorStop(.65,'#1827323b');shadow.addColorStop(1,'#14223100');c.fillStyle=shadow;c.beginPath();c.ellipse(485,403,440,44,0,0,Math.PI*2);c.fill();
+ // The far rear wheel sits behind the body.
+ const wheel=(x,y,rx,ry,front=false)=>{c.save();c.translate(x,y);c.rotate(.09);const tire=grad(-rx,0,rx,0,[[0,'#080d11'],[.5,'#2b3034'],[1,'#070b0f']]);c.fillStyle=tire;c.strokeStyle='#19242b';c.lineWidth=3;c.beginPath();c.ellipse(0,0,rx,ry,0,0,Math.PI*2);c.fill();c.stroke();c.fillStyle='#9baab0';c.beginPath();c.ellipse(0,0,rx*.7,ry*.72,0,0,Math.PI*2);c.fill();c.fillStyle='#26343d';c.beginPath();c.ellipse(0,0,rx*.55,ry*.57,0,0,Math.PI*2);c.fill();c.save();c.scale(rx*.53,ry*.55);c.strokeStyle='#d4dce0';c.lineWidth=.12;for(let j=0;j<10;j++){const a=j*Math.PI/5;c.beginPath();c.moveTo(Math.cos(a)*.18,Math.sin(a)*.18);c.lineTo(Math.cos(a)*.92,Math.sin(a)*.92);c.stroke();}c.restore();c.fillStyle=front&&sport?'#d84c39':'#d6e0e2';c.beginPath();c.ellipse(0,0,rx*.18,ry*.19,0,0,Math.PI*2);c.fill();c.restore();};
+ wheel(777,316,suv?38:34,suv?55:49);
+ // The rear quarter and side silhouette are the selected car's paint colour.
+ c.fillStyle=color;c.beginPath();c.moveTo(192,240);c.lineTo(270,207);c.lineTo(345,185);c.lineTo(393,roof+20);c.quadraticCurveTo(467,roof-8,593,roof+4);c.lineTo(692,backRoof);c.lineTo(786,194);c.quadraticCurveTo(855,200,875,236);c.lineTo(892,292);c.lineTo(873,333);c.lineTo(826,346);c.quadraticCurveTo(815,270,774,272);c.quadraticCurveTo(730,275,722,351);c.lineTo(535,381);c.quadraticCurveTo(528,293,474,296);c.quadraticCurveTo(424,298,411,383);c.lineTo(293,399);c.lineTo(174,381);c.lineTo(113,352);c.lineTo(111,296);c.quadraticCurveTo(117,263,145,255);c.closePath();c.fill();c.strokeStyle='#26323c';c.lineWidth=2.5;c.stroke();
+ // Paint reflections on side, top shoulder and lower sill create 3-D depth.
+ const side=grad(0,205,0,400,[[0,'#ffffff66'],[.24,'#ffffff16'],[.52,'#18272b22'],[.72,'#00000012'],[1,'#07101799']]);
+ path([[348,247],[846,216],[875,251],[879,308],[845,330],[812,333],[799,296],[781,284],[754,286],[735,315],[726,346],[533,378],[526,330],[504,301],[474,296],[447,310],[428,354],[412,382],[340,384]],side);
+ path([[135,265],[310,205],[500,207],[406,267],[320,289],[149,298]],grad(0,204,0,303,[[0,'#ffffffa0'],[.3,'#ffffff25'],[.7,'#ffffff08'],[1,'#16293455']]));
+ // Roofline and the windshield/side glass are built separately in perspective.
+ path([[272,210],[345,185],[393,roof+20],[487,roof+5],[555,roof+6],[627,backRoof-5],[695,backRoof+8],[783,195],[683,204],[517,207],[412,263]],color,'#b0c2c8',2);
+ const glass=grad(0,roof,0,220,[[0,'#07121a'],[.5,'#344c59'],[1,'#071016']]);
+ path([[311,207],[360,185],[399,roof+25],[489,roof+16],[516,202],[411,248]],glass,'#15222b',4);
+ path([[500,roof+15],[552,roof+16],[621,backRoof+5],[644,backRoof+21],[534,195]],glass,'#12212a',3);
+ path([[563,roof+18],[605,roof+20],[685,backRoof+19],[751,193],[655,194],[633,backRoof+21]],glass,'#15222b',3);
+ // Window pillars, rim and fine highlights.
+ line([[518,202],[534,195],[500,roof+15]],'#bac7ca',2);line([[643,backRoof+18],[655,194]],'#abbac0',3);line([[407,roof+31],[477,roof+22],[509,195]],'#eff8f944',4);
+ if(suv||wagon){line([[406,roof+9],[490,roof-1],[575,roof+1]],'#85969c',4);line([[562,roof+2],[619,backRoof-7],[682,backRoof+5]],'#85969c',3);}
+ // Sculpted shoulder, door seams, handles and side mirror.
+ line([[421,258],[544,237],[683,221],[838,218]],'#f8ffff8c',3);line([[439,266],[534,252],[675,233],[840,230]],'#394d5466',1);
+ line([[539,208],[556,303],[545,369]],'#14232b88',2);if(!coupe)line([[665,203],[683,287],[681,344]],'#14232b88',2);
+ for(const [x,y] of coupe?[[594,235]]:[[590,235],[710,221]]){c.fillStyle='#0d1d2499';c.beginPath();c.ellipse(x,y,17,3,-.08,0,Math.PI*2);c.fill();c.strokeStyle='#e0ecebaa';c.lineWidth=1;c.stroke();}
+ path([[488,215],[515,205],[532,210],[524,225],[501,229],[485,225]],color,'#1a2932',2);line([[494,216],[518,212]],'#fff9',2);
+ if(car.id==='r8'){path([[677,233],[713,229],[731,322],[692,331]],'#111e25','#415159',2);for(let i=0;i<4;i++)line([[695+i*6,246],[704+i*6,313]],'#687b82',1);}
+ // Wheel arches and detailed alloy wheels.
+ c.strokeStyle='#10181c';c.lineWidth=suv?15:11;c.beginPath();c.ellipse(474,355,55,69,-.02,Math.PI,Math.PI*1.95);c.stroke();c.beginPath();c.ellipse(778,316,44,60,-.04,Math.PI,Math.PI*1.96);c.stroke();wheel(778,316,suv?34:31,suv?51:46);wheel(474,355,suv?44:40,suv?64:58,true);
+ line([[533,374],[711,347]],'#c0caca88',2);line([[546,363],[711,335]],'#111b2288',3);
+ // Front bumper, bonnet, grille and lights are individual brand signatures.
+ path([[118,274],[202,243],[410,251],[422,278],[411,358],[343,391],[181,379],[111,347]],grad(110,260,390,380,[[0,'#ffffff88'],[.3,color],[.69,color],[1,'#18242e']]),'#28343a',2.5);
+ path([[131,285],[201,264],[389,268],[398,305],[383,343],[326,366],[179,357],[131,339]],'#12202a','#607078',2);
+ const grille=family==='bmw'?'bmw':family==='audi'?'audi':'mercedes';
+ if(grille==='bmw'){
+   path([[206,277],[255,274],[258,326],[210,336],[200,327]],'#071016','#a4b2b5',3);path([[264,274],[314,273],[322,320],[265,329]],'#071016','#a4b2b5',3);
+   for(let x=213;x<254;x+=10)line([[x,281],[x+2,329]],'#6f7e83',2);for(let x=271;x<312;x+=10)line([[x,280],[x+2,322]],'#6f7e83',2);
+   c.fillStyle='#d9e8eb';c.beginPath();c.ellipse(260,265,8,5,0,0,Math.PI*2);c.fill();c.fillStyle='#286b9b';c.beginPath();c.ellipse(260,265,5,3,0,0,Math.PI*2);c.fill();
+ }else if(grille==='audi'){
+   path([[198,276],[316,274],[332,287],[322,328],[266,341],[203,332],[190,293]],'#08121a','#acb9bc',3);for(let y=287;y<328;y+=9)line([[200,y],[322,y-2]],'#718083',2);
+   c.strokeStyle='#dce8e8';c.lineWidth=2;for(let i=0;i<4;i++){c.beginPath();c.ellipse(240+i*12,284,9,5,0,0,Math.PI*2);c.stroke();}
+ }else{
+   path([[196,280],[319,275],[333,286],[321,326],[260,339],[201,330],[190,292]],'#08121a','#a9b7b9',3);for(let y=288;y<328;y+=10)line([[200,y],[322,y-3]],'#60747b',2);
+   c.strokeStyle='#dbe5e4';c.lineWidth=2;c.beginPath();c.ellipse(260,303,15,13,0,0,Math.PI*2);c.stroke();for(let i=0;i<3;i++){const a=-Math.PI/2+i*Math.PI*2/3;line([[260,303],[260+Math.cos(a)*13,303+Math.sin(a)*11]],'#e8f1ee',2);}
+ }
+ // Angled headlights and LED strips.
+ path([[129,275],[193,260],[208,271],[190,286],[135,296]],'#13212a','#cddbe0',2);
+ path([[335,265],[397,261],[408,274],[391,284],[341,286]],'#13212a','#cddbe0',2);
+ line([[139,279],[184,270],[198,271]],'#e1f6ff',4);line([[345,276],[390,273],[400,269]],'#e1f6ff',4);
+ if(family==='bmw'){line([[147,282],[158,274],[169,274],[176,269]],'#a9d9f4',2);line([[354,279],[365,273],[376,274],[383,269]],'#a9d9f4',2);}
+ path([[138,313],[180,311],[185,339],[151,338]],'#111b22','#829195',1);path([[343,299],[391,292],[385,326],[350,337]],'#111b22','#829195',1);
+ for(let k=0;k<3;k++){line([[145,318+k*6],[178,318+k*6]],'#586b70',1);line([[350,308+k*6],[387,302+k*6]],'#586b70',1);}
+ path([[214,348],[311,347],[309,364],[218,365]],'#e8edf0','#7b8c91',1);c.fillStyle='#27333a';c.textAlign='center';c.font='bold 10px sans-serif';c.fillText(car.shortBadge,262,359);
+ line([[118,349],[179,379],[294,394],[351,379]],'#e5eff0aa',3);
+ c.restore();
 }

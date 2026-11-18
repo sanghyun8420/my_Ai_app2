@@ -11,7 +11,12 @@ const {createCanvas}=require('@napi-rs/canvas');
   drawRaceCar(p,i*300+150,570,95,180,0,CARS[i*6],{boost:true,time:1});p.fillStyle='#1e293b';p.font='bold 17px sans-serif';p.textAlign='center';p.fillText(difficulty,i*300+150,760);
  }
  require('node:fs').writeFileSync('/tmp/garden-racing-preview.png',poster.toBuffer('image/png'));
- const fronts=new Set();for(const car of CARS){const c=createCanvas(1000,560),x=c.getContext('2d');drawFrontCar(x,car);assert.equal(x.getTransform().a,1);assert.equal(x.getTransform().e,0);fronts.add(c.toBuffer('image/png').toString('base64'));}assert.equal(fronts.size,18);const hero=createCanvas(1000,560);drawFrontCar(hero.getContext('2d'),CARS[0]);require('node:fs').writeFileSync('/tmp/garden-front-car.png',hero.toBuffer('image/png'));
+ const fronts=new Set();for(const car of CARS){const c=createCanvas(1000,560),x=c.getContext('2d');drawFrontCar(x,car);assert.equal(x.getTransform().a,1);assert.equal(x.getTransform().e,0);fronts.add(c.toBuffer('image/png').toString('base64'));
+ // The showroom illustration includes the side and a rear wheel, and has
+ // transparent padding so a narrow mobile preview does not crop the car.
+ assert(x.getImageData(778,316,1,1).data[3]>0,'rear wheel is present in three-quarter view');
+ for(const [edgeX,edgeY] of [[0,0],[999,0],[0,280],[999,280],[0,559],[999,559]])assert.equal(x.getImageData(edgeX,edgeY,1,1).data[3],0,'car does not touch canvas edges');
+ }assert.equal(fronts.size,18);const hero=createCanvas(1000,560);drawFrontCar(hero.getContext('2d'),CARS[0]);require('node:fs').writeFileSync('/tmp/garden-front-car.png',hero.toBuffer('image/png'));
  for(const height of [500,720,1300]){const c=createCanvas(600,height),x=c.getContext('2d');drawRaceScene(x,new RaceSimulation({mode:'drive'}),0,{},height);assert.equal(x.getTransform().f,0);assert(x.getImageData(300,0,1,1).data[3]>0);assert(x.getImageData(300,height-1,1,1).data[3]>0);}
  // A roadside object has one fixed world location and moves by exactly the
  // same screen distance as road objects as the vehicle advances. The feature
