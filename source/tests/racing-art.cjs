@@ -42,9 +42,9 @@ const {createCanvas,loadImage}=require('@napi-rs/canvas');
   }
  };
  const textured=await import('../dist/racing-art.js?atlas-test');
- assert.equal(images.length,8);
+ assert.equal(images.length,9);
  await Promise.all(images.map(image=>image.decoding));
- assert(images.every(image=>image.complete&&image.naturalWidth>0),'all eight site atlases decode');
+ assert(images.every(image=>image.complete&&image.naturalWidth>0),'all nine site atlases decode');
  const canvasContext=(canvas,onDraw=()=>{})=>{
   const context=canvas.getContext('2d'),draw=context.drawImage.bind(context);
   context.drawImage=(image,...args)=>{onDraw(image,args);draw(image.image||image,...args);};
@@ -60,10 +60,11 @@ const {createCanvas,loadImage}=require('@napi-rs/canvas');
  const atlases={
   base:images.find(image=>image.url.endsWith('/racing-reference.webp')),
   series:images.find(image=>image.url.endsWith('/racing-reference-series.webp')),
-  touring:images.find(image=>image.url.endsWith('/racing-reference-touring.webp'))
+  touring:images.find(image=>image.url.endsWith('/racing-reference-touring.webp')),
+  fastback:images.find(image=>image.url.endsWith('/racing-reference-fastback.webp'))
  };
  assert.deepEqual([atlases.touring.naturalWidth,atlases.touring.naturalHeight],[1086,1448]);
- for(const sheet of ['series','touring']){
+ for(const sheet of ['series','touring','fastback']){
   const atlas=atlases[sheet];
   const canvas=createCanvas(atlas.naturalWidth,atlas.naturalHeight);
   const context=canvas.getContext('2d');
@@ -112,6 +113,6 @@ const {createCanvas,loadImage}=require('@napi-rs/canvas');
   assert(portraitCanvas.getContext('2d').getImageData(270,180,460,180).data.some((value,index)=>index%4===3&&value>128),id+' portrait paints nontransparent pixels');
   pairs.add(atlas.url+calls.map(call=>call.args.slice(0,4).join(',')).join(';'));
  }
- assert.equal(pairs.size,12,'twelve separate portraits and overhead images');
+ assert.equal(pairs.size,15,'fifteen separate portraits and overhead images');
  console.log('PASS racing art:18 distinct vehicle drawings, three complete road scenes, boost/jump/police, nonempty pixels and balanced Canvas state.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -3,7 +3,7 @@ import {referenceCars} from './racing-reference.js';
 
 // Vehicle roster and tuning values supplied for the garden's top-down racer.
 const roster=[
- ['c_class','벤츠 C클래스','C-Class','sedan',0,'#cbd5e1','#38bdf8',null,215,10.2,.085,1.35,'기본 세단'],
+ ['c_class','벤츠 C클래스','C-Class','sedan',0,'#cbd5e1','#dae5eb',null,215,10.2,.085,1.35,'기본 세단'],
  ['3_series','BMW 3시리즈','3 Series','sedan',250,'#079cae','#8fd5db',null,230,10.9,.094,1.38,'스포츠 세단'],
  ['a5','아우디 A5','A5','coupe',450,'#e2e6eb','#f8fafc',null,242,11.4,.098,1.42,'스포트백 쿠페'],
  ['glc','벤츠 GLC','GLC','suv',650,'#334155','#94a3b8',null,238,11.3,.088,1.45,'도심형 SUV'],
@@ -11,12 +11,12 @@ const roster=[
  ['5_series','BMW 5시리즈','5 Series','sedan',1050,'#0c8ba6','#a2def0',null,260,12.3,.104,1.48,'다이나믹 세단'],
  ['a6','아우디 A6','A6','sedan',1250,'#73716b','#d4cebf',null,266,12.6,.108,1.5,'콰트로 세단'],
  ['x5','BMW X5','X5','suv',1500,'#e2e8f0','#3b82f6','#1e293b',264,12.5,.098,1.54,'퍼포먼스 SUV'],
- ['a7','아우디 A7','A7','coupe',1750,'#f1f5f9','#f43f5e','#0f172a',278,13.1,.112,1.54,'패스트백 GT'],
+ ['a7','아우디 A7','A7','coupe',1750,'#b3bec8','#e1ebf4',null,278,13.1,.112,1.54,'패스트백 GT'],
  ['q8','아우디 Q8','Q8','suv',2050,'#b9a480','#e3cda7',null,276,13,.104,1.58,'플래그십 SUV'],
  ['s_class','벤츠 S클래스','S-Class','sedan',2400,'#161a22','#c5c8ce',null,288,13.6,.114,1.58,'럭셔리 플래그십'],
  ['rs6','아우디 RS6','RS6','supercar',3000,'#4b555d','#a5afb7',null,315,14.8,.122,1.62,'슈퍼 왜건'],
  ['x6m','BMW X6M','X6M','suv',3600,'#aeb8c1','#d5e4ef',null,312,14.7,.116,1.66,'M 하이퍼 SUV'],
- ['rs7','아우디 RS7','RS7','supercar',4300,'#94a3b8','#ef4444','#111827',332,15.6,.128,1.66,'V8 트윈터보 GT'],
+ ['rs7','아우디 RS7','RS7','supercar',4300,'#1d5eac','#a5c6e2',null,332,15.6,.128,1.66,'V8 트윈터보 GT'],
  ['xm','BMW XM','XM','suv',5000,'#222d55','#8493bc',null,330,15.5,.120,1.72,'M 플래그십 괴물'],
  ['m8','BMW M8','M8','supercar',5800,'#214c91','#83a2d9',null,348,16.3,.134,1.70,'M 컴페티션 쿠페'],
  ['amg_gt','벤츠 AMG GT','AMG GT','supercar',6800,'#a2b6c2','#e4f3fa',null,362,17,.138,1.74,'트랙 몬스터'],

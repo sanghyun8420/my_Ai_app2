@@ -17,7 +17,8 @@ const photoAtlas = loadSprite(SPEED_ASSETS.cars, refreshCarPreviews);
 const referenceAtlases = {
  base: loadSprite(new URL('./racing-reference.webp', import.meta.url).href, refreshCarPreviews),
  series: loadSprite(new URL('./racing-reference-series.webp', import.meta.url).href, refreshCarPreviews),
- touring: loadSprite(new URL('./racing-reference-touring.webp', import.meta.url).href, refreshCarPreviews)
+ touring: loadSprite(new URL('./racing-reference-touring.webp', import.meta.url).href, refreshCarPreviews),
+ fastback: loadSprite(new URL('./racing-reference-fastback.webp', import.meta.url).href, refreshCarPreviews)
 };
 const npcAtlas = loadSprite(SPEED_ASSETS.npc);
 const buildingAtlas = loadSprite(SPEED_ASSETS.buildings);
