@@ -42,9 +42,9 @@ const {createCanvas,loadImage}=require('@napi-rs/canvas');
   }
  };
  const textured=await import('../dist/racing-art.js?atlas-test');
- assert.equal(images.length,6);
+ assert.equal(images.length,8);
  await Promise.all(images.map(image=>image.decoding));
- assert(images.every(image=>image.complete&&image.naturalWidth>0),'all six site atlases decode');
+ assert(images.every(image=>image.complete&&image.naturalWidth>0),'all eight site atlases decode');
  const canvasContext=(canvas,onDraw=()=>{})=>{
   const context=canvas.getContext('2d'),draw=context.drawImage.bind(context);
   context.drawImage=(image,...args)=>{onDraw(image,args);draw(image.image||image,...args);};
@@ -57,21 +57,39 @@ const {createCanvas,loadImage}=require('@napi-rs/canvas');
  assert(roadContext.getImageData(300,700,1,1).data[3]>0,'textured road and cars render');
  const {referenceCars}=await import('../dist/racing-reference.js');
  const {vehicleDimensions}=await import('../dist/racing-model.js');
- const references=images.find(image=>image.url.endsWith('/racing-reference.webp'));
- const series=images.find(image=>image.url.endsWith('/racing-reference-series.webp'));
- for(const atlas of [references,series]){
-  assert.deepEqual([atlas.naturalWidth,atlas.naturalHeight],[1024,1536]);
- }
- const seriesContext=createCanvas(1024,1536).getContext('2d');
- seriesContext.drawImage(series.image,0,0);
- for(const [id,sprites] of Object.entries(referenceCars).filter(([,value])=>value.sheet==='series')){
-  for(const [view,[x,y,w,h]] of [['portrait',sprites.portrait],['top',sprites.top]]){
-   const edges=[[x,y,w,1],[x,y+h-1,w,1],[x,y,1,h],[x+w-1,y,1,h]];
-   for(const edge of edges){
-    assert(!seriesContext.getImageData(...edge).data.some((value,index)=>index%4===3&&value>=128),id+' '+view+' outline has padding on each edge');
+ const atlases={
+  base:images.find(image=>image.url.endsWith('/racing-reference.webp')),
+  series:images.find(image=>image.url.endsWith('/racing-reference-series.webp')),
+  touring:images.find(image=>image.url.endsWith('/racing-reference-touring.webp'))
+ };
+ assert.deepEqual([atlases.touring.naturalWidth,atlases.touring.naturalHeight],[1086,1448]);
+ for(const sheet of ['series','touring']){
+  const atlas=atlases[sheet];
+  const canvas=createCanvas(atlas.naturalWidth,atlas.naturalHeight);
+  const context=canvas.getContext('2d');
+  context.drawImage(atlas.image,0,0);
+  for(const [id,sprites] of Object.entries(referenceCars).filter(([,value])=>value.sheet===sheet)){
+   for(const [view,[x,y,w,h]] of [['portrait',sprites.portrait],['top',sprites.top]]){
+    const edges=[[x,y,w,1],[x,y+h-1,w,1],[x,y,1,h],[x+w-1,y,1,h]];
+    for(const edge of edges){
+     assert(!context.getImageData(...edge).data.some((value,index)=>index%4===3&&value>=128),id+' '+view+' outline has padding on each edge');
+    }
    }
   }
  }
+ const drive=new RaceSimulation({mode:'drive',random:()=>.7});
+ drive.distance=1700;
+ drive.spawnTraffic(360,0);
+ assert.equal(drive.traffic[0].spriteIndex,8,'the ambulance appears in ordinary traffic');
+ const roadside=images.find(image=>image.url.endsWith('/racing-roadside.webp'));
+ const decorationCalls=[];
+ textured.drawRaceScene(canvasContext(createCanvas(600,900),(image,args)=>{
+  if(image===roadside)decorationCalls.push(args);
+ }),drive,1,{},900,240);
+ assert(decorationCalls.some(([x,y])=>x===520&&y===15),'junction signal uses the atlas');
+ assert(decorationCalls.some(([x,y])=>(x===78&&y===11)||(x===286&&y===7)),'streetlamps are rendered in the scene');
+ assert(decorationCalls.filter(([x,y])=>(x===520&&y===15)||(x===78&&y===11)||(x===286&&y===7))
+  .every((args)=>args[4]+args[6]<=80||args[4]>=520),'street fixtures stay outside the driving lanes');
  const pairs=new Set();
  for(const [id,sprites] of Object.entries(referenceCars)){
   const car=CARS.find(model=>model.id===id);
@@ -82,7 +100,7 @@ const {createCanvas,loadImage}=require('@napi-rs/canvas');
   textured.drawRaceCar(scene,55,80,40,75,0,car);
   textured.drawFrontCar(portrait,car);
   assert.equal(calls.length,2);
-  const atlas=sprites.sheet==='series'?series:references;
+  const atlas=atlases[sprites.sheet||'base'];
   assert.equal(calls[0].image,atlas);
   assert.equal(calls[1].image,atlas);
   assert.deepEqual(calls[0].args.slice(0,4),sprites.top);
@@ -94,6 +112,6 @@ const {createCanvas,loadImage}=require('@napi-rs/canvas');
   assert(portraitCanvas.getContext('2d').getImageData(270,180,460,180).data.some((value,index)=>index%4===3&&value>128),id+' portrait paints nontransparent pixels');
   pairs.add(atlas.url+calls.map(call=>call.args.slice(0,4).join(',')).join(';'));
  }
- assert.equal(pairs.size,10,'ten separate portraits and overhead images');
+ assert.equal(pairs.size,12,'twelve separate portraits and overhead images');
  console.log('PASS racing art:18 distinct vehicle drawings, three complete road scenes, boost/jump/police, nonempty pixels and balanced Canvas state.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

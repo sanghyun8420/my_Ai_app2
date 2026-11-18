@@ -7,7 +7,7 @@ const roster=[
  ['3_series','BMW 3시리즈','3 Series','sedan',250,'#079cae','#8fd5db',null,230,10.9,.094,1.38,'스포츠 세단'],
  ['a5','아우디 A5','A5','coupe',450,'#e2e6eb','#f8fafc',null,242,11.4,.098,1.42,'스포트백 쿠페'],
  ['glc','벤츠 GLC','GLC','suv',650,'#334155','#94a3b8',null,238,11.3,.088,1.45,'도심형 SUV'],
- ['e_class','벤츠 E클래스','E-Class','sedan',850,'#0f766e','#5eead4',null,252,11.9,.098,1.46,'비즈니스 세단'],
+ ['e_class','벤츠 E클래스','E-Class','sedan',850,'#a5b4c0','#e3eff4',null,252,11.9,.098,1.46,'비즈니스 세단'],
  ['5_series','BMW 5시리즈','5 Series','sedan',1050,'#0c8ba6','#a2def0',null,260,12.3,.104,1.48,'다이나믹 세단'],
  ['a6','아우디 A6','A6','sedan',1250,'#73716b','#d4cebf',null,266,12.6,.108,1.5,'콰트로 세단'],
  ['x5','BMW X5','X5','suv',1500,'#e2e8f0','#3b82f6','#1e293b',264,12.5,.098,1.54,'퍼포먼스 SUV'],
@@ -60,11 +60,29 @@ export function vehicleDimensions(config, width, length) {
  return { type: profile.type, width: fittedLength * ratio, length: fittedLength };
 }
 
+// Sprite sheet row order. Police variants are reserved for pursuit mode.
+const TRAFFIC_STYLES = Object.freeze([
+ ['sedan', '#e9e9e9'], // White sedan
+ ['sedan', '#f0f1f4'], // Sedan with sunroof
+ ['sedan', '#f9c01f'], // Yellow taxi
+ ['sedan', '#169ecd'], // Police
+ ['sedan', '#f1f4f7'], // Police
+ ['sedan', '#22252c'], // Black sedan
+ ['suv', '#e1e3e6'], // White pickup
+ ['suv', '#cd191f'], // Red pickup
+ ['suv', '#f7f5f1'], // Ambulance
+ ['coupe', '#f7f7f2'], // White coupe
+ ['sedan', '#f2f4f6'], // White taxi
+ ['sedan', '#202731'] // Unmarked police car
+]);
+const CIVILIAN_SPRITES = Object.freeze([0, 1, 2, 5, 6, 7, 8, 9, 10]);
+
 function trafficCar(color, spriteIndex) {
- const bodyType = color === '#64748b' || color === '#10b981' ? 'suv' : color === '#ec4899' ? 'coupe' : 'sedan';
  const fallback = { '#64748b': 0, '#0ea5e9': 1, '#10b981': 2, '#eab308': 5, '#ec4899': 7 };
- return { bodyType, npcIndex: Number.isInteger(spriteIndex) ? spriteIndex : (fallback[color] ?? 0),
-  bodyColor: color, accentColor: '#cbd5e1' };
+ const validIndex = Number.isInteger(spriteIndex) && spriteIndex >= 0 && spriteIndex < TRAFFIC_STYLES.length;
+ const index = validIndex ? spriteIndex : (Object.hasOwn(fallback, color) ? fallback[color] : 0);
+ const [bodyType, bodyColor] = TRAFFIC_STYLES[index];
+ return { bodyType, bodyColor: color || bodyColor, npcIndex: index, accentColor: '#cbd5e1' };
 }
 
 function policeCar(kind) {
@@ -216,10 +234,8 @@ export class RaceSimulation {
   if (this.traffic.length >= 60) return;
   const vehicles = this.groundVehicles();
   const speed = this.diff.trafficMin + this.random() * (this.diff.trafficMax - this.diff.trafficMin);
-  const colors = ['#64748b', '#0ea5e9', '#10b981', '#eab308', '#ec4899'];
-  const color = colors[Math.floor(this.random() * colors.length)];
-  const sprites = [0, 1, 2, 5, 6, 7, 9, 10, 11];
-  const spriteIndex = sprites[Math.floor(this.random() * sprites.length)];
+  const spriteIndex = CIVILIAN_SPRITES[Math.floor(this.random() * CIVILIAN_SPRITES.length)];
+  const color = TRAFFIC_STYLES[spriteIndex][1];
   for (let i = 0; i < ROAD_LANES.length; i++) {
    const car = { lane: ROAD_LANES[(start + i) % ROAD_LANES.length], y, speed, color, spriteIndex };
    const position = this.vehiclePosition('traffic', car);

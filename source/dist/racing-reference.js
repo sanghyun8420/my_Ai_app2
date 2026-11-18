@@ -10,5 +10,7 @@ export const referenceCars = Object.freeze({
  q8:       { sheet: 'series', portrait: [75, 361, 612, 289], top: [760, 329, 161, 317] },
  a6:       { sheet: 'series', portrait: [73, 684, 621, 259], top: [761, 650, 159, 311] },
  '5_series': { sheet: 'series', portrait: [75, 981, 600, 267], top: [765, 963, 153, 298] },
- xm:       { sheet: 'series', portrait: [77, 1267, 540, 259], top: [768, 1267, 125, 259] }
+ xm:       { sheet: 'series', portrait: [77, 1267, 540, 259], top: [768, 1267, 125, 259] },
+ a5:       { sheet: 'touring', portrait: [35, 236, 683, 313], top: [770, 55, 273, 576] },
+ e_class:  { sheet: 'touring', portrait: [20, 930, 719, 329], top: [767, 742, 277, 620] }
 });

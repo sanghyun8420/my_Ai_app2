@@ -14,11 +14,25 @@ function loadSprite(source, onLoad) {
 
 const refreshCarPreviews = () => globalThis.dispatchEvent?.(new Event(RACER_PHOTOS_READY));
 const photoAtlas = loadSprite(SPEED_ASSETS.cars, refreshCarPreviews);
-const referenceAtlas = loadSprite(new URL('./racing-reference.webp', import.meta.url).href, refreshCarPreviews);
-const seriesAtlas = loadSprite(new URL('./racing-reference-series.webp', import.meta.url).href, refreshCarPreviews);
+const referenceAtlases = {
+ base: loadSprite(new URL('./racing-reference.webp', import.meta.url).href, refreshCarPreviews),
+ series: loadSprite(new URL('./racing-reference-series.webp', import.meta.url).href, refreshCarPreviews),
+ touring: loadSprite(new URL('./racing-reference-touring.webp', import.meta.url).href, refreshCarPreviews)
+};
 const npcAtlas = loadSprite(SPEED_ASSETS.npc);
 const buildingAtlas = loadSprite(SPEED_ASSETS.buildings);
 const roadAtlas = loadSprite(SPEED_ASSETS.road);
+const roadsideAtlas = loadSprite(new URL('./racing-roadside.webp', import.meta.url).href);
+const roadsideSprites = {
+ lamp: [78, 11, 112, 204],
+ lantern: [286, 7, 86, 207],
+ signal: [520, 15, 40, 200],
+ oak: [671, 17, 197, 192],
+ pine: [28, 232, 169, 205],
+ palm: [229, 237, 208, 193],
+ hedge: [486, 270, 136, 134],
+ flower: [687, 263, 175, 148]
+};
 const spriteReady = image => !!(image?.complete && image.naturalWidth > 0);
 
 const box = (c, x, y, w, h, radius = 8) => {
@@ -77,7 +91,7 @@ export function drawRaceCar(c, x, y, width, length, angle, config, options = {})
   return;
  }
  const reference = Object.hasOwn(referenceCars, config.id) ? referenceCars[config.id] : null;
- const atlas = reference?.sheet === 'series' ? seriesAtlas : referenceAtlas;
+ const atlas = referenceAtlases[reference?.sheet || 'base'];
  const top = reference && spriteReady(atlas) ? reference.top : null;
  if (top || (row >= 0 && spriteReady(photoAtlas))) {
   if (top) c.drawImage(atlas, ...top, -w / 2, -h / 2, w, h);
@@ -197,6 +211,14 @@ export function roadSceneFeatures(distance,viewTop,viewBottom,spacing=220){
  return items;
 }
 const roadNoise=(n,seed=0)=>{const v=Math.sin((n+seed*1.71)*12.9898)*43758.5453;return v-Math.floor(v);};
+function drawRoadsideSprite(c, kind, x, y, height) {
+ if (!spriteReady(roadsideAtlas)) return false;
+ const source = roadsideSprites[kind];
+ const width = height * source[2] / source[3];
+ c.drawImage(roadsideAtlas, ...source, x - width / 2, y - height / 2, width, height);
+ return true;
+}
+
 function drawRoadside(c,x,y,side,theme,variant){
  c.save();c.translate(x,y);
  if (spriteReady(buildingAtlas) && (theme === 1 || (theme === 2 && variant % 3 === 0))) {
@@ -222,6 +244,13 @@ function drawRoadside(c,x,y,side,theme,variant){
   c.fillStyle='#d2c3a7';c.fillRect(-22,39,15,17);c.fillStyle='#526466';c.fillRect(0,39,19,17);c.fillStyle='#282e2f';c.fillRect(2,42,15,2);c.fillRect(2,47,15,2);c.fillRect(2,52,15,2);
  }else{ // Park verge, trees and paths.
   c.fillStyle='#567454';c.fillRect(-38,-158,76,316);c.fillStyle='#6a8761';c.fillRect(side<0?15:-23,-158,8,316);
+  const tree = ['oak', 'pine', 'palm'][variant % 3];
+  if (drawRoadsideSprite(c, tree, 0, -60, 62)) {
+   drawRoadsideSprite(c, tree === 'pine' ? 'oak' : 'pine', -side * 5, 30, 60);
+   drawRoadsideSprite(c, variant % 2 ? 'hedge' : 'flower', side * 10, 95, 33);
+   c.restore();
+   return;
+  }
   for(let i=-1;i<=1;i++){const ty=i*94+(variant%3)*9-8;c.fillStyle='#30473a66';c.beginPath();c.ellipse(3,ty+5,25,20,0,0,Math.PI*2);c.fill();c.fillStyle='#334d38';c.beginPath();c.arc(0,ty,21,0,Math.PI*2);c.fill();c.fillStyle='#5b8055';c.beginPath();c.arc(-4,ty-5,15,0,Math.PI*2);c.fill();c.fillStyle='#8ba574';c.beginPath();c.arc(-7,ty-8,6,0,Math.PI*2);c.fill();}
  }
  c.restore();
@@ -273,7 +302,19 @@ export function drawRaceScene(c,race,time=0,input={},viewHeight=720,playerBottom
   c.fillRect(x - 28, mark.y, 27, 2);
   c.fillRect(x + 441, mark.y, 27, 2);
  }
- for (const junction of roadSceneFeatures(race.distance, top, bottom, 1700)) {
+ const junctionSpacing = 1700;
+ for (const feature of roadSceneFeatures(race.distance, top, bottom, 146)) {
+  const junctionOffset = feature.world - Math.round(feature.world / junctionSpacing) * junctionSpacing;
+  if (Math.abs(junctionOffset) < 98) continue;
+  const city = themeAt(feature.y) === 1;
+  const light = city || feature.id % 3 !== 0 ? 'lamp' : 'lantern';
+  for (const [y, sidewalk] of [[feature.y, -14], [feature.y + 54, 454]]) {
+   if (y >= top - 24 && y <= bottom + 24) {
+    drawRoadsideSprite(c, light, left(y) + sidewalk, y, 39);
+   }
+  }
+ }
+ for (const junction of roadSceneFeatures(race.distance, top, bottom, junctionSpacing)) {
   if (junction.id === 0 || junction.y < top - 110 || junction.y > bottom + 110) continue;
   const y = junction.y, x = left(y);
   c.fillStyle = '#303a40';
@@ -284,6 +325,8 @@ export function drawRaceScene(c,race,time=0,input={},viewHeight=720,playerBottom
     c.fillRect(x + Math.floor(stripe / 4) * 110 + 8 + (stripe % 4) * 23, y + edge, 14, 10);
    }
   }
+  drawRoadsideSprite(c, 'signal', left(y - 63) - 13, y - 63, 42);
+  drawRoadsideSprite(c, 'signal', left(y + 63) + 453, y + 63, 42);
  }
 
  const remaining=race.length-race.distance;if(race.mode!=='drive'&&remaining<520){const y=533-remaining*1.45;for(let r=0;r<2;r++)for(let i=0;i<28;i++){c.fillStyle=(i+r)%2?'#0b1220':'#fff';c.fillRect(left(y)+i*16,y+r*16,16,16);}}
@@ -357,7 +400,7 @@ export function carFaceFamily(car){return ['3_series','5_series','x5','x6m','xm'
 export function drawFrontCar(c,car){
  const row = CAR_SPRITES.indexOf(car.id);
  const reference = Object.hasOwn(referenceCars, car.id) ? referenceCars[car.id] : null;
- const atlas = reference?.sheet === 'series' ? seriesAtlas : referenceAtlas;
+ const atlas = referenceAtlases[reference?.sheet || 'base'];
  if (reference && spriteReady(atlas)) {
   const source = reference.portrait;
   const width = 910;
