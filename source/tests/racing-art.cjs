@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {createCanvas}=require('@napi-rs/canvas');
+const {createCanvas,Image}=require('@napi-rs/canvas');
 (async()=>{
  const {CARS,RaceSimulation,effectiveCar}=await import('../dist/racing-model.js');
  const {drawRaceCar,drawRaceScene,drawFrontCar,carFaceFamily,roadSceneFeatures}=await import('../dist/racing-art.js');
@@ -27,5 +27,19 @@ const {createCanvas}=require('@napi-rs/canvas');
  assert.equal(carFaceFamily(CARS.find(c=>c.id==='xm')),'bmw');assert.equal(carFaceFamily(CARS.find(c=>c.id==='a7')),'audi');
  const tall=new RaceSimulation();tall.rivals=[];const blank=createCanvas(600,1400);drawRaceScene(blank.getContext('2d'),tall,0,{},1400,300);const before=blank.getContext('2d').getImageData(0,0,600,300).data;
  tall.rivals=[{id:'a5',lane:0,distance:650}];const visible=createCanvas(600,1400);drawRaceScene(visible.getContext('2d'),tall,0,{},1400,300);assert.notDeepEqual(visible.getContext('2d').getImageData(0,0,600,300).data,before,'rivals entering the upper part of a tall road cannot be culled at the old screen boundary');
+ // Use the same atlases and rendering branches as a browser once images decode.
+ const images=[];
+ global.Image=class extends Image{constructor(){super();images.push(this);}};
+ const textured=await import('../dist/racing-art.js?atlas-test');
+ for(let attempts=0;attempts<20&&images.some(image=>!image.complete||!image.naturalWidth);attempts++){
+  await new Promise(resolve=>setTimeout(resolve,10));
+ }
+ assert.equal(images.length,4);
+ assert(images.every(image=>image.complete&&image.naturalWidth>0),'all four current site atlases decode');
+ const loaded=createCanvas(1000,560);textured.drawFrontCar(loaded.getContext('2d'),CARS[0]);
+ assert.notDeepEqual(loaded.toBuffer('image/png'),hero.toBuffer('image/png'),'loaded car photo replaces fallback');
+ const loadedRoad=createCanvas(600,900), roadContext=loadedRoad.getContext('2d');
+ textured.drawRaceScene(roadContext,new RaceSimulation({difficulty:'hell'}),2,{},900,240);
+ assert(roadContext.getImageData(300,700,1,1).data[3]>0,'textured road and cars render');
  console.log('PASS racing art:18 distinct vehicle drawings, three complete road scenes, boost/jump/police, nonempty pixels and balanced Canvas state.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

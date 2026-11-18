@@ -1,42 +1,186 @@
-import {carById} from './racing-model.js';
-import {CAR_SPRITES,SPEED_ASSETS} from './racing-sprites.js';
-const sprite=url=>{const i=typeof Image==='function'?new Image():null;if(i){i.onload=()=>{if(typeof window!=='undefined')window.dispatchEvent(new Event('garden-racing-photos-ready'));};i.src=url;}return i;};
-const photoAtlas=sprite(SPEED_ASSETS.cars),npcAtlas=sprite(SPEED_ASSETS.npc),buildingAtlas=sprite(SPEED_ASSETS.buildings),roadAtlas=sprite(SPEED_ASSETS.road);
-const ready=i=>!!(i&&i.complete&&i.naturalWidth>0),photoRow=id=>CAR_SPRITES.indexOf(id),photosReady=()=>ready(photoAtlas);
-const box=(c,x,y,w,h,r=8)=>{c.beginPath();c.roundRect(x,y,w,h,r);};
-export function drawRaceCar(c,x,y,width,height,angle,config,{boost=false,rival=false,jump=0,police=false,brake=false,time=0}={}){
- c.save();c.translate(x+3+jump*.22,y+5+jump*.28);c.rotate(angle);c.fillStyle='#0006';box(c,-width/2,-height/2,width,height);c.fill();c.restore();
- c.save();c.translate(x,y-jump*.35);c.scale(1+jump*.0065,1+jump*.0065);c.rotate(angle);
- const type=config.bodyType||'sedan',w=width*(type==='suv'?1.12:type==='supercar'?1.08:1),h=height*(type==='suv'?1.04:1);
- if(boost){const len=h*(.44+Math.sin(time*37)*.1);for(const side of [-.26,.26]){const g=c.createLinearGradient(0,h/2,0,h/2+len);g.addColorStop(0,'#fff');g.addColorStop(.35,'#38bdf8');g.addColorStop(1,'#f43f5e00');c.fillStyle=g;c.beginPath();c.moveTo(w*side-4,h/2-2);c.lineTo(w*side+4,h/2-2);c.lineTo(w*side,h/2+len);c.fill();}}
- const npcIndex=Number.isInteger(config.npcIndex)?config.npcIndex:-1;
- if(npcIndex>=0&&ready(npcAtlas)){const cell=((npcIndex%12)+12)%12;c.drawImage(npcAtlas,(cell%4)*96+2,Math.floor(cell/4)*170+2,92,165,-w/2,-h/2,w,h);c.restore();return;}
- if(!police&&photosReady()){
-  const row=photoRow(config.id);
-  if(row>=0){
-   // Keep the original shadow, boost flames, rotation, tilt and jump scaling.
-   c.drawImage(photoAtlas,322,row*190+4,90,182,-w/2,-h/2,w,h);
-   if(brake){c.fillStyle='#ff294b';c.fillRect(-w*.35,h*.43,w*.7,3);}
-   c.restore();return;
+import {vehicleDimensions} from './racing-model.js';
+import {CAR_SPRITES, SPEED_ASSETS} from './racing-sprites.js';
+
+export const RACER_PHOTOS_READY = 'garden-racing-photos-ready';
+
+function loadSprite(source, onLoad) {
+ if (typeof Image !== 'function') return null;
+ const image = new Image();
+ if (onLoad) image.onload = onLoad;
+ image.src = source;
+ return image;
+}
+
+const photoAtlas = loadSprite(SPEED_ASSETS.cars, () => {
+ globalThis.dispatchEvent?.(new Event(RACER_PHOTOS_READY));
+});
+const npcAtlas = loadSprite(SPEED_ASSETS.npc);
+const buildingAtlas = loadSprite(SPEED_ASSETS.buildings);
+const roadAtlas = loadSprite(SPEED_ASSETS.road);
+const spriteReady = image => !!(image?.complete && image.naturalWidth > 0);
+
+const box = (c, x, y, w, h, radius = 8) => {
+ c.beginPath();
+ c.roundRect(x, y, w, h, radius);
+};
+
+export function drawRaceCar(c, x, y, width, length, angle, config, options = {}) {
+ const { boost = false, jump = 0, time = 0, police = false, brake = false } = options;
+ const { type, width: w, length: h } = vehicleDimensions(config, width, length);
+ const paint = config.bodyColor || '#64748b';
+ const trim = config.accentColor || '#e9f2fb';
+ const sport = type === 'supercar';
+ const utility = type === 'wagon' || type === 'suv';
+ const nose = sport ? .30 : type === 'suv' ? .40 : .36;
+ const tail = utility ? .41 : sport ? .45 : .35;
+ const glassStart = sport ? -.20 : -.24;
+ const glassEnd = utility ? .39 : .29;
+ const polygon = (points, color) => {
+  c.fillStyle = color;
+  c.beginPath();
+  c.moveTo(points[0][0] * w, points[0][1] * h);
+  for (const [px, py] of points.slice(1)) c.lineTo(px * w, py * h);
+  c.closePath();
+  c.fill();
+ };
+
+ c.save();
+ c.translate(x + 2, y + 3 + jump * .22);
+ c.rotate(angle);
+ c.fillStyle = '#050e1a66';
+ box(c, -w * .51, -h * .5, w * 1.02, h, w * .17);
+ c.fill();
+ c.restore();
+
+ c.save();
+ c.translate(x, y - jump * .35);
+ c.scale(1 + jump * .004, 1 + jump * .004);
+ c.rotate(angle);
+ if (boost) {
+  const trail = c.createLinearGradient(0, h / 2, 0, h * 1.08);
+  trail.addColorStop(0, '#baf5ff');
+  trail.addColorStop(.28, '#41d4ff');
+  trail.addColorStop(1, '#41d4ff00');
+  const tailEnd = .98 + Math.sin(time * 37) * .1;
+  polygon([[-.30,.45],[-.14,.45],[-.22,tailEnd]], trail);
+  polygon([[.14,.45],[.30,.45],[.22,tailEnd]], trail);
+ }
+ const row = CAR_SPRITES.indexOf(config.id);
+ const npc = Number.isInteger(config.npcIndex) ? config.npcIndex : -1;
+ if (npc >= 0 && npc < 12 && spriteReady(npcAtlas)) {
+  const cell = police && Math.floor(time * 2) % 2 === 0 ? 3 : npc;
+  c.drawImage(npcAtlas, (cell % 4) * 96 + 2, Math.floor(cell / 4) * 170 + 2, 92, 165,
+   -w / 2, -h / 2, w, h);
+  c.restore();
+  return;
+ }
+ if (row >= 0 && spriteReady(photoAtlas)) {
+  c.drawImage(photoAtlas, 322, row * 190 + 4, 90, 182, -w / 2, -h / 2, w, h);
+  if (brake) {
+   c.fillStyle = '#ff473f';
+   c.fillRect(-w * .33, h * .42, w * .66, 2);
+  }
+  c.restore();
+  return;
+ }
+ c.fillStyle = '#080e15';
+ for (const tx of [-.53, .38]) {
+  for (const ty of [-.34,.20]) {
+   box(c, tx * w, ty * h, w * .15, h * .19, 2);
+   c.fill();
   }
  }
- c.fillStyle='#070b12';for(const sx of [-1,1])for(const sy of [-1,1])c.fillRect(sx*w/2-2,sy*h*.27-h*.1,5,h*.2);
- const g=c.createLinearGradient(-w/2,0,w/2,0);g.addColorStop(0,config.accentColor||'#94a3b8');g.addColorStop(.18,config.bodyColor||'#64748b');g.addColorStop(.8,config.bodyColor||'#64748b');g.addColorStop(1,config.accentColor||'#94a3b8');c.fillStyle=g;c.beginPath();c.moveTo(-w*.29,-h*.5);c.quadraticCurveTo(0,-h*.56,w*.29,-h*.5);c.quadraticCurveTo(w*.47,-h*.47,w*.49,-h*.27);c.lineTo(w*.46,h*.24);c.quadraticCurveTo(w*.54,h*.39,w*.38,h*.49);c.quadraticCurveTo(0,h*.53,-w*.38,h*.49);c.quadraticCurveTo(-w*.54,h*.39,-w*.46,h*.24);c.lineTo(-w*.49,-h*.27);c.quadraticCurveTo(-w*.47,-h*.47,-w*.29,-h*.5);c.closePath();c.fill();c.strokeStyle=config.accentColor||'#e2e8f0';c.lineWidth=1.4;c.stroke();
- if(config.stripeColor){c.fillStyle=config.stripeColor;c.fillRect(-w*.12,-h/2+2,w*.24,h-4);}if(police){c.fillStyle='#f8fafc';c.fillRect(-w/2+2,-h*.18,w-4,h*.42);}
- for(const side of [-1,1]){c.fillStyle=config.bodyColor||'#64748b';box(c,side*w*.52-2,-h*.18,4,h*.085,2);c.fill();}c.strokeStyle='#f0f9ff55';c.lineWidth=.8;c.beginPath();for(const side of [-1,1]){c.moveTo(side*w*.31,-h*.43);c.lineTo(side*w*.25,-h*.27);c.moveTo(side*w*.39,-h*.1);c.lineTo(side*w*.37,h*.29);}c.stroke();
- c.fillStyle='#071522';box(c,-w*.38,-h*.23,w*.76,h*(type==='suv'?.66:.55),6);c.fill();c.fillStyle=police?'#f8fafc':config.bodyColor;box(c,-w*.28,-h*.06,w*.56,h*(type==='suv'?.38:.26),4);c.fill();
- c.strokeStyle='#c2edff66';c.lineWidth=1;c.beginPath();c.moveTo(-w*.3,-h*.18);c.lineTo(w*.3,-h*.18);c.stroke();
- // Individual roof, window and panel highlights, based on the vehicle body type.
- c.strokeStyle='#dbeefb88';c.lineWidth=.8;c.beginPath();c.moveTo(-w*.32,-h*.22);c.lineTo(-w*.28,-h*.06);c.moveTo(w*.32,-h*.22);c.lineTo(w*.28,-h*.06);c.moveTo(-w*.28,h*.24);c.lineTo(w*.28,h*.24);c.stroke();
- c.fillStyle='#ffffff28';c.beginPath();c.moveTo(-w*.29,-h*.19);c.lineTo(-w*.2,-h*.18);c.lineTo(w*.12,-h*.08);c.lineTo(-w*.18,-h*.08);c.closePath();c.fill();
- c.strokeStyle='#02091088';c.lineWidth=.8;c.beginPath();c.moveTo(-w*.37,-h*.34);c.lineTo(w*.37,-h*.34);c.moveTo(-w*.34,h*.37);c.lineTo(w*.34,h*.37);c.stroke();
- if(type==='suv'){c.strokeStyle='#c8d9df99';c.lineWidth=1.5;for(const side of [-1,1]){c.beginPath();c.moveTo(side*w*.34,-h*.15);c.lineTo(side*w*.34,h*.26);c.stroke();}}
- if(type==='coupe'||type==='supercar'){c.fillStyle='#07131a';for(const side of [-1,1]){c.beginPath();c.moveTo(side*w*.48,h*.05);c.lineTo(side*w*.38,h*.12);c.lineTo(side*w*.4,h*.27);c.lineTo(side*w*.48,h*.24);c.closePath();c.fill();}}
- if(type==='supercar'){c.fillStyle='#09090b';box(c,-w*.49,h/2-6,w*.98,5,2);c.fill();}
- if(police){const flash=Math.floor(time*9)%2;c.fillStyle=flash?'#ef4444':'#1e293b';c.fillRect(-w*.32,-2,w*.32,5);c.fillStyle=flash?'#1e293b':'#3b82f6';c.fillRect(0,-2,w*.32,5);}
- c.fillStyle=rival?'#fb7185':'#fff5b5';for(const sx of [-1,1])c.fillRect(sx*w*.32-3,-h/2+2,6,3);
- const family=carFaceFamily(config);if(config.id){c.strokeStyle='#d9e8ee99';c.lineWidth=1;const gy=-h/2+7;if(family==='bmw'){box(c,-w*.2,gy,w*.17,4,1);c.stroke();box(c,w*.03,gy,w*.17,4,1);c.stroke();}else if(family==='audi'){for(let i=0;i<4;i++){c.beginPath();c.arc((i-1.5)*2.4,gy,1.8,0,Math.PI*2);c.stroke();}}else{c.beginPath();c.arc(0,gy,3,0,Math.PI*2);c.stroke();}c.beginPath();c.moveTo(-w*.25,-h*.37);c.lineTo(-w*.19,-h*.28);c.moveTo(w*.25,-h*.37);c.lineTo(w*.19,-h*.28);c.stroke();}
- c.fillStyle=brake?'#ff2350':'#d83141';c.fillRect(-w/2+3,h/2-4,w-6,brake?4:2);c.restore();
+
+ const metal = c.createLinearGradient(-w / 2, 0, w / 2, 0);
+ metal.addColorStop(0, '#182638');
+ metal.addColorStop(.13, paint);
+ metal.addColorStop(.48, paint);
+ metal.addColorStop(.7, paint);
+ metal.addColorStop(1, '#293e51');
+ c.beginPath();
+ c.moveTo(-w * nose, -h * .495);
+ c.quadraticCurveTo(0, -h * .525, w * nose, -h * .495);
+ c.quadraticCurveTo(w * .49, -h * .46, w * .49, -h * .33);
+ c.lineTo(w * (sport ? .44 : .47), h * .09);
+ c.quadraticCurveTo(w * .54, h * .47, w * tail, h * .49);
+ c.quadraticCurveTo(0, h * .51, -w * tail, h * .49);
+ c.quadraticCurveTo(-w * .54, h * .47, -w * (sport ? .44 : .47), h * .09);
+ c.lineTo(-w * .49, -h * .33);
+ c.quadraticCurveTo(-w * .49, -h * .46, -w * nose, -h * .495);
+ c.closePath();
+ c.fillStyle = metal;
+ c.fill();
+ c.strokeStyle = '#12202f';
+ c.lineWidth = 1.3;
+ c.stroke();
+
+ const reflection = c.createLinearGradient(0, -h / 2, 0, h / 2);
+ reflection.addColorStop(0, '#ffffff66');
+ reflection.addColorStop(.35, '#ffffff10');
+ reflection.addColorStop(.72, '#ffffff00');
+ reflection.addColorStop(1, '#090f2b60');
+ c.fillStyle = reflection;
+ c.fill();
+ if (config.stripeColor) {
+  c.fillStyle = config.stripeColor;
+  c.globalAlpha = .65;
+  c.fillRect(-w * .08, -h * .43, w * .16, h * .86);
+  c.globalAlpha = 1;
+ }
+
+ // Model details are large enough to read from the driving camera.
+ if (type === 'suv') {
+  for (const rail of [-.32, .32]) {
+   c.fillStyle = '#c8d9dd';
+   box(c, (rail - .022) * w, -h * .18, w * .044, h * .53, 1);
+   c.fill();
+  }
+ }
+ if (sport) {
+  polygon([[-.43,.10],[-.32,.14],[-.29,.31],[-.45,.25]], '#152333');
+  polygon([[.43,.10],[.32,.14],[.29,.31],[.45,.25]], '#152333');
+ }
+ c.fillStyle = paint;
+ for (const side of [-1, 1]) {
+  box(c, (side * .51 - .045) * w, (glassStart + .02) * h, w * .09, h * .065, 1.3);
+  c.fill();
+ }
+ const tint = c.createLinearGradient(0, h * glassStart, w * .32, h * glassEnd);
+ tint.addColorStop(0, '#7591a4');
+ tint.addColorStop(.35, '#2c4759');
+ tint.addColorStop(1, '#0b1b27');
+ polygon([[-.34,glassStart],[.34,glassStart],[.36,.13],[.30,glassEnd],[-.30,glassEnd],[-.36,.13]], tint);
+ polygon([[-.29,-.086],[.29,-.086],[.28,utility ? .28 : .147],[-.28,utility ? .28 : .147]], police ? '#edf6ff' : paint);
+ polygon([[-.28,glassStart + .025],[.13,glassStart + .018],[-.07,-.092],[-.30,-.092]], '#ffffff44');
+ if (utility) {
+  c.fillStyle = trim;
+  c.fillRect(-w * .26, h * .27, w * .52, 1.1);
+ }
+
+ const family = config.id ? carFaceFamily(config) : '';
+ const vent = family === 'bmw' ? [[-.22,-.46],[-.035,-.46],[.035,-.46],[.22,-.46]] : [[-.20,-.46],[.20,-.46]];
+ polygon([...vent, [.16,-.40],[-.16,-.40]], '#12212d');
+ if (family === 'bmw') {
+  c.fillStyle = '#cbd8e4';
+  c.fillRect(-1, -h * .46, 2, h * .067);
+ }
+ for (const side of [-1,1]) {
+  polygon([[side*.20,-.441],[side*.42,-.451],[side*.40,-.373],[side*.26,-.384]], '#101925');
+  polygon([[side*.22,-.433],[side*.405,-.441],[side*.39,-.400],[side*.27,-.402]], '#e4f5ff');
+  polygon([[side*.18,.425],[side*.42,.396],[side*.40,.46],[side*.18,.47]], brake ? '#ffe0ce' : '#ed5d65');
+ }
+ if (sport) {
+  c.fillStyle = '#121f27';
+  c.fillRect(-w * .44, h * .32, w * .88, h * .038);
+ }
+ if (police) {
+  const flash = Math.floor(time * 9) % 2;
+  c.fillStyle = flash ? '#ff565b' : '#8b213a';
+  c.fillRect(-w * .27, -h * .026, w * .27, h * .081);
+  c.fillStyle = flash ? '#1b54a5' : '#4ec5ff';
+  c.fillRect(0, -h * .026, w * .27, h * .081);
+ }
+ c.restore();
 }
 // Roadside scenery is tied to world coordinates, so buildings and markings move at
 // exactly the same speed as the road and do not jump when a viewport changes.
@@ -49,9 +193,14 @@ export function roadSceneFeatures(distance,viewTop,viewBottom,spacing=220){
 const roadNoise=(n,seed=0)=>{const v=Math.sin((n+seed*1.71)*12.9898)*43758.5453;return v-Math.floor(v);};
 function drawRoadside(c,x,y,side,theme,variant){
  c.save();c.translate(x,y);
- if(ready(buildingAtlas)&&(theme===1||(theme===2&&variant%3===0))){
-  const tile=variant%8;c.fillStyle='#172d3555';c.fillRect(-65,-70,130,145);
-  c.drawImage(buildingAtlas,(tile%4)*150,Math.floor(tile/4)*150,150,150,-75,-75,150,150);c.restore();return;
+ if (spriteReady(buildingAtlas) && (theme === 1 || (theme === 2 && variant % 3 === 0))) {
+  const tile = variant % 8;
+  c.fillStyle = '#172d3555';
+  c.fillRect(-42, -65, 84, 130);
+  c.drawImage(buildingAtlas, (tile % 4) * 150, Math.floor(tile / 4) * 150, 150, 150,
+   -42, -66, 84, 130);
+  c.restore();
+  return;
  }
  if(theme===0){ // Waterfront: a stone quay with parallel water glints.
   c.fillStyle='#285d73';c.fillRect(-38,-158,76,316);
@@ -72,69 +221,125 @@ function drawRoadside(c,x,y,side,theme,variant){
  c.restore();
 }
 export function drawRaceScene(c,race,time=0,input={},viewHeight=720,playerBottom=187){
- const d=race.diff,shift=viewHeight-533-playerBottom;c.save();c.translate(0,shift);
+ const shift=viewHeight-533-playerBottom;c.save();c.translate(0,shift);
  const top=-shift,bottom=viewHeight-shift,worldAt=y=>race.distance+(533-y)/1.45;
  const curve=y=>race.curve(worldAt(y))-race.curve(race.distance),left=y=>80+curve(y),scroll=race.distance*1.45;
  const seed=race.scenerySeed||0,themeAt=y=>Math.floor(roadNoise(Math.floor(worldAt(y)/1400),seed)*3);
- // Draw wide pavement first, followed by the same curve-aligned road used for
- // collision coordinates. Different districts keep the roadway unambiguous.
- if(ready(roadAtlas)){
-  const tileHeight=roadAtlas.naturalHeight;
-  for(let y=top;y<bottom;y+=8){
-   const x=left(y),theme=themeAt(y),height=Math.min(9,bottom-y);
-   c.fillStyle=['#365662','#727676','#567054'][theme];c.fillRect(0,y,600,height);
-   c.fillStyle='#a7aa9f';c.fillRect(x-28,y,28,height);c.fillRect(x+440,y,28,height);
-   const sy=((Math.floor(scroll+533-y)%tileHeight)+tileHeight)%tileHeight,first=Math.min(height,tileHeight-sy);
-   c.drawImage(roadAtlas,0,sy,440,first,x,y,440,first);
-   if(first<height)c.drawImage(roadAtlas,0,0,440,height-first,x,y+first,440,height-first);
+ // Draw the districts behind the pavement so roofs cannot cover a bend.
+ for (let y = top; y < bottom; y += 8) {
+  c.fillStyle = ['#285d73', '#827f75', '#567454'][themeAt(y)];
+  c.fillRect(0, y, 600, 9);
+ }
+ for (const feature of roadSceneFeatures(race.distance, top, bottom)) {
+  if (feature.y < top - 180 || feature.y > bottom + 180) continue;
+  const roadLeft = left(feature.y);
+  const theme = themeAt(feature.y);
+  const variant = Math.floor(roadNoise(feature.id, seed) * 16);
+  drawRoadside(c, roadLeft - 67, feature.y, -1, theme, variant);
+  drawRoadside(c, roadLeft + 507, feature.y, 1, theme, variant + 2);
+ }
+ const texturedRoad = spriteReady(roadAtlas);
+ for (let y = top; y < bottom; y += 8) {
+  const x = left(y), theme = themeAt(y);
+  c.fillStyle = ['#adab96', '#aaa69a', '#a5a898'][theme];
+  c.fillRect(x - 28, y, 28, 9);
+  c.fillRect(x + 440, y, 28, 9);
+  if (texturedRoad) {
+   const tileHeight = roadAtlas.naturalHeight;
+   const sy = ((y - scroll) % tileHeight + tileHeight) % tileHeight;
+   const first = Math.min(9, tileHeight - sy);
+   c.drawImage(roadAtlas, 0, sy, 440, first, x, y, 440, first);
+   if (first < 9) c.drawImage(roadAtlas, 0, 0, 440, 9 - first, x, y + first, 440, 9 - first);
+   continue;
   }
- }else{
- for(let y=top;y<bottom;y+=8){const x=left(y),theme=themeAt(y);c.fillStyle=['#285d73','#827f75','#567454'][theme];c.fillRect(0,y,600,9);c.fillStyle=['#adab96','#aaa69a','#a5a898'][theme];c.fillRect(x-28,y,28,9);c.fillRect(x+440,y,28,9);c.fillStyle=['#354348','#354141','#394741'][theme];c.fillRect(x,y,440,9);c.fillStyle='#dec788';c.fillRect(x+3,y,3,9);c.fillRect(x+434,y,3,9);
-  // The middle markings divide opposing carriageways; they remain flat so
-  // lane changing is not misleadingly presented as hitting a solid median.
-  c.fillStyle='#d9c777';c.fillRect(x+217,y,2,9);c.fillRect(x+222,y,2,9);
-  if((((y-scroll)%104)+104)%104<55){c.fillStyle='#ebede0bb';for(const offset of [110,330])c.fillRect(x+offset-2,y,4,9);}
- }
-
- }
- // Stationary world-space slabs, gutters and occasional crossings.
- for(const mark of roadSceneFeatures(race.distance,top,bottom,32)){const y=mark.y,x=left(y);c.fillStyle='#69756e88';c.fillRect(x-28,y,27,2);c.fillRect(x+441,y,27,2);}
- for(const mark of roadSceneFeatures(race.distance,top,bottom,1100)){if(mark.y<top-50||mark.y>bottom+50)continue;const x=left(mark.y);c.fillStyle='#e8e6cfb0';for(let lane=0;lane<4;lane++)for(let stripe=0;stripe<4;stripe++)c.fillRect(x+lane*110+13+stripe*20,mark.y-15,11,30);}
- for(const junction of roadSceneFeatures(race.distance,top,bottom,1700)){
-  if(junction.id===0||junction.y<top-110||junction.y>bottom+110)continue;
-  const y=junction.y,x=left(y);c.fillStyle='#2b3134';c.fillRect(0,y-43,600,86);
-  c.fillStyle='#e8eceb';for(let lane=0;lane<4;lane++)for(let i=0;i<4;i++){
-   c.fillRect(x+lane*110+8+i*23,y-39,14,10);c.fillRect(x+lane*110+8+i*23,y+29,14,10);
+  c.fillStyle = ['#354348', '#354141', '#394741'][theme];
+  c.fillRect(x, y, 440, 9);
+  c.fillStyle = '#dec788';
+  for (const offset of [3, 217, 222, 434]) c.fillRect(x + offset, y, 2, 9);
+  if ((((y - scroll) % 104) + 104) % 104 < 55) {
+   c.fillStyle = '#ebede0bb';
+   for (const offset of [110, 330]) c.fillRect(x + offset - 2, y, 4, 9);
   }
  }
- for(const feature of roadSceneFeatures(race.distance,top,bottom)){
-  if(feature.y<top-180||feature.y>bottom+180)continue;
-  const roadLeft=left(feature.y),theme=themeAt(feature.y),variant=Math.floor(roadNoise(feature.id,seed)*16);
-  drawRoadside(c,roadLeft-67,feature.y,-1,theme,variant);
-  drawRoadside(c,roadLeft+507,feature.y,1,theme,variant+2);
+ for (const mark of roadSceneFeatures(race.distance, top, bottom, 32)) {
+  const x = left(mark.y);
+  c.fillStyle = '#69756e88';
+  c.fillRect(x - 28, mark.y, 27, 2);
+  c.fillRect(x + 441, mark.y, 27, 2);
+ }
+ for (const junction of roadSceneFeatures(race.distance, top, bottom, 1700)) {
+  if (junction.id === 0 || junction.y < top - 110 || junction.y > bottom + 110) continue;
+  const y = junction.y, x = left(y);
+  c.fillStyle = '#303a40';
+  c.fillRect(0, y - 43, 600, 86);
+  c.fillStyle = '#e8eceb';
+  for (const edge of [-39, 29]) {
+   for (let stripe = 0; stripe < 16; stripe++) {
+    c.fillRect(x + Math.floor(stripe / 4) * 110 + 8 + (stripe % 4) * 23, y + edge, 14, 10);
+   }
+  }
  }
 
  const remaining=race.length-race.distance;if(race.mode!=='drive'&&remaining<520){const y=533-remaining*1.45;for(let r=0;r<2;r++)for(let i=0;i<28;i++){c.fillStyle=(i+r)%2?'#0b1220':'#fff';c.fillRect(left(y)+i*16,y+r*16,16,16);}}
  for(const z of race.zones){const x=race.screenX(z.lane,z.y);c.save();c.translate(x,z.y);c.rotate(race.roadAngle(z.lane,z.y));c.globalAlpha=z.used?.35:1;const g=c.createLinearGradient(0,40,0,-40);g.addColorStop(0,'#0a7cbf');g.addColorStop(1,'#53dcff');c.fillStyle=g;box(c,-50,-40,100,80,9);c.fill();c.strokeStyle='#a6f3ff';c.lineWidth=2;c.stroke();c.strokeStyle='#fff6a3';c.lineWidth=7;c.lineJoin='round';for(const y of [-20,4,28]){c.beginPath();c.moveTo(-28,y);c.lineTo(0,y-13);c.lineTo(28,y);c.stroke();}c.restore();}
  for(const r of race.ramps){const x=race.screenX(r.lane,r.y),g=c.createLinearGradient(0,r.y+26,0,r.y-26);g.addColorStop(0,'#d97706');g.addColorStop(1,'#fde047');c.fillStyle=g;box(c,x-22,r.y-26,44,52,6);c.fill();c.fillStyle='#2a1b09';c.textAlign='center';c.font='bold 11px sans-serif';c.fillText('▲ JUMP',x,r.y+4);}
  for(const coin of race.coins){const x=race.screenX(coin.lane,coin.y);c.save();c.translate(x,coin.y);c.scale(Math.max(.3,Math.abs(Math.cos(time*6+coin.y*.02))),1);c.fillStyle='#facc15';c.strokeStyle='#fef08a';c.lineWidth=2;c.beginPath();c.arc(0,0,12,0,Math.PI*2);c.fill();c.stroke();c.fillStyle='#854d0e';c.font='bold 13px sans-serif';c.textAlign='center';c.fillText('₩',0,5);c.restore();}
- for(const t of race.traffic){
-  const index=Number.isInteger(t.spriteIndex)?t.spriteIndex:({'#64748b':0,'#0ea5e9':1,'#10b981':2,'#eab308':5,'#ec4899':7}[t.color]??0);
-  drawRaceCar(c,race.screenX(t.lane,t.y),t.y,34,63,race.roadAngle(t.lane,t.y),{npcIndex:index,bodyType:'sedan',bodyColor:t.color,accentColor:'#cbd5e1'},{time});
+ for (const b of race.roadblocks || []) {
+  const x = race.screenX(b.lane, b.y);
+  c.save();
+  c.translate(x, b.y);
+  c.rotate(race.roadAngle(b.lane, b.y));
+  c.fillStyle = '#f8e5ba';c.fillRect(-38, -8, 76, 16);
+  c.fillStyle = '#e34e46';
+  for (let stripe = -30; stripe <= 30; stripe += 20) c.fillRect(stripe, -8, 10, 16);
+  c.restore();
  }
- for(const r of race.rivals){const y=533-(r.distance-race.distance)*1.45;if(y< -shift-120||y>viewHeight-shift+120)continue;const x=race.screenX(r.lane,y),car=carById(r.id);drawRaceCar(c,x,y,34,64,race.roadAngle(r.lane,y),car,{boost:race.difficulty==='hell',rival:true,time});c.fillStyle='#0f172ae8';box(c,x-30,y-52,60,16,5);c.fill();c.fillStyle='#fda4af';c.font='bold 9px sans-serif';c.textAlign='center';c.fillText(car.shortBadge,x,y-40);}
- for(const b of race.roadblocks||[]){const x=race.screenX(b.lane,b.y);c.save();c.translate(x,b.y);c.rotate(race.roadAngle(b.lane,b.y));c.fillStyle='#f8e5ba';c.fillRect(-38,-8,76,16);c.fillStyle='#e34e46';for(let i=-30;i<=30;i+=20)c.fillRect(i,-8,10,16);c.restore();}
- for(const p of race.police){
-  const x=race.screenX(p.lane,p.y);
-  if(p.kind==='helicopter'){c.save();c.translate(x,p.y);c.fillStyle='#172438';c.beginPath();c.ellipse(0,0,17,29,0,0,Math.PI*2);c.fill();c.strokeStyle='#d2edf9';c.lineWidth=3;c.beginPath();c.moveTo(-40,0);c.lineTo(40,0);c.moveTo(0,-36);c.lineTo(0,35);c.stroke();c.fillStyle='#87d7ff';c.fillRect(-9,-14,18,15);c.restore();}
-  else{const index=p.kind==='patrol'?(Math.floor(time*1.4)%2?3:4):p.kind==='armored'?11:7;
-   drawRaceCar(c,x,p.y,p.kind==='tank'?48:35,p.kind==='tank'?78:66,race.roadAngle(p.lane,p.y),{npcIndex:index,bodyType:p.kind==='tank'?'suv':'sedan',bodyColor:'#0f172a'},{rival:true,police:true,time});
-   if(p.kind==='tank'){c.strokeStyle='#b6c59e';c.lineWidth=6;c.beginPath();c.moveTo(x,p.y);c.lineTo(x,p.y-40);c.stroke();}
+ const player = race.vehiclePosition('player');
+ const visible = race.groundVehicles().filter(car => car.y > top - 100 && car.y < bottom + 100);
+ if (race.jump < 12) visible.push(player);
+ visible.sort((a, b) => a.y - b.y);
+ const drawVehicle = ({role, vehicle, x, y, width, length, angle, config}) => {
+  const isPlayer = role === 'player';
+  const isPatrol = role === 'police' && vehicle.kind === 'patrol';
+  drawRaceCar(c, x, y, width, length, angle, config, {
+   time, police: isPatrol, jump: isPlayer ? race.jump : 0,
+   boost: isPlayer ? race.boosting : role === 'rival' && race.difficulty === 'hell',
+   brake: isPlayer && input.brake
+  });
+  if (role === 'police' && vehicle.kind === 'tank') {
+   c.save();c.translate(x, y);c.rotate(angle);
+   c.fillStyle = '#35402c';box(c, -13, -12, 26, 27, 6);c.fill();
+   c.fillStyle = '#bec696';c.fillRect(-3, -36, 6, 38);
+   c.restore();
+  }
+ };
+ for (const car of visible) drawVehicle(car);
+ if (race.jump >= 12) drawVehicle(player);
+ for (const helicopter of race.police.filter(car => car.kind === 'helicopter')) {
+  const x = race.screenX(helicopter.lane, helicopter.y), y = helicopter.y;
+  c.save();c.translate(x, y);
+  c.fillStyle = '#13263655';box(c, -8, -12, 30, 43, 10);c.fill();
+  c.translate(-8,-16);
+  c.fillStyle = '#192e41';box(c, -13, -24, 26, 47, 10);c.fill();
+  c.fillStyle = '#8edaff';box(c, -8, -16, 16, 13, 4);c.fill();
+  c.rotate(time * 19);c.fillStyle = '#b9ddefbb';c.fillRect(-40, -1, 80, 2);c.fillRect(-1, -35, 2, 70);c.restore();
+ }
+
+ // Use a small marker beneath the player so sedans with similar paint remain identifiable.
+ const markerY = player.y + 48 - race.jump * .35;
+ c.fillStyle = race.invulnerable > 60 ? '#ffcb74' : '#8af4ff';
+ c.beginPath();c.moveTo(player.x, markerY - 6);c.lineTo(player.x - 6, markerY + 3);
+ c.lineTo(player.x + 6, markerY + 3);c.closePath();c.fill();
+ if (race.mode === 'drive') {
+  const x = player.x, y = markerY + 7;
+  c.fillStyle = '#101e2ddd';box(c, x - 21, y, 42, 6, 3);c.fill();
+  const barWidth = 40 * Math.max(0, race.hp) / 100;
+  if (barWidth > 0) {
+   c.fillStyle = race.hp > 35 ? '#80ed9b' : '#ff776d';
+   box(c, x - 20, y + 1, barWidth, 4, 2);c.fill();
   }
  }
- if(race.mode==='drive'){const x=300+race.x*220;c.fillStyle='#101e2dcc';box(c,x-28,480,56,8,4);c.fill();c.fillStyle=race.hp>35?'#75df8b':'#ff776d';box(c,x-27,481,54*Math.max(0,race.hp)/100,6,3);c.fill();}
 
- if(!race.invulnerable||Math.floor(race.invulnerable/4)%2===0)drawRaceCar(c,300+race.x*220,533,36,68,race.roadAngle(race.x,533)+race.tilt,race.car,{jump:race.jump,boost:race.boosting,brake:input.brake,time});
  if(race.boosting){c.strokeStyle='#bfedff55';c.lineWidth=2;for(let i=0;i<7;i++){const x=(i*97+time*13)%600,y=-shift+(i*233+time*1100)%viewHeight;c.beginPath();c.moveTo(x,y);c.lineTo(x,y+48);c.stroke();}}
  c.restore();
 }
@@ -144,15 +349,20 @@ export function carFaceFamily(car){return ['3_series','5_series','x5','x6m','xm'
  * Paint comes from the car record; all geometry stays inside the 1000×560 canvas.
  */
 export function drawFrontCar(c,car){
- const row=photoRow(car.id);
- if(row>=0&&photosReady()){
+ const row = CAR_SPRITES.indexOf(car.id);
+ if (row >= 0 && spriteReady(photoAtlas)) {
   c.save();
-  const shadow=c.createRadialGradient(495,423,24,495,423,345);
-  shadow.addColorStop(0,'#10182770');shadow.addColorStop(1,'#10182700');
-  c.fillStyle=shadow;c.beginPath();c.ellipse(495,423,365,37,0,0,Math.PI*2);c.fill();
-  c.drawImage(photoAtlas,0,row*190,318,190,70,30,860,500);
-  c.restore();return;
+  // The 318×190 image remains in proportion in both the shop and showroom.
+  const shadow = c.createRadialGradient(500, 445, 30, 500, 445, 395);
+  shadow.addColorStop(0, '#10182766');
+  shadow.addColorStop(1, '#10182700');
+  c.fillStyle = shadow;
+  c.beginPath();c.ellipse(500, 445, 395, 37, 0, 0, Math.PI * 2);c.fill();
+  c.drawImage(photoAtlas, 0, row * 190, 318, 190, 52, 12, 896, 896 * 190 / 318);
+  c.restore();
+  return;
  }
+
  const family=carFaceFamily(car),suv=car.bodyType==='suv',wagon=car.id==='rs6',sport=car.bodyType==='supercar'&&!wagon,coupe=car.bodyType==='coupe'||sport;
  const roof=suv?104:sport?151:125,backRoof=wagon?140:suv?142:coupe?177:160;
  const color=car.bodyColor||'#cbd5e1';

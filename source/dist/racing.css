@@ -105,12 +105,54 @@ body[data-game=racing]{overflow:hidden;background:#0a101d}body[data-game=racing]
  #racing-root[data-race-view=garage] .race-car-info{padding:8px 7px}
 }
 
-/* Player-supplied reference UI: photo studio garage, readable locks, premium blue cards. */
-#racing-root[data-race-view=garage] .race-car-stage{background:radial-gradient(ellipse at 58% 75%,#fff 0%,#e8eef2 51%,#bdced8 100%)}
-#racing-root[data-race-view=garage] .race-car-stage canvas{filter:drop-shadow(0 10px 12px #0b1d2c36)}
-.race-panel .race-car-grid article{position:relative;isolation:isolate;overflow:hidden;background:linear-gradient(150deg,#506c87,#1e3249);border:1px solid #8ba3ba;border-radius:4px;min-height:168px}
-.race-panel .race-car-grid canvas{background:transparent;filter:drop-shadow(0 4px 4px #0c1b26aa)}
-.race-panel .race-car-grid article.locked{background:linear-gradient(155deg,#3d5067,#1b2d41)}
-.race-panel .race-car-grid article.locked:before{content:'🔒';position:absolute;right:10px;top:9px;font-size:25px;opacity:.9;pointer-events:none}
-.race-panel .race-car-grid article.locked>div{opacity:.8}
-.race-panel .race-car-grid article.selected{background:linear-gradient(145deg,#286778,#12374a);border:2px solid #83e9ff}
+/* Cars are shown from the same angle on the selection cards and in the showroom. */
+.race-car-grid article {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  align-content: start;
+}
+.race-car-grid canvas {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 200 / 112;
+  background: radial-gradient(ellipse at 55% 62%, #ebf6fb, #788b99);
+}
+.race-car-grid article > div { padding: 3px 2px; }
+.race-car-grid article > button { min-height: 40px; }
+.race-car-grid h3 { font-size: clamp(12px, 3vw, 15px); }
+
+.race-progress-track {
+  height: 27px;
+  margin-inline: 3px;
+  background: #18283b;
+  border: 1px solid #5b7081;
+  border-radius: 5px;
+}
+.race-progress-track > i { opacity: .3; }
+.race-progress-track > b {
+  z-index: 2;
+  inset-block: -2px;
+  width: 3px;
+  transform: translateX(-50%);
+  background: #9aeeff;
+  box-shadow: 0 0 6px #82e5ff;
+}
+.race-rival-marker {
+  top: calc(2px + var(--rival-row, 0) * 4px);
+  width: 5px;
+  height: 3px;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  background: #ffd293;
+}
+
+#racing-root[data-race-view=garage] .race-car-stage {
+  background: radial-gradient(ellipse at 68% 72%, #fff, #e4edf4 55%, #acbfcc);
+}
+.race-panel .race-car-grid article.locked {
+  background: linear-gradient(155deg, #3d5067, #1b2d41);
+}
+.race-panel .race-car-grid article.selected {
+  border-color: #83e9ff;
+  background: linear-gradient(145deg, #286778, #12374a);
+}
