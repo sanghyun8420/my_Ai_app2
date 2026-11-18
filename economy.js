@@ -3,9 +3,10 @@
 export const ECONOMY_KEY='garden-economy-v1';
 export const GAME_KEYS={suika:'suika-garden-profile-v3',apple:'garden-arcade-apple-v1',blocks:'garden-arcade-blocks-v1',quest:'garden-expedition-v1',orchard:'garden-orchard-v1'};
 export const RACING_KEY='garden-racing-v1';
-export const GEM_INTERVALS={suika:20,apple:20,blocks:16,quest:20,orchard:1,racing:5};
+export const SNAKE_KEY='garden-snake-v1';
+export const GEM_INTERVALS={suika:20,apple:20,blocks:16,quest:20,orchard:1,racing:5,snake:20};
 export const GEM_REWARD=5;
-const metric=(game,data)=>integer(game==='suika'?data.mergedFruits:['apple','blocks'].includes(game)?data.totalCleared??data.cleared:game==='quest'?data.stats?.kills:game==='racing'?data.completedRaces:data.stats?.harvests);
+const metric=(game,data)=>integer(game==='suika'?data.mergedFruits:['apple','blocks'].includes(game)?data.totalCleared??data.cleared:game==='quest'?data.stats?.kills:game==='racing'?data.completedRaces:game==='snake'?data.totalFood:data.stats?.harvests);
 const START_COINS={suika:20,apple:10,blocks:16,quest:60,orchard:35};
 const integer=(value,fallback=0)=>Number.isSafeInteger(Number(value))&&Number(value)>=0?Number(value):fallback;
 const copy=value=>JSON.parse(JSON.stringify(value));
@@ -29,7 +30,7 @@ function migrate(storage){
 }
 export class GameEconomy {
  constructor(storage,key){
-  if(!Object.values(GAME_KEYS).includes(key)&&key!==RACING_KEY)throw Error('게임 지갑을 확인해 주세요.');
+  if(!Object.values(GAME_KEYS).includes(key)&&key!==RACING_KEY&&key!==SNAKE_KEY)throw Error('게임 지갑을 확인해 주세요.');
   this.raw=storage;this.key=key;this.delta=0;this.fallback=null;this.expectedRevision=undefined;
   this.storage={getItem:k=>k===key?JSON.stringify(this.read()):this.raw?.getItem?.(k)??null,setItem:(k,value)=>k===key?this.commit(parse(value)):this.raw?.setItem?.(k,value),removeItem:k=>{if(k===key)throw Error('게임 지갑은 삭제할 수 없어요.');return this.raw?.removeItem?.(k);}};
  }
@@ -50,7 +51,7 @@ export class GameEconomy {
   if(!this.raw?.setItem)throw Error('이 브라우저에서는 저장을 사용할 수 없어요.');
   const root=this.root();if(this.failedRead)throw Error('기존 기록을 읽지 못했어요. 새로고침한 뒤 다시 시도해 주세요.');if(this.unreadable)throw Error('기존 지갑을 읽을 수 없어 저장하지 않았어요.');
   const recordRevision=integer(root.recordVersions?.[this.key]);if(this.expectedRevision!==undefined&&recordRevision!==this.expectedRevision)throw Error('다른 창에서 게임 기록이 바뀌었어요. 새로고침한 뒤 다시 시도해 주세요.');
-  const game=this.key===RACING_KEY?'racing':Object.keys(GAME_KEYS).find(game=>GAME_KEYS[game]===this.key),before=integer(root.milestones?.[game]),milestone=Math.max(before,Math.floor(metric(game,data)/GEM_INTERVALS[game]));
+  const game=this.key===RACING_KEY?'racing':this.key===SNAKE_KEY?'snake':Object.keys(GAME_KEYS).find(game=>GAME_KEYS[game]===this.key),before=integer(root.milestones?.[game]),milestone=Math.max(before,Math.floor(metric(game,data)/GEM_INTERVALS[game]));
   const gems=root.gems+this.delta+(milestone-before)*GEM_REWARD;
   if(!Number.isSafeInteger(gems)||gems<0)throw Error('공용 보석이 부족해요.');
   const next={...root,gems,recordVersions:{...root.recordVersions,[this.key]:recordRevision+1},milestones:{...root.milestones,[game]:milestone},revision:integer(root.revision)+1,records:{...root.records,[this.key]:{...data,gems:0}}};

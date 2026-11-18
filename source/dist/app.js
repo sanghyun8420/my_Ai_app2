@@ -529,7 +529,7 @@ function updateGemProgress() {
   const saved = progressStore.profile.mergedFruits;
   const pending = started && !roundCredited ? Math.max(0, roundCleared - (progressStore.pendingRun?.creditedFruits || 0)) : 0;
   const progress = (saved + pending) % GEM_INTERVALS.suika;
-  $('gem-balance').title=`다섯 게임 공용 보석 · 과일 ${GEM_INTERVALS.suika-progress}개 더 정리하면 보석 ${GEM_REWARD}개`;
+  $('gem-balance').title=`게임 공용 보석 · 과일 ${GEM_INTERVALS.suika-progress}개 더 정리하면 보석 ${GEM_REWARD}개`;
   const pendingPears=started&&!roundCredited&&!progressStore.pendingRun?.finished?Math.max(0,specialPearsCleared-(progressStore.pendingRun?.creditedSpecialPears||0)):0;
   const pearCount=progressStore.profile.specialPearsCleared+pendingPears;
   $('pear-progress').textContent=`🍐 ${pearCount%3}/3`;
