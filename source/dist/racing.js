@@ -15,6 +15,8 @@ export function mountRacing(root,api){
  const tuningPanel=makePanel('race-tuning-dialog','업그레이드','<div class="race-section-heading"><span id="race-selected"></span><strong id="race-spec"></strong></div><p>엔진 · 핸들링 · 니트로 / 최대 Lv.5</p><div id="race-upgrades" class="race-upgrades"></div>');
  const $=id=>document.getElementById(id),canvas=$('race-canvas'),ctx=canvas.getContext('2d');ctx.setTransform(2,0,0,2,0,0);
  const engine=new RacingAudio(),heldKeys=new Set(),touches=new Map();let garage=null,race=null,last=0,autosave=0,manualPause=false,settled=null,hasResult=false;
+ // Refresh the selected photo and vehicle thumbnails once the sprite atlas decodes.
+ globalThis.addEventListener?.('garden-racing-photos-ready',()=>{if(garage&&active()&&root.dataset.raceView!=='play')renderGarage();});
  const active=()=>api.current()==='racing',blocked=()=>!active()||document.hidden||!!document.querySelector('dialog[open]');
  const safe=fn=>{try{return fn();}catch(error){api.toast(error.message||'레이스를 준비하지 못했어요.');return null;}};
  const resetInputs=()=>{physicalKeys.clear();heldKeys.clear();touches.clear();for(const b of root.querySelectorAll('[data-drive]'))b.classList.remove('pressed');engine.mute();};
